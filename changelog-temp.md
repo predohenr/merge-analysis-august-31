@@ -1,5 +1,0 @@
-- fix: 修复`Enjoy`模板生成xml错误
-- feat: 调整代码生成器元数据构建
-- feat: 优化`CrudRepository`批量执行前判断非事务中关闭连接
-- feat: 支持`SpringBoot`4.0.0
-- feat: 支持`Jackson`3.0
