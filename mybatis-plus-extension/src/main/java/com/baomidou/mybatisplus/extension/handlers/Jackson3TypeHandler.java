@@ -7,16 +7,16 @@ import tools.jackson.databind.type.TypeFactory;
 
 
 import java.lang.reflect.Field;
-import java.util.Objects;
 
 /**
  * jackson tools 实现的字段类型处理器
  *
  * @author milo
- * @since 2025-09-20 21:47
+ * @since 3.5.15
  */
 public class Jackson3TypeHandler extends AbstractJsonTypeHandler<Object> {
-    private static ObjectMapper OBJECT_MAPPER;
+
+    private static ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
     public Jackson3TypeHandler(Class<?> type) {
         super(type);
@@ -40,16 +40,18 @@ public class Jackson3TypeHandler extends AbstractJsonTypeHandler<Object> {
     }
 
     public static ObjectMapper getObjectMapper() {
-        if (Objects.nonNull(OBJECT_MAPPER)) return OBJECT_MAPPER;
-        synchronized (Jackson3TypeHandler.class){
-            if (Objects.nonNull(OBJECT_MAPPER)) return OBJECT_MAPPER;
-            OBJECT_MAPPER = new ObjectMapper();
-        }
-        return OBJECT_MAPPER;
+        return OBJECT_MAPPER == null ? Instance.OBJECT_MAPPER: new ObjectMapper();
     }
 
     public static void setObjectMapper(ObjectMapper objectMapper) {
         Assert.notNull(objectMapper, "ObjectMapper should not be null");
         Jackson3TypeHandler.OBJECT_MAPPER = objectMapper;
     }
+
+    private static class Instance {
+
+        private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+
+    }
+
 }
