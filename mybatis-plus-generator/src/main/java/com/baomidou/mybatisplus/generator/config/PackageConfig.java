@@ -117,7 +117,7 @@ public class PackageConfig {
     @NotNull
     public String joinPackage(String subPackage) {
         String parent = getParent();
-        return StringUtils.isBlank(parent) ? subPackage : (parent + StringPool.DOT + subPackage);
+        return StringUtils.isBlank(parent) ? subPackage : (parent + (StringUtils.isBlank(subPackage) ? StringPool.EMPTY : StringPool.DOT + subPackage));
     }
 
     /**

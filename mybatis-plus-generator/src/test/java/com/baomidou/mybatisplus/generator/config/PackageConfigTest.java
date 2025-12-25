@@ -19,6 +19,8 @@ public class PackageConfigTest {
         Assertions.assertEquals("com.baomidou.mp.demo", GeneratorBuilder.packageConfigBuilder().moduleName("mp").joinPackage("demo"));
         Assertions.assertEquals("com.baomihua.demo", GeneratorBuilder.packageConfigBuilder().parent("com.baomihua").joinPackage("demo"));
         Assertions.assertEquals("com.baomihua.mp.demo", GeneratorBuilder.packageConfigBuilder().parent("com.baomihua").moduleName("mp").joinPackage("demo"));
+        Assertions.assertEquals("com.baomihua.mp", GeneratorBuilder.packageConfigBuilder().parent("com.baomihua").moduleName("mp").joinPackage(null));
+        Assertions.assertEquals("com.baomihua.mp", GeneratorBuilder.packageConfigBuilder().parent("com.baomihua").moduleName("mp").joinPackage(""));
     }
 
     private void buildAssert(PackageConfig packageConfig){
