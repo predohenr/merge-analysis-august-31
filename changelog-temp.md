@@ -1,13 +1,1 @@
-- fix: 修复`Jackson3TypeHandler`自定义`ObjectMapper`无效
-- fix: 处理`PackageConfig`指定模块为空时拼接错误
-- feat: 升级`SpringBoot3`至3.5.9
-- feat: 升级`JUnit`单元测试
-- feat: 升级`fastjson`至2.0.60
-- feat: 升级`jackson`至2.20.1
-- feat: 升级`gson`至2.13.2
-- feat: 升级`postgresql`至42.7.8
-- feat: 升级`h2database`至2.4.240
-- feat: 升级`mysql-connector-j`至9.5.0
-- feat: 升级`sqlite-jdbc`至3.51.1.0
-- feat: 升级`jaybird`至5.0.10.java8
-- feat: `mybatis-plus-spring-boot4-starter`依赖升级`mybatis-spring`4.0.0
+- feat: 支持配置加密在环境变量中使用
