@@ -44,7 +44,7 @@ public class AotUtils extends CollectUtils {
         try {
             accessDeclaredFields = MemberCategory.valueOf("ACCESS_DECLARED_FIELDS");
         } catch (IllegalArgumentException e) {
-            accessDeclaredFields = MemberCategory.DECLARED_FIELDS; // 兼容Spring6
+            accessDeclaredFields = MemberCategory.valueOf("DECLARED_FIELDS"); // 兼容Spring6
         }
         defaultMemberCategory = new MemberCategory[]{accessDeclaredFields, MemberCategory.INVOKE_DECLARED_CONSTRUCTORS, MemberCategory.INVOKE_DECLARED_METHODS, MemberCategory.UNSAFE_ALLOCATED};
     }
