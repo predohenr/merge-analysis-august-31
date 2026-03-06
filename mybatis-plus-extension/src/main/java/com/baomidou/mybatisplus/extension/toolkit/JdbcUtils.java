@@ -72,6 +72,9 @@ public class JdbcUtils {
         } else if (url.contains(":oracle:")) {
             return DbType.ORACLE;
         } else if (url.contains(":sqlserver:") || url.contains(":microsoft:")) {
+            if (url.contains(":jtds")) {
+                return DbType.SQL_SERVER2005;
+            }
             return DbType.SQL_SERVER;
         } else if (url.contains(":postgresql:")) {
             return DbType.POSTGRE_SQL;
