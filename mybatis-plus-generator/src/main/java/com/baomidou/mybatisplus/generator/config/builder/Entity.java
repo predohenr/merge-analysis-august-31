@@ -24,6 +24,7 @@ import com.baomidou.mybatisplus.core.toolkit.StringUtils;
 import com.baomidou.mybatisplus.generator.DefaultTableAnnotationHandler;
 import com.baomidou.mybatisplus.generator.DefaultTableFieldAnnotationHandler;
 import com.baomidou.mybatisplus.generator.IFill;
+import com.baomidou.mybatisplus.generator.ITableFieldMetaInfoCustomizer;
 import com.baomidou.mybatisplus.generator.ITableAnnotationHandler;
 import com.baomidou.mybatisplus.generator.ITableFieldAnnotationHandler;
 import com.baomidou.mybatisplus.generator.ITemplate;
@@ -190,6 +191,14 @@ public class Entity implements ITemplate {
      * 表填充字段
      */
     private final List<IFill> tableFillList = new ArrayList<>();
+
+    /**
+     * Field meta info customizers.
+     *
+     * @since 3.5.18
+     */
+    @Getter
+    private final List<ITableFieldMetaInfoCustomizer> tableFieldMetaInfoCustomizers = new ArrayList<>();
 
     /**
      * 数据库表映射到实体的命名策略，默认下划线转驼峰命名
@@ -463,6 +472,17 @@ public class Entity implements ITemplate {
         return data;
     }
 
+    /**
+     * Customize field meta info.
+     *
+     * @param tableInfo current table info
+     * @param tableField current table field
+     * @since 3.5.18
+     */
+    public void handleTableFieldMetaInfo(@NotNull TableInfo tableInfo, @NotNull com.baomidou.mybatisplus.generator.config.po.TableField tableField) {
+        tableFieldMetaInfoCustomizers.forEach(customizer -> customizer.customize(tableInfo, tableField));
+    }
+
     public static class Builder extends BaseBuilder {
 
         private final Entity entity = new Entity();
@@ -731,6 +751,29 @@ public class Entity implements ITemplate {
          */
         public Builder addTableFills(@NotNull List<IFill> tableFillList) {
             this.entity.tableFillList.addAll(tableFillList);
+            return this;
+        }
+
+        /**
+         * Add table field meta info customizers.
+         *
+         * @param customizers customizers
+         * @return this
+         * @since 3.5.18
+         */
+        public Builder addTableFieldMetaInfoCustomizers(@NotNull ITableFieldMetaInfoCustomizer... customizers) {
+            return addTableFieldMetaInfoCustomizers(Arrays.asList(customizers));
+        }
+
+        /**
+         * Add table field meta info customizers.
+         *
+         * @param customizers customizer list
+         * @return this
+         * @since 3.5.18
+         */
+        public Builder addTableFieldMetaInfoCustomizers(@NotNull List<ITableFieldMetaInfoCustomizer> customizers) {
+            this.entity.tableFieldMetaInfoCustomizers.addAll(customizers);
             return this;
         }
 
