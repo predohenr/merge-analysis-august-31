@@ -106,7 +106,8 @@ public final class MyBatisPlusNativeImageConfiguration {
             return (context, code) -> {
                 RuntimeHints hints = context.getRuntimeHints();
                 for (String beanName : beanNames) {
-                    BeanDefinition beanDefinition = beanFactory.getBeanDefinition(beanName.substring(1));
+                    String beanDefinitionName = beanName.startsWith("&") ? beanName.substring(1) : beanName;
+                    BeanDefinition beanDefinition = beanFactory.getBeanDefinition(beanDefinitionName);
                     PropertyValue mapperInterface = beanDefinition.getPropertyValues().getPropertyValue("mapperInterface");
                     if (mapperInterface != null && mapperInterface.getValue() != null) {
                         Class<?> mapperInterfaceType = (Class<?>) mapperInterface.getValue();
