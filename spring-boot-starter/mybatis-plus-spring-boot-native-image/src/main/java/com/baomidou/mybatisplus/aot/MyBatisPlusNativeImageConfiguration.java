@@ -1,5 +1,14 @@
 package com.baomidou.mybatisplus.aot;
 
+import java.io.IOException;
+import java.lang.annotation.Annotation;
+import java.lang.reflect.Method;
+import java.lang.reflect.ParameterizedType;
+import java.lang.reflect.Type;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
+import java.util.function.Function;
 import org.apache.commons.logging.LogFactory;
 import org.apache.ibatis.annotations.DeleteProvider;
 import org.apache.ibatis.annotations.InsertProvider;
@@ -11,6 +20,7 @@ import org.mybatis.spring.mapper.MapperScannerConfigurer;
 import org.springframework.aop.framework.AopProxyUtils;
 import org.springframework.aot.hint.MemberCategory;
 import org.springframework.aot.hint.RuntimeHints;
+import org.springframework.aot.hint.RuntimeHintsRegistrar;
 import org.springframework.beans.PropertyValue;
 import org.springframework.beans.factory.BeanFactory;
 import org.springframework.beans.factory.BeanFactoryAware;
@@ -28,19 +38,11 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.ImportRuntimeHints;
 import org.springframework.context.aot.AbstractAotProcessor;
 import org.springframework.core.ResolvableType;
 import org.springframework.util.ClassUtils;
 import org.springframework.util.ReflectionUtils;
-
-import java.lang.annotation.Annotation;
-import java.lang.reflect.Method;
-import java.lang.reflect.ParameterizedType;
-import java.lang.reflect.Type;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
-import java.util.function.Function;
 
 /**
  * 解决mybatis-spring-boot-starter的native-image编译运行问题（同时支持mybatis-plus）
@@ -48,6 +50,7 @@ import java.util.function.Function;
  * @author xiaochen
  * @since 2025/8/20
  */
+@ImportRuntimeHints(MyBatisPlusNativeImageConfiguration.MyBatisRuntimeHintsRegistrar.class)
 @ConditionalOnProperty(value = AbstractAotProcessor.AOT_PROCESSING, havingValue = "true")
 @ConditionalOnClass(MapperFactoryBean.class)
 @Configuration(proxyBeanMethods = false)
@@ -61,6 +64,25 @@ public final class MyBatisPlusNativeImageConfiguration {
     @Bean
     static MyBatisMapperFactoryBeanPostProcessor myBatisMapperFactoryBeanPostProcessor() {
         return new MyBatisMapperFactoryBeanPostProcessor();
+    }
+
+    static class MyBatisRuntimeHintsRegistrar implements RuntimeHintsRegistrar {
+
+        @Override
+        public void registerHints(RuntimeHints hints, ClassLoader classLoader) {
+            AotUtils aotUtils = new AotUtils(hints, classLoader);
+            registerXml(aotUtils);
+        }
+
+        private void registerXml(AotUtils aotUtils) {
+            try {
+                aotUtils.registerPattern(aotUtils.findResources("",
+                    name -> name.endsWith(".xml")).toArray(AotUtils.EMPTY_STRING_ARRAY));
+            } catch (IOException e) {
+                throw new RuntimeException("注册用户目录的xml文件失败", e);
+            }
+        }
+
     }
 
     static class MyBatisBeanFactoryInitializationAotProcessor
