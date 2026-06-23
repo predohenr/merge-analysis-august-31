@@ -465,7 +465,7 @@ public class TableInfo implements Constants {
      * format logic delete SQL, can be overrided by subclass
      * github #1386
      *
-     * @param isWhere true: logicDeleteValue, false: logicNotDeleteValue
+     * @param isWhere true: logicNotDeleteValue, false: logicDeleteValue
      * @return sql
      */
     protected String formatLogicDeleteSql(boolean isWhere) {
