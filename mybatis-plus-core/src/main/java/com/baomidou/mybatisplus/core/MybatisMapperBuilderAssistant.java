@@ -56,11 +56,18 @@ public class MybatisMapperBuilderAssistant extends MapperBuilderAssistant {
         TypeHandler<?> typeHandlerInstance = null;
         if (typeHandler != null) {
             if (IJsonTypeHandler.class.isAssignableFrom(typeHandler)) {
-                try {
-                    Field field = resultType.getDeclaredField(property);
-                    typeHandlerInstance = MybatisUtils.newJsonTypeHandler(typeHandler, javaTypeClass, field);
-                } catch (NoSuchFieldException e) {
-                    //ignore 降级兼容处理
+                Class<?> currentResultType = resultType;
+                while (currentResultType != null && !Object.class.equals(currentResultType)) {
+                    try {
+                        Field field = currentResultType.getDeclaredField(property);
+                        typeHandlerInstance = MybatisUtils.newJsonTypeHandler(typeHandler, javaTypeClass, field);
+                        break;
+                    } catch (NoSuchFieldException e) {
+                        currentResultType  = currentResultType.getSuperclass();
+                    }
+                }
+                if (typeHandlerInstance == null) {
+                    // 降级兼容处理
                     typeHandlerInstance = resolveTypeHandler(javaTypeClass, typeHandler);
                 }
             } else {
