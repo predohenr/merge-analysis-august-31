@@ -34,6 +34,7 @@ import org.apache.ibatis.type.TypeHandler;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Proxy;
+import java.util.function.Supplier;
 
 /**
  * @author nieqiurong
@@ -42,6 +43,30 @@ import java.lang.reflect.Proxy;
 @Slf4j
 @UtilityClass
 public class MybatisUtils {
+
+    /**
+     * 实例化Json类型处理器，支持解析父类Field属性
+     */
+    public TypeHandler<?> resolveTypeHandler(Class<?> resultType, String property, Class<? extends TypeHandler<?>> typeHandler, Class<?> javaTypeClass,
+                                             Supplier<TypeHandler<?>> defaultResolveTypeHandler) {
+        if (null != typeHandler && IJsonTypeHandler.class.isAssignableFrom(typeHandler)) {
+            TypeHandler<?> typeHandlerInstance = null;
+            Class<?> currentResultType = resultType;
+            while (currentResultType != null && !Object.class.equals(currentResultType)) {
+                try {
+                    Field field = currentResultType.getDeclaredField(property);
+                    typeHandlerInstance = newJsonTypeHandler(typeHandler, javaTypeClass, field);
+                    break;
+                } catch (NoSuchFieldException e) {
+                    currentResultType = currentResultType.getSuperclass();
+                }
+            }
+            if (null != typeHandlerInstance) {
+                return typeHandlerInstance;
+            }
+        }
+        return defaultResolveTypeHandler.get();
+    }
 
     /**
      * 实例化Json类型处理器
