@@ -210,9 +210,23 @@ public final class SqlHelper {
             int idxLimit = Math.min(batchSize, size);
             int i = 1;
             for (E element : list) {
-                row += execBiFunc.apply(sqlSession, element);
+                // 执行处理函数
+                execBiFunc.apply(sqlSession, element);
                 if (i == idxLimit) {
-                    sqlSession.flushStatements();
+                    List<BatchResult> results = sqlSession.flushStatements();
+                    for (BatchResult result : results) {
+                        for (int count : result.getUpdateCounts()) {
+                            if (count > 0) {
+                                row += count;
+                            } else if (count == Statement.SUCCESS_NO_INFO) {
+                                // JDBC 返回 -2，表示执行成功但不知道影响行数
+                                row++;
+                            } else if (count == Statement.EXECUTE_FAILED) {
+                                // JDBC 返回 -3，可根据业务决定是否抛异常
+                                throw new RuntimeException("Batch execute failed.");
+                            }
+                        }
+                    }
                     idxLimit = Math.min(idxLimit + batchSize, size);
                 }
                 i++;
