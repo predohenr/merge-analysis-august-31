@@ -15,10 +15,10 @@ import java.io.Serializable;
 import java.util.Collection;
 import java.util.Map;
 import java.util.Optional;
-import java.util.function.BiConsumer;
+import java.util.function.BiFunction;
 import java.util.function.Function;
 
-public abstract class AbstractRepository<M extends BaseMapper<T>, T>  implements IRepository<T> {
+public abstract class AbstractRepository<M extends BaseMapper<T>, T> implements IRepository<T> {
 
     protected final Log log = LogFactory.getLog(getClass());
 
@@ -29,7 +29,7 @@ public abstract class AbstractRepository<M extends BaseMapper<T>, T>  implements
 
     @Override
     public Class<T> getEntityClass() {
-        if(this.entityClass == null) {
+        if (this.entityClass == null) {
             this.entityClass = (Class<T>) GenericTypeUtils.resolveTypeArguments(this.getMapperClass(), BaseMapper.class)[0];
         }
         return this.entityClass;
@@ -98,26 +98,26 @@ public abstract class AbstractRepository<M extends BaseMapper<T>, T>  implements
      *
      * @param list      数据集合
      * @param batchSize 批量大小
-     * @param consumer  执行方法
+     * @param execBiFunc 执行函数
      * @param <E>       泛型
      * @return 操作结果
      * @since 3.3.1
      */
-    protected <E> boolean executeBatch(Collection<E> list, int batchSize, BiConsumer<SqlSession, E> consumer) {
-        return SqlHelper.executeBatch(getSqlSessionFactory(), this.log, list, batchSize, consumer);
+    protected <E> boolean executeBatch(Collection<E> list, int batchSize, BiFunction<SqlSession, E, Integer> execBiFunc) {
+        return SqlHelper.executeBatch(getSqlSessionFactory(), this.log, list, batchSize, execBiFunc);
     }
 
     /**
      * 执行批量操作（默认批次提交数量{@link IRepository#DEFAULT_BATCH_SIZE}）
      *
      * @param list     数据集合
-     * @param consumer 执行方法
+     * @param execBiFunc 执行函数
      * @param <E>      泛型
      * @return 操作结果
      * @since 3.3.1
      */
-    protected <E> boolean executeBatch(Collection<E> list, BiConsumer<SqlSession, E> consumer) {
-        return executeBatch(list, DEFAULT_BATCH_SIZE, consumer);
+    protected <E> boolean executeBatch(Collection<E> list, BiFunction<SqlSession, E, Integer> execBiFunc) {
+        return executeBatch(list, DEFAULT_BATCH_SIZE, execBiFunc);
     }
 
     @Override

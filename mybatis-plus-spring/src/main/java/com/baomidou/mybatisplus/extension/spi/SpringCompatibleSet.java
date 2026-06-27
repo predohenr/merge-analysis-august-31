@@ -17,6 +17,7 @@ package com.baomidou.mybatisplus.extension.spi;
 
 import com.baomidou.mybatisplus.core.toolkit.AopUtils;
 import com.baomidou.mybatisplus.core.toolkit.ExceptionUtils;
+import com.baomidou.mybatisplus.extension.toolkit.SqlHelper;
 import lombok.SneakyThrows;
 import org.apache.ibatis.exceptions.PersistenceException;
 import org.apache.ibatis.logging.Log;
@@ -35,7 +36,7 @@ import org.springframework.core.io.ClassPathResource;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.io.InputStream;
-import java.util.function.Consumer;
+import java.util.function.Function;
 
 /**
  * spring 兼容方法集接口实现类
@@ -58,7 +59,7 @@ public class SpringCompatibleSet implements CompatibleSet {
 
     @SneakyThrows
     @Override
-    public boolean executeBatch(SqlSessionFactory sqlSessionFactory, Log log, Consumer<SqlSession> consumer) {
+    public boolean executeBatch(SqlSessionFactory sqlSessionFactory, Log log, Function<SqlSession, Integer> execFunc) {
         SqlSessionHolder sqlSessionHolder = (SqlSessionHolder) TransactionSynchronizationManager.getResource(sqlSessionFactory);
         boolean transaction = TransactionSynchronizationManager.isSynchronizationActive();
         if (sqlSessionHolder != null) {
@@ -72,10 +73,10 @@ public class SpringCompatibleSet implements CompatibleSet {
             log.warn("SqlSession [" + sqlSession + "] Transaction not enabled");
         }
         try {
-            consumer.accept(sqlSession);
+            Integer resultRow = execFunc.apply(sqlSession);
             //非事务情况下，强制commit。
             sqlSession.commit(!transaction);
-            return true;
+            return SqlHelper.retBool(resultRow);
         } catch (Throwable t) {
             sqlSession.rollback();
             Throwable unwrapped = ExceptionUtil.unwrapThrowable(t);

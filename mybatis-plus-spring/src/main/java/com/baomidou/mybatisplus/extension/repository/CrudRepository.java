@@ -86,7 +86,7 @@ public abstract class CrudRepository<M extends BaseMapper<T>, T> extends Abstrac
         }, (sqlSession, entity) -> {
             MapperMethod.ParamMap<T> param = new MapperMethod.ParamMap<>();
             param.put(Constants.ENTITY, entity);
-            sqlSession.update(getSqlStatement(SqlMethod.UPDATE_BY_ID), param);
+            return sqlSession.update(getSqlStatement(SqlMethod.UPDATE_BY_ID), param);
         });
     }
 
@@ -97,7 +97,7 @@ public abstract class CrudRepository<M extends BaseMapper<T>, T> extends Abstrac
         return executeBatch(entityList, batchSize, (sqlSession, entity) -> {
             MapperMethod.ParamMap<T> param = new MapperMethod.ParamMap<>();
             param.put(Constants.ENTITY, entity);
-            sqlSession.update(sqlStatement, param);
+            return sqlSession.update(sqlStatement, param);
         });
     }
 }

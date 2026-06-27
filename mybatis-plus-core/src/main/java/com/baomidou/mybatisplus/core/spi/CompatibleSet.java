@@ -20,7 +20,7 @@ import org.apache.ibatis.session.SqlSession;
 import org.apache.ibatis.session.SqlSessionFactory;
 
 import java.io.InputStream;
-import java.util.function.Consumer;
+import java.util.function.Function;
 
 /**
  * Web 开发平台待兼容方法集接口类
@@ -31,7 +31,7 @@ public interface CompatibleSet {
 
     void closeSqlSession(SqlSession session, SqlSessionFactory sessionFactory);
 
-    boolean executeBatch(SqlSessionFactory sqlSessionFactory, Log log, Consumer<SqlSession> consumer);
+    boolean executeBatch(SqlSessionFactory sqlSessionFactory, Log log, Function<SqlSession, Integer> execFunc);
 
     /**
      * @deprecated 3.5.12 无需实现

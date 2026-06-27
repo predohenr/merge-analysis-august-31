@@ -33,10 +33,7 @@ import java.sql.Statement;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
-import java.util.function.BiConsumer;
-import java.util.function.BiPredicate;
-import java.util.function.Consumer;
-import java.util.function.Supplier;
+import java.util.function.*;
 import java.util.stream.IntStream;
 
 /**
@@ -174,17 +171,17 @@ public final class SqlHelper {
      *
      * @param entityClass 实体
      * @param log         日志对象
-     * @param consumer    consumer
+     * @param execFunc    执行函数
      * @return 操作结果
      * @since 3.4.0
      */
     @Deprecated
-    public static boolean executeBatch(Class<?> entityClass, Log log, Consumer<SqlSession> consumer) {
-        return executeBatch(sqlSessionFactory(entityClass), log, consumer);
+    public static boolean executeBatch(Class<?> entityClass, Log log, Function<SqlSession, Integer> execFunc) {
+        return executeBatch(sqlSessionFactory(entityClass), log, execFunc);
     }
 
-    public static boolean executeBatch(SqlSessionFactory sqlSessionFactory, Log log, Consumer<SqlSession> consumer) {
-        return CompatibleHelper.getCompatibleSet().executeBatch(sqlSessionFactory, log, consumer);
+    public static boolean executeBatch(SqlSessionFactory sqlSessionFactory, Log log, Function<SqlSession, Integer> execFunc) {
+        return CompatibleHelper.getCompatibleSet().executeBatch(sqlSessionFactory, log, execFunc);
     }
 
     /**
@@ -194,31 +191,33 @@ public final class SqlHelper {
      * @param log         日志对象
      * @param list        数据集合
      * @param batchSize   批次大小
-     * @param consumer    consumer
+     * @param execBiFunc    执行函数
      * @param <E>         T
      * @return 操作结果
      * @since 3.4.0
-     * @deprecated {@link #executeBatch(SqlSessionFactory, Log, Collection, int, BiConsumer)}
+     * @deprecated {@link #executeBatch(SqlSessionFactory, Log, Collection, int, BiFunction)}
      */
     @Deprecated
-    public static <E> boolean executeBatch(Class<?> entityClass, Log log, Collection<E> list, int batchSize, BiConsumer<SqlSession, E> consumer) {
-        return executeBatch(sqlSessionFactory(entityClass), log, list, batchSize, consumer);
+    public static <E> boolean executeBatch(Class<?> entityClass, Log log, Collection<E> list, int batchSize, BiFunction<SqlSession, E, Integer> execBiFunc) {
+        return executeBatch(sqlSessionFactory(entityClass), log, list, batchSize, execBiFunc);
     }
 
-    public static <E> boolean executeBatch(SqlSessionFactory sqlSessionFactory, Log log, Collection<E> list, int batchSize, BiConsumer<SqlSession, E> consumer) {
+    public static <E> boolean executeBatch(SqlSessionFactory sqlSessionFactory, Log log, Collection<E> list, int batchSize, BiFunction<SqlSession, E, Integer> execBiFunc) {
         Assert.isFalse(batchSize < 1, "batchSize must not be less than one");
         return !CollectionUtils.isEmpty(list) && executeBatch(sqlSessionFactory, log, sqlSession -> {
+            int row = 0;
             int size = list.size();
             int idxLimit = Math.min(batchSize, size);
             int i = 1;
             for (E element : list) {
-                consumer.accept(sqlSession, element);
+                row += execBiFunc.apply(sqlSession, element);
                 if (i == idxLimit) {
                     sqlSession.flushStatements();
                     idxLimit = Math.min(idxLimit + batchSize, size);
                 }
                 i++;
             }
+            return row;
         });
     }
 
@@ -230,15 +229,16 @@ public final class SqlHelper {
      * @param list        数据集合
      * @param batchSize   批次大小
      * @param predicate   predicate(新增条件) notNull
-     * @param consumer    consumer（更新处理） notNull
+     * @param execBiFunc  execBiFunc（更新处理）notNull
      * @param <E>         E
      * @return 操作结果
      * @since 3.4.0
-     * @deprecated 3.5.4 {@link #saveOrUpdateBatch(SqlSessionFactory, Class, Log, Collection, int, BiPredicate, BiConsumer)}
+     * @deprecated 3.5.4 {@link #saveOrUpdateBatch(SqlSessionFactory, Class, Log, Collection, int, BiPredicate, BiFunction)}
      */
     @Deprecated
-    public static <E> boolean saveOrUpdateBatch(Class<?> entityClass, Class<?> mapper, Log log, Collection<E> list, int batchSize, BiPredicate<SqlSession, E> predicate, BiConsumer<SqlSession, E> consumer) {
-        return saveOrUpdateBatch(sqlSessionFactory(entityClass), mapper, log, list, batchSize, predicate, consumer);
+    public static <E> boolean saveOrUpdateBatch(Class<?> entityClass, Class<?> mapper, Log log, Collection<E> list, int batchSize,
+                                                BiPredicate<SqlSession, E> predicate, BiFunction<SqlSession, E, Integer> execBiFunc) {
+        return saveOrUpdateBatch(sqlSessionFactory(entityClass), mapper, log, list, batchSize, predicate, execBiFunc);
     }
 
     /**
@@ -248,20 +248,20 @@ public final class SqlHelper {
      * @param log               日志对象
      * @param list              数据集合
      * @param batchSize         批次大小
-     * @param predicate         predicate(新增条件) notNull
-     * @param consumer          consumer（更新处理） notNull
+     * @param predicate         predicate（新增条件）notNull
+     * @param execBiFunc        execBiFunc（更新处理）notNull
      * @param <E>               E
      * @return 操作结果
      * @since 3.5.4
      */
-    public static <E> boolean saveOrUpdateBatch(SqlSessionFactory sqlSessionFactory, Class<?> mapper, Log log, Collection<E> list, int batchSize, BiPredicate<SqlSession, E> predicate, BiConsumer<SqlSession, E> consumer) {
+    public static <E> boolean saveOrUpdateBatch(SqlSessionFactory sqlSessionFactory, Class<?> mapper, Log log, Collection<E> list, int batchSize,
+                                                BiPredicate<SqlSession, E> predicate, BiFunction<SqlSession, E, Integer> execBiFunc) {
         String sqlStatement = getSqlStatement(mapper, SqlMethod.INSERT_ONE);
         return executeBatch(sqlSessionFactory, log, list, batchSize, (sqlSession, entity) -> {
             if (predicate.test(sqlSession, entity)) {
-                sqlSession.insert(sqlStatement, entity);
-            } else {
-                consumer.accept(sqlSession, entity);
+                return sqlSession.insert(sqlStatement, entity);
             }
+            return execBiFunc.apply(sqlSession, entity);
         });
     }
 
@@ -295,7 +295,8 @@ public final class SqlHelper {
     @SuppressWarnings("unchecked")
     public static <T, M extends BaseMapper<T>> M getMapper(Class<T> entityClass, SqlSession sqlSession) {
         Assert.notNull(entityClass, "entityClass can't be null!");
-        TableInfo tableInfo = Optional.ofNullable(TableInfoHelper.getTableInfo(entityClass)).orElseThrow(() -> ExceptionUtils.mpe("Can not find TableInfo from Class: \"%s\".", entityClass.getName()));
+        TableInfo tableInfo = Optional.ofNullable(TableInfoHelper.getTableInfo(entityClass)).orElseThrow(() ->
+            ExceptionUtils.mpe("Can not find TableInfo from Class: \"%s\".", entityClass.getName()));
         Class<?> mapperClass = ClassUtils.toClassConfident(tableInfo.getCurrentNamespace());
         if (CompatibleHelper.hasCompatibleSet()) {
             CompatibleSet compatibleSet = CompatibleHelper.getCompatibleSet();
