@@ -197,13 +197,15 @@ public class TableInfoHelper {
 
         /* 自动构建 resultMap */
         tableInfo.initResultMapIfNeed();
-        postInitTableInfoHandler.postTableInfo(tableInfo, configuration);
-        TABLE_INFO_CACHE.put(clazz, tableInfo);
-        TABLE_NAME_INFO_CACHE.put(tableInfo.getTableName(), tableInfo);
+
+        /* 扩展初始化 */
+        TableInfo postTableInfo = postInitTableInfoHandler.postTableInfo(tableInfo, configuration);
+        TABLE_INFO_CACHE.put(clazz, postTableInfo);
+        TABLE_NAME_INFO_CACHE.put(postTableInfo.getTableName(), postTableInfo);
 
         /* 缓存 lambda */
-        LambdaUtils.installCache(tableInfo);
-        return tableInfo;
+        LambdaUtils.installCache(postTableInfo);
+        return postTableInfo;
     }
 
     /**
@@ -363,15 +365,13 @@ public class TableInfoHelper {
             /* 有 @TableField 注解的字段初始化 */
             if (tableField != null) {
                 TableFieldInfo tableFieldInfo = new TableFieldInfo(globalConfig, tableInfo, field, tableField, reflector, existTableLogic, isOrderBy);
-                fieldList.add(tableFieldInfo);
-                postInitTableInfoHandler.postFieldInfo(tableFieldInfo, configuration);
+                fieldList.add(postInitTableInfoHandler.postFieldInfo(tableFieldInfo, configuration));
                 continue;
             }
 
             /* 无 @TableField  注解的字段初始化 */
             TableFieldInfo tableFieldInfo = new TableFieldInfo(globalConfig, tableInfo, field, reflector, existTableLogic, isOrderBy);
-            fieldList.add(tableFieldInfo);
-            postInitTableInfoHandler.postFieldInfo(tableFieldInfo, configuration);
+            fieldList.add(postInitTableInfoHandler.postFieldInfo(tableFieldInfo, configuration));
         }
 
         /* 字段列表 */

@@ -43,18 +43,22 @@ public interface PostInitTableInfoHandler {
      *
      * @param tableInfo     TableInfo
      * @param configuration Configuration
+     * @return {@link TableInfo}
      */
-    default void postTableInfo(TableInfo tableInfo, Configuration configuration) {
+    default TableInfo postTableInfo(TableInfo tableInfo, Configuration configuration) {
         // ignore
+        return tableInfo;
     }
 
     /**
      * 参与 TableFieldInfo 初始化
      *
-     * @param fieldInfo     TableFieldInfo
-     * @param configuration Configuration
+     * @param tableFieldInfo {@link TableFieldInfo}
+     * @param configuration {@link Configuration}
+     * @return {@link TableFieldInfo}
      */
-    default void postFieldInfo(TableFieldInfo fieldInfo, Configuration configuration) {
+    default TableFieldInfo postFieldInfo(TableFieldInfo tableFieldInfo, Configuration configuration) {
         // ignore
+        return tableFieldInfo;
     }
 }
