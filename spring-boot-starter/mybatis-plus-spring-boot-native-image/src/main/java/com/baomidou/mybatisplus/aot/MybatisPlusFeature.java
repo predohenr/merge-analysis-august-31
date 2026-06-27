@@ -18,6 +18,7 @@ import org.apache.ibatis.logging.stdout.StdOutImpl;
 import org.apache.ibatis.scripting.defaults.RawLanguageDriver;
 import org.apache.ibatis.scripting.xmltags.XMLLanguageDriver;
 import org.apache.ibatis.session.SqlSessionFactory;
+import org.apache.ibatis.mapping.BoundSql;
 import org.graalvm.nativeimage.hosted.Feature;
 import org.graalvm.nativeimage.hosted.RuntimeSerialization;
 import org.mybatis.spring.SqlSessionFactoryBean;
@@ -26,6 +27,8 @@ import java.io.IOException;
 import java.lang.invoke.SerializedLambda;
 import java.util.*;
 import java.util.stream.Stream;
+
+import static com.baomidou.mybatisplus.aot.CollectUtils.EMPTY_CLASS_ARRAY;
 
 /**
  * 解决mybatis的native-image的运行问题
@@ -79,8 +82,11 @@ class MybatisPlusFeature implements Feature {
                 ArrayList.class,
                 HashMap.class,
                 TreeSet.class,
-                HashSet.class
+                HashSet.class,
+                BoundSql.class
             ).forEach(featureUtils::registerReflection);
+            var statementHandler = featureUtils.loadClass("org.apache.ibatis.executor.statement.StatementHandler");
+            if (statementHandler != null) featureUtils.registerReflection(featureUtils.collectClass(statementHandler::isAssignableFrom, "org.apache.ibatis.executor.statement").toArray(EMPTY_CLASS_ARRAY));
             try {
                 featureUtils.registerResource(XMLStatementBuilder.class, featureUtils.findResources("org/apache/ibatis/builder/xml",
                     name -> name.endsWith(".dtd") || name.endsWith(".xsd")).toArray(FeatureUtils.EMPTY_STRING_ARRAY));
