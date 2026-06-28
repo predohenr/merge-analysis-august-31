@@ -121,7 +121,7 @@ public abstract class AbstractMethod implements Constants {
                             final String prefix) {
         String sqlScript = table.getAllSqlSet(logic, prefix);
         if (judgeAliasNull) {
-            sqlScript = SqlScriptUtils.convertIf(sqlScript, String.format("%s != null", alias), true);
+            sqlScript = SqlScriptUtils.convertIf(sqlScript, alias + " != null", true);
         }
         if (ew) {
             sqlScript = sqlScript + NEWLINE + convertIfEwParam(U_WRAPPER_SQL_SET, false);
@@ -148,8 +148,7 @@ public abstract class AbstractMethod implements Constants {
     }
 
     protected String convertIfEwParam(final String param, final boolean newLine) {
-        return SqlScriptUtils.convertIf(SqlScriptUtils.unSafeParam(param),
-            String.format("%s != null and %s != null", WRAPPER, param), newLine);
+        return SqlScriptUtils.convertIf(SqlScriptUtils.unSafeParam(param), WRAPPER + " != null and " + param + " != null", newLine);
     }
 
     /**
@@ -191,7 +190,7 @@ public abstract class AbstractMethod implements Constants {
     }
 
     protected String convertChooseEwSelect(final String otherwise) {
-        return SqlScriptUtils.convertChoose(String.format("%s != null and %s != null", WRAPPER, Q_WRAPPER_SQL_SELECT),
+        return SqlScriptUtils.convertChoose(WRAPPER + " != null and " + Q_WRAPPER_SQL_SELECT + " != null",
             SqlScriptUtils.unSafeParam(Q_WRAPPER_SQL_SELECT), otherwise);
     }
 
@@ -205,7 +204,7 @@ public abstract class AbstractMethod implements Constants {
             String sqlScript = SqlScriptUtils.convertChoose("v == null", " ${k} IS NULL ",
                 " ${k} = #{v} ");
             sqlScript = SqlScriptUtils.convertForeach(sqlScript, COLUMN_MAP, "k", "v", "AND");
-            sqlScript = SqlScriptUtils.convertIf(sqlScript, String.format("%s != null and !%s.isEmpty", COLUMN_MAP, COLUMN_MAP), true);
+            sqlScript = SqlScriptUtils.convertIf(sqlScript, COLUMN_MAP + " != null and !" + COLUMN_MAP + ".isEmpty", true);
             sqlScript += (NEWLINE + table.getLogicDeleteSql(true, true));
             return SqlScriptUtils.convertWhere(sqlScript);
         } else {
@@ -213,8 +212,7 @@ public abstract class AbstractMethod implements Constants {
                 " ${k} = #{v} ");
             sqlScript = SqlScriptUtils.convertForeach(sqlScript, COLUMN_MAP, "k", "v", "AND");
             sqlScript = SqlScriptUtils.convertWhere(sqlScript);
-            return SqlScriptUtils.convertIf(sqlScript, String.format("%s != null and !%s", COLUMN_MAP,
-                COLUMN_MAP_IS_EMPTY), true);
+            return SqlScriptUtils.convertIf(sqlScript, COLUMN_MAP + " != null and !" + COLUMN_MAP_IS_EMPTY, true);
         }
     }
 
@@ -262,11 +260,10 @@ public abstract class AbstractMethod implements Constants {
         orderByFields.sort(Comparator.comparingInt(OrderFieldInfo::getSort));
         StringBuilder sql = new StringBuilder();
         sql.append(NEWLINE).append(" ORDER BY ");
-        sql.append(orderByFields.stream().map(orderFieldInfo -> String.format("%s %s", orderFieldInfo.getColumn(),
-            orderFieldInfo.getType())).collect(joining(",")));
+        sql.append(orderByFields.stream().map(orderFieldInfo ->
+            orderFieldInfo.getColumn() + " " + orderFieldInfo.getType()).collect(joining(",")));
         /* 当wrapper中传递了orderBy属性，@orderBy注解失效 */
-        return SqlScriptUtils.convertIf(sql.toString(), String.format("%s == null or %s", WRAPPER,
-            WRAPPER_EXPRESSION_ORDER), true);
+        return SqlScriptUtils.convertIf(sql.toString(), WRAPPER + " == null or " + WRAPPER_EXPRESSION_ORDER, true);
     }
 
     /**
