@@ -980,7 +980,8 @@ class H2UserTest extends BaseTest {
     void selectUsersWithCursor() {
         // 使用 try-with-resources 确保 Cursor 被正确关闭
         // 注意：必须添加 @Transactional 注解，保证 SqlSession 在迭代期间保持打开状态
-        try (Cursor<H2User> cursor = userService.getBaseMapper().selectWithCursor(null)) {
+        LambdaQueryWrapper<H2User> lqw = Wrappers.<H2User>lambdaQuery().eq(H2User::getAge, 3);
+        try (Cursor<H2User> cursor = userService.getBaseMapper().selectWithCursor(lqw)) {
 
             // 遍历游标，逐条处理数据
             Iterator<H2User> iterator = cursor.iterator();
@@ -995,8 +996,7 @@ class H2UserTest extends BaseTest {
             e.printStackTrace();
         }
 
-        H2User user = userService.getBaseMapper().selectOne(null);
-        Assertions.assertNotNull(user);
+        Assertions.assertThrows(TooManyResultsException.class, () -> userService.getBaseMapper().selectOne(lqw));
     }
 
 }

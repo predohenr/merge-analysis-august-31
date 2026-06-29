@@ -80,8 +80,7 @@ public class AlwaysUpdateSomeColumnById extends AbstractMethod {
         String sqlSet = this.filterTableFieldInfo(tableInfo.getFieldList(), getPredicate(),
             i -> i.getSqlSet(true, ENTITY_DOT), NEWLINE);
         sqlSet = SqlScriptUtils.convertSet(sqlSet);
-        String sql = String.format(sqlMethod.getSql(), tableInfo.getTableName(), sqlSet,
-            tableInfo.getKeyColumn(), ENTITY_DOT + tableInfo.getKeyProperty(), additional);
+        String sql = sqlMethod.format(tableInfo.getTableName(), sqlSet, tableInfo.getKeyColumn(), ENTITY_DOT + tableInfo.getKeyProperty(), additional);
         SqlSource sqlSource = super.createSqlSource(configuration, sql, modelClass);
         return addUpdateMappedStatement(mapperClass, modelClass, methodName, sqlSource);
     }

@@ -269,8 +269,7 @@ public abstract class AbstractWrapper<T, R, Children extends AbstractWrapper<T, 
 
     @Override
     public Children exists(boolean condition, String existsSql, Object... values) {
-        return maybeDo(condition, () -> appendSqlSegments(EXISTS,
-            () -> String.format("(%s)", formatSqlMaybeWithParam(existsSql, values))));
+        return maybeDo(condition, () -> appendSqlSegments(EXISTS, () -> "(" + formatSqlMaybeWithParam(existsSql, values) + ")"));
     }
 
     @Override
@@ -311,43 +310,43 @@ public abstract class AbstractWrapper<T, R, Children extends AbstractWrapper<T, 
     @Override
     public Children eqSql(boolean condition, R column, String eqValue) {
         return maybeDo(condition, () -> appendSqlSegments(columnToSqlSegment(column), EQ,
-            () -> String.format("(%s)", eqValue)));
+            () -> "(" + eqValue + ")"));
     }
 
     @Override
     public Children inSql(boolean condition, R column, String inValue) {
         return maybeDo(condition, () -> appendSqlSegments(columnToSqlSegment(column), IN,
-            () -> String.format("(%s)", inValue)));
+            () -> "(" + inValue + ")"));
     }
 
     @Override
     public Children gtSql(boolean condition, R column, String inValue) {
         return maybeDo(condition, () -> appendSqlSegments(columnToSqlSegment(column), GT,
-            () -> String.format("(%s)", inValue)));
+            () -> "(" + inValue + ")"));
     }
 
     @Override
     public Children geSql(boolean condition, R column, String inValue) {
         return maybeDo(condition, () -> appendSqlSegments(columnToSqlSegment(column), GE,
-            () -> String.format("(%s)", inValue)));
+            () -> "(" + inValue + ")"));
     }
 
     @Override
     public Children ltSql(boolean condition, R column, String inValue) {
         return maybeDo(condition, () -> appendSqlSegments(columnToSqlSegment(column), LT,
-            () -> String.format("(%s)", inValue)));
+            () -> "(" + inValue + ")"));
     }
 
     @Override
     public Children leSql(boolean condition, R column, String inValue) {
         return maybeDo(condition, () -> appendSqlSegments(columnToSqlSegment(column), LE,
-            () -> String.format("(%s)", inValue)));
+            () -> "(" + inValue + ")"));
     }
 
     @Override
     public Children notInSql(boolean condition, R column, String inValue) {
         return maybeDo(condition, () -> appendSqlSegments(columnToSqlSegment(column), NOT_IN,
-            () -> String.format("(%s)", inValue)));
+            () -> "(" + inValue + ")"));
     }
 
     @Override

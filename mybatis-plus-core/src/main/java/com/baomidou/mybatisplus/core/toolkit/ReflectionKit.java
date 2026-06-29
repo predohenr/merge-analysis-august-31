@@ -165,9 +165,8 @@ public final class ReflectionKit {
         // 子类属性
         Map<String, Field> fieldMap = Stream.of(fields).collect(toMap(Field::getName, identity(),
             (u, v) -> {
-                throw new IllegalStateException(String.format("Duplicate key %s", u));
-            },
-            LinkedHashMap::new));
+                throw new IllegalStateException("Duplicate key " + u);
+            }, LinkedHashMap::new));
         superFieldList.stream().filter(field -> !fieldMap.containsKey(field.getName()))
             .forEach(f -> fieldMap.put(f.getName(), f));
         return fieldMap;

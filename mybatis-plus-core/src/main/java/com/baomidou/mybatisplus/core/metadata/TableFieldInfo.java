@@ -420,6 +420,16 @@ public class TableFieldInfo implements Constants {
     }
 
     /**
+     * 获取字段值
+     */
+    public String getColumnValue(String value) {
+        if (this.isCharSequence) {
+            return "'" + value + "'";
+        }
+        return value;
+    }
+
+    /**
      * 获取 insert 时候插入值 sql 脚本片段
      * <p>insert into table (字段) values (值)</p>
      * <p>位于 "值" 部位</p>

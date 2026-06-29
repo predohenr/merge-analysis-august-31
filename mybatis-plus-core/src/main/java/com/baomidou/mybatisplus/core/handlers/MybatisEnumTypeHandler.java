@@ -62,7 +62,7 @@ public final class MybatisEnumTypeHandler<E extends Enum<E>> extends BaseTypeHan
         MetaClass metaClass = MetaClass.forClass(enumClassType, REFLECTOR_FACTORY);
         String name = "value";
         if (!IEnum.class.isAssignableFrom(enumClassType)) {
-            name = findEnumValueFieldName(this.enumClassType).orElseThrow(() -> new IllegalArgumentException(String.format("Could not find @EnumValue in Class: %s.", this.enumClassType.getName())));
+            name = findEnumValueFieldName(this.enumClassType).orElseThrow(() -> new IllegalArgumentException("Could not find @EnumValue in Class: " + this.enumClassType.getName()));
         }
         this.propertyType = ReflectionKit.resolvePrimitiveIfNecessary(metaClass.getGetterType(name));
         this.getInvoker = metaClass.getGetInvoker(name);

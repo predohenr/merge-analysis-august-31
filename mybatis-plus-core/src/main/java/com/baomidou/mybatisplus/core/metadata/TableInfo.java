@@ -305,7 +305,7 @@ public class TableInfo implements Constants {
                     // 批量插入必须返回空自增情况下
                     return EMPTY;
                 }
-                return SqlScriptUtils.convertIf(keyColumn, String.format("%s != null", prefixKeyProperty), newLine);
+                return SqlScriptUtils.convertIf(keyColumn, prefixKeyProperty + " != null", newLine);
             }
             return keyColumn + (newLine ? NEWLINE : EMPTY);
         }
@@ -328,7 +328,7 @@ public class TableInfo implements Constants {
                     // 批量插入必须返回空自增情况下
                     return EMPTY;
                 }
-                return SqlScriptUtils.convertIf(keyColumn + COMMA, String.format("%s != null", prefixKeyProperty), newLine);
+                return SqlScriptUtils.convertIf(keyColumn + COMMA, prefixKeyProperty + " != null", newLine);
             }
             return keyColumn + COMMA + (newLine ? NEWLINE : EMPTY);
         }
@@ -421,7 +421,7 @@ public class TableInfo implements Constants {
         }
         String newKeyProperty = newPrefix + keyProperty;
         String keySqlScript = keyColumn + EQUALS + SqlScriptUtils.safeParam(newKeyProperty);
-        return SqlScriptUtils.convertIf(fistAnd ? " AND " + keySqlScript : keySqlScript, String.format("%s != null", newKeyProperty), false)
+        return SqlScriptUtils.convertIf(fistAnd ? " AND " + keySqlScript : keySqlScript, newKeyProperty + " != null", false)
             + NEWLINE + filedSqlScript;
     }
 
@@ -474,14 +474,14 @@ public class TableInfo implements Constants {
             if (NULL.equalsIgnoreCase(value)) {
                 return logicDeleteFieldInfo.getColumn() + " IS NULL";
             } else {
-                return logicDeleteFieldInfo.getColumn() + EQUALS + String.format(logicDeleteFieldInfo.isCharSequence() ? "'%s'" : "%s", value);
+                return logicDeleteFieldInfo.getColumn() + EQUALS + logicDeleteFieldInfo.getColumnValue(value);
             }
         }
         final String targetStr = logicDeleteFieldInfo.getColumn() + EQUALS;
         if (NULL.equalsIgnoreCase(value)) {
             return targetStr + NULL;
         } else {
-            return targetStr + String.format(logicDeleteFieldInfo.isCharSequence() ? "'%s'" : "%s", value);
+            return targetStr + logicDeleteFieldInfo.getColumnValue(value);
         }
     }
 

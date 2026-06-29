@@ -24,6 +24,7 @@ import com.baomidou.mybatisplus.core.toolkit.CollectionUtils;
 import com.baomidou.mybatisplus.core.toolkit.Constants;
 import com.baomidou.mybatisplus.core.toolkit.StringUtils;
 
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -59,6 +60,25 @@ public abstract class SqlUtils implements Constants {
             default:
                 return PERCENT + str + PERCENT;
         }
+    }
+
+    /**
+     * 获取字段自操作sql片段
+     *
+     * @param column 字段名称
+     * @param incr true 加 false 减
+     * @param val 字段值
+     * @return 执行sql片段
+     */
+    public static String selfOperation(String column, boolean incr, Number val) {
+        StringBuilder segment = new StringBuilder();
+        segment.append(column).append(" = ").append(column).append(incr ? " + " : " - ");
+        if (val instanceof BigDecimal) {
+            segment.append(((BigDecimal) val).toPlainString());
+        } else {
+            segment.append(val);
+        }
+        return segment.toString();
     }
 
     public static List<String> findPlaceholder(String sql) {

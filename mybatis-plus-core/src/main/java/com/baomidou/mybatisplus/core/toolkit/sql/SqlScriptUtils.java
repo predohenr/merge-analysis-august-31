@@ -43,7 +43,7 @@ public abstract class SqlScriptUtils implements Constants {
         if (newLine) {
             newSqlScript = NEWLINE + newSqlScript + NEWLINE;
         }
-        return String.format("<if test=\"%s\">%s</if>", ifTest, newSqlScript);
+        return "<if test=\"" + ifTest + "\">" + newSqlScript + "</if>";
     }
 
     /**
