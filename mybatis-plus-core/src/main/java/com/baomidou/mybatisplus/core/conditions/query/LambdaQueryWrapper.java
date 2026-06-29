@@ -41,7 +41,7 @@ public class LambdaQueryWrapper<T> extends AbstractLambdaWrapper<T, LambdaQueryW
     /**
      * 查询字段
      */
-    private SharedString sqlSelect = new SharedString();
+    protected SharedString sqlSelect = new SharedString();
 
     public LambdaQueryWrapper() {
         this((T) null);
