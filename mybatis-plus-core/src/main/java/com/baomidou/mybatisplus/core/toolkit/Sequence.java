@@ -39,7 +39,7 @@ public class Sequence {
      *
      * @since 3.5.6
      */
-    public static long MAX_START_INTERVAL_TIME = TimeUnit.SECONDS.toNanos(5);
+    public static final long MAX_START_INTERVAL_TIME = TimeUnit.SECONDS.toNanos(5);
 
     private static final Log logger = LogFactory.getLog(Sequence.class);
     /**
@@ -174,7 +174,7 @@ public class Sequence {
             long offset = lastTimestamp - timestamp;
             if (offset <= 5) {
                 try {
-                    wait(offset << 1);
+                    Thread.sleep(offset << 1);
                     timestamp = timeGen();
                     if (timestamp < lastTimestamp) {
                         throw new RuntimeException(String.format("Clock moved backwards.  Refusing to generate id for %d milliseconds", offset));
