@@ -125,14 +125,14 @@ class MybatisConfigurationTest {
         mybatisConfiguration.addMapper(AMapper.class);
         Assertions.assertEquals(42, mybatisConfiguration.getMappedStatementNames().size());
         Assertions.assertEquals(4, mybatisConfiguration.getSqlFragments().size());
-        Assertions.assertEquals(5, mybatisConfiguration.getResultMaps().size());
+        Assertions.assertEquals(2, mybatisConfiguration.getResultMaps().size());
         Assertions.assertEquals(2, mybatisConfiguration.getCaches().size());
         Assertions.assertEquals(2, mybatisConfiguration.getMapperRegistry().getMappers().size());
         mybatisConfiguration.addNewMapper(BMapper.class);
         mybatisConfiguration.addNewMapper(AMapper.class);
         Assertions.assertEquals(42, mybatisConfiguration.getMappedStatementNames().size());
         Assertions.assertEquals(4, mybatisConfiguration.getSqlFragments().size());
-        Assertions.assertEquals(5, mybatisConfiguration.getResultMaps().size());
+        Assertions.assertEquals(2, mybatisConfiguration.getResultMaps().size());
         Assertions.assertEquals(2, mybatisConfiguration.getCaches().size());
         Assertions.assertEquals(2, mybatisConfiguration.getMapperRegistry().getMappers().size());
     }
