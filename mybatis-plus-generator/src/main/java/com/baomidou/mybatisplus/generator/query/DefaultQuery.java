@@ -129,8 +129,9 @@ public class DefaultQuery extends AbstractDatabaseQuery {
                 columnType = typeRegistry.getColumnType(metaInfo);
             }
             field.setColumnName(columnName).setColumnType(columnType).setComment(columnInfo.getRemarks()).setMetaInfo(metaInfo);
+            entity.handleTableFieldMetaInfo(tableInfo, field);
             String propertyName = entity.getNameConvert().propertyNameConvert(field);
-            field.setPropertyName(propertyName, columnType);
+            field.setPropertyName(propertyName);
             tableInfo.addField(field);
         });
         tableInfo.setIndexList(getIndex(tableName));

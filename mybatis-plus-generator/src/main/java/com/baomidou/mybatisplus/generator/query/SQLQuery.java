@@ -128,10 +128,11 @@ public class SQLQuery extends AbstractDatabaseQuery {
                     .setType(result.getStringResult(dbQuery.fieldType()))
                     .setComment(result.getFiledComment())
                     .setCustomMap(dbQuery.getCustomFields(result.getResultSet()));
-                String propertyName = entity.getNameConvert().propertyNameConvert(field);
                 IColumnType columnType = dataSourceConfig.getTypeConvert().processTypeConvert(globalConfig, field);
-                field.setPropertyName(propertyName, columnType);
-                field.setMetaInfo(metaInfo);
+                field.setColumnType(columnType).setMetaInfo(metaInfo);
+                entity.handleTableFieldMetaInfo(tableInfo, field);
+                String propertyName = entity.getNameConvert().propertyNameConvert(field);
+                field.setPropertyName(propertyName);
                 tableInfo.addField(field);
             });
         } catch (SQLException e) {
