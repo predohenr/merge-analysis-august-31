@@ -34,7 +34,8 @@ class TableFieldMetaInfoCustomizerTest extends BaseGeneratorTest {
         StrategyConfig strategyConfig = new StrategyConfig.Builder()
             .addInclude("t_simple")
             .entityBuilder()
-            .addTableFieldMetaInfoCustomizers((tableInfo, tableField) -> {
+            .tableFieldMetaInfoCustomizer((tableInfo, tableField) -> {
+                // 这里进行不同表的处理
                 if ("name".equals(tableField.getColumnName())) {
                     tableField.getMetaInfo().setJdbcType(JdbcType.OTHER);
                     tableField.getMetaInfo().setTypeName("POINT");

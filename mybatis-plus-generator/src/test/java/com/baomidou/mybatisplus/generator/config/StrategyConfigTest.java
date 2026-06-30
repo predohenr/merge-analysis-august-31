@@ -2,16 +2,15 @@ package com.baomidou.mybatisplus.generator.config;
 
 import com.baomidou.mybatisplus.annotation.FieldFill;
 import com.baomidou.mybatisplus.generator.IFill;
-import com.baomidou.mybatisplus.generator.ITableFieldMetaInfoCustomizer;
 import com.baomidou.mybatisplus.generator.config.builder.ConfigBuilder;
 import com.baomidou.mybatisplus.generator.config.builder.GeneratorBuilder;
 import com.baomidou.mybatisplus.generator.config.po.TableField;
 import com.baomidou.mybatisplus.generator.config.po.TableInfo;
 import com.baomidou.mybatisplus.generator.config.po.TableInfoTest;
 import com.baomidou.mybatisplus.generator.config.rules.NamingStrategy;
-import com.baomidou.mybatisplus.generator.fill.Column;
 import com.baomidou.mybatisplus.generator.entity.BaseEntity;
 import com.baomidou.mybatisplus.generator.entity.SuperEntity;
+import com.baomidou.mybatisplus.generator.fill.Column;
 import lombok.Data;
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.Assertions;
@@ -284,17 +283,6 @@ class StrategyConfigTest {
             .controllerBuilder().superClass("com.baomidou.mp.SuperController").enableHyphenStyle().enableRestStyle()
             .mapperBuilder().superClass("com.baomidou.mp.SuperMapper").build();
         buildAssert(strategyConfig);
-    }
-
-    @Test
-    void tableFieldMetaInfoCustomizerBuilderTest() {
-        ITableFieldMetaInfoCustomizer customizer = (tableInfo, tableField) -> {
-        };
-        StrategyConfig strategyConfig = GeneratorBuilder.strategyConfigBuilder()
-            .entityBuilder()
-            .addTableFieldMetaInfoCustomizers(customizer)
-            .build();
-        assertThat(strategyConfig.entity().getTableFieldMetaInfoCustomizers()).containsExactly(customizer);
     }
 
     @Data

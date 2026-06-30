@@ -198,7 +198,7 @@ public class Entity implements ITemplate {
      * @since 3.5.18
      */
     @Getter
-    private final List<ITableFieldMetaInfoCustomizer> tableFieldMetaInfoCustomizers = new ArrayList<>();
+    private ITableFieldMetaInfoCustomizer tableFieldMetaInfoCustomizer;
 
     /**
      * 数据库表映射到实体的命名策略，默认下划线转驼峰命名
@@ -480,7 +480,9 @@ public class Entity implements ITemplate {
      * @since 3.5.18
      */
     public void handleTableFieldMetaInfo(@NotNull TableInfo tableInfo, @NotNull com.baomidou.mybatisplus.generator.config.po.TableField tableField) {
-        tableFieldMetaInfoCustomizers.forEach(customizer -> customizer.customize(tableInfo, tableField));
+        if (null != tableFieldMetaInfoCustomizer) {
+            tableFieldMetaInfoCustomizer.customize(tableInfo, tableField);
+        }
     }
 
     public static class Builder extends BaseBuilder {
@@ -756,24 +758,9 @@ public class Entity implements ITemplate {
 
         /**
          * Add table field meta info customizers.
-         *
-         * @param customizers customizers
-         * @return this
-         * @since 3.5.18
          */
-        public Builder addTableFieldMetaInfoCustomizers(@NotNull ITableFieldMetaInfoCustomizer... customizers) {
-            return addTableFieldMetaInfoCustomizers(Arrays.asList(customizers));
-        }
-
-        /**
-         * Add table field meta info customizers.
-         *
-         * @param customizers customizer list
-         * @return this
-         * @since 3.5.18
-         */
-        public Builder addTableFieldMetaInfoCustomizers(@NotNull List<ITableFieldMetaInfoCustomizer> customizers) {
-            this.entity.tableFieldMetaInfoCustomizers.addAll(customizers);
+        public Builder tableFieldMetaInfoCustomizer(@NotNull ITableFieldMetaInfoCustomizer tableFieldMetaInfoCustomizer) {
+            this.entity.tableFieldMetaInfoCustomizer = tableFieldMetaInfoCustomizer;
             return this;
         }
 

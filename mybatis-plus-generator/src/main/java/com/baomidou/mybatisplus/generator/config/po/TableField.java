@@ -28,6 +28,8 @@ import com.baomidou.mybatisplus.generator.fill.Column;
 import com.baomidou.mybatisplus.generator.fill.Property;
 import com.baomidou.mybatisplus.generator.jdbc.DatabaseMetaDataWrapper;
 import com.baomidou.mybatisplus.generator.model.AnnotationAttributes;
+import lombok.Getter;
+import lombok.Setter;
 import org.apache.ibatis.type.JdbcType;
 import org.jetbrains.annotations.NotNull;
 
@@ -49,42 +51,50 @@ public class TableField {
     /**
      * 是否做注解转换
      */
+    @Getter
     private boolean convert;
 
     /**
      * 是否主键
      */
+    @Getter
     private boolean keyFlag;
 
     /**
      * 主键是否为自增类型
      */
+    @Getter
     private boolean keyIdentityFlag;
 
     /**
      * 字段名称
      */
+    @Getter
     private final String name;
 
     /**
      * 字段类型（已弃用，使用 {@link #columnType} 代替）
      */
+    @Getter
     @Deprecated
     private String type;
 
     /**
      * 属性名称
      */
+    @Getter
     private String propertyName;
 
     /**
      * 字段类型
      */
+    @Getter
     private IColumnType columnType;
 
     /**
      * 字段注释
      */
+    @Getter
     private String comment;
 
     /**
@@ -97,6 +107,7 @@ public class TableField {
      *
      * @since 3.3.2
      */
+    @Getter
     private boolean keyWords;
 
     /**
@@ -104,11 +115,13 @@ public class TableField {
      *
      * @since 3.3.2
      */
+    @Getter
     private String columnName;
 
     /**
      * 自定义查询字段列表
      */
+    @Getter
     private Map<String, Object> customMap;
 
     /**
@@ -116,11 +129,16 @@ public class TableField {
      *
      * @since 3.5.0
      */
+    @Setter
+    @Getter
     private MetaInfo metaInfo;
 
     /**
      * 实体属性配置
+     * -- GETTER --
+     *  获取实体配置信息
      */
+    @Getter
     private final Entity entity;
 
     /**
@@ -335,38 +353,6 @@ public class TableField {
         return this;
     }
 
-    public boolean isConvert() {
-        return convert;
-    }
-
-    public boolean isKeyFlag() {
-        return keyFlag;
-    }
-
-    public boolean isKeyIdentityFlag() {
-        return keyIdentityFlag;
-    }
-
-    public String getName() {
-        return name;
-    }
-
-    public String getType() {
-        return type;
-    }
-
-    public String getPropertyName() {
-        return propertyName;
-    }
-
-    public IColumnType getColumnType() {
-        return columnType;
-    }
-
-    public String getComment() {
-        return comment;
-    }
-
     public String getFill() {
         if (StringUtils.isBlank(fill)) {
             entity.getTableFillList().stream()
@@ -376,36 +362,6 @@ public class TableField {
                 .findFirst().ifPresent(tf -> this.fill = tf.getFieldFill().name());
         }
         return fill;
-    }
-
-    public boolean isKeyWords() {
-        return keyWords;
-    }
-
-    public String getColumnName() {
-        return columnName;
-    }
-
-    public Map<String, Object> getCustomMap() {
-        return customMap;
-    }
-
-    public MetaInfo getMetaInfo() {
-        return metaInfo;
-    }
-
-    public void setMetaInfo(MetaInfo metaInfo) {
-        this.metaInfo = metaInfo;
-    }
-
-    /**
-     * 获取实体配置信息
-     *
-     * @return 实体配置信息
-     * @since 3.5.10
-     */
-    public Entity getEntity() {
-        return this.entity;
     }
 
     /**
@@ -455,6 +411,8 @@ public class TableField {
      * @author nieqiurong 2021/2/8
      * @since 3.5.0
      */
+    @Setter
+    @Getter
     public static class MetaInfo {
 
         /**
@@ -524,86 +482,6 @@ public class TableField {
                 this.typeName = column.getTypeName();
                 this.generatedColumn = column.isGeneratedColumn();
             }
-        }
-
-        public String getTableName() {
-            return tableName;
-        }
-
-        public void setTableName(String tableName) {
-            this.tableName = tableName;
-        }
-
-        public String getColumnName() {
-            return columnName;
-        }
-
-        public void setColumnName(String columnName) {
-            this.columnName = columnName;
-        }
-
-        public int getLength() {
-            return length;
-        }
-
-        public void setLength(int length) {
-            this.length = length;
-        }
-
-        public boolean isNullable() {
-            return nullable;
-        }
-
-        public void setNullable(boolean nullable) {
-            this.nullable = nullable;
-        }
-
-        public String getRemarks() {
-            return remarks;
-        }
-
-        public void setRemarks(String remarks) {
-            this.remarks = remarks;
-        }
-
-        public String getDefaultValue() {
-            return defaultValue;
-        }
-
-        public void setDefaultValue(String defaultValue) {
-            this.defaultValue = defaultValue;
-        }
-
-        public int getScale() {
-            return scale;
-        }
-
-        public void setScale(int scale) {
-            this.scale = scale;
-        }
-
-        public JdbcType getJdbcType() {
-            return jdbcType;
-        }
-
-        public void setJdbcType(JdbcType jdbcType) {
-            this.jdbcType = jdbcType;
-        }
-
-        public String getTypeName() {
-            return typeName;
-        }
-
-        public void setTypeName(String typeName) {
-            this.typeName = typeName;
-        }
-
-        public boolean isGeneratedColumn() {
-            return generatedColumn;
-        }
-
-        public void setGeneratedColumn(boolean generatedColumn) {
-            this.generatedColumn = generatedColumn;
         }
 
         @Override
