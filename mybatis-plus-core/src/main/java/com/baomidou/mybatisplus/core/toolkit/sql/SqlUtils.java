@@ -72,7 +72,7 @@ public abstract class SqlUtils implements Constants {
      */
     public static String selfOperation(String column, boolean incr, Number val) {
         StringBuilder segment = new StringBuilder();
-        segment.append(column).append(" = ").append(column).append(incr ? " + " : " - ");
+        segment.append(column).append("=").append(column).append(incr ? " + " : " - ");
         if (val instanceof BigDecimal) {
             segment.append(((BigDecimal) val).toPlainString());
         } else {
