@@ -21,14 +21,12 @@ import com.baomidou.mybatisplus.core.conditions.Wrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
 import com.baomidou.mybatisplus.core.enums.SqlMethod;
-import com.baomidou.mybatisplus.core.injector.methods.SelectList;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.core.metadata.MapperProxyMetadata;
 import com.baomidou.mybatisplus.core.metadata.TableInfo;
 import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
 import com.baomidou.mybatisplus.core.toolkit.*;
 import org.apache.ibatis.annotations.Param;
-import org.apache.ibatis.annotations.SelectProvider;
 import org.apache.ibatis.binding.MapperMethod;
 import org.apache.ibatis.cursor.Cursor;
 import org.apache.ibatis.exceptions.TooManyResultsException;
@@ -370,7 +368,6 @@ public interface BaseMapper<T> extends Mapper<T> {
      *
      * @param queryWrapper 实体对象封装操作类（可以为 null）
      */
-    @SelectProvider(type = SelectList.class, method = Constants.SELECT_WITH_CURSOR)
     Cursor<T> selectWithCursor(@Param(Constants.WRAPPER) Wrapper<T> queryWrapper);
 
     /**
