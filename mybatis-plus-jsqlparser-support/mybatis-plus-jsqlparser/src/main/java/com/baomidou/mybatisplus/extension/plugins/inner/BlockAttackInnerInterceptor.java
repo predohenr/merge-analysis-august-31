@@ -31,6 +31,7 @@ import net.sf.jsqlparser.expression.operators.relational.EqualsTo;
 import net.sf.jsqlparser.expression.operators.relational.IsNullExpression;
 import net.sf.jsqlparser.expression.operators.relational.NotEqualsTo;
 import net.sf.jsqlparser.expression.operators.relational.ParenthesedExpressionList;
+import net.sf.jsqlparser.schema.Table;
 import net.sf.jsqlparser.statement.delete.Delete;
 import net.sf.jsqlparser.statement.update.Update;
 import org.apache.ibatis.executor.statement.StatementHandler;
@@ -64,12 +65,17 @@ public class BlockAttackInnerInterceptor extends JsqlParserSupport implements In
 
     @Override
     protected void processDelete(Delete delete, int index, String sql, Object obj) {
-        this.checkWhere(delete.getTable().getName(), delete.getWhere(), "Prohibition of full table deletion");
+        this.checkWhere(delete.getTable(), delete.getWhere(), "Prohibition of full table deletion");
     }
 
     @Override
     protected void processUpdate(Update update, int index, String sql, Object obj) {
-        this.checkWhere(update.getTable().getName(), update.getWhere(), "Prohibition of table update operation");
+        this.checkWhere(update.getTable(), update.getWhere(), "Prohibition of table update operation");
+    }
+
+    protected void checkWhere(Table table, Expression where, String ex) {
+        // fixed https://github.com/baomidou/mybatis-plus/issues/7081
+        this.checkWhere(getSchemaNameDotName(table), where, ex);
     }
 
     protected void checkWhere(String tableName, Expression where, String ex) {

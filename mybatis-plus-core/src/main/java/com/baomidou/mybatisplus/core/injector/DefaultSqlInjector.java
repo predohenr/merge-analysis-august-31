@@ -45,7 +45,8 @@ public class DefaultSqlInjector extends AbstractSqlInjector {
             .add(new SelectCount())
             .add(new SelectMaps())
             .add(new SelectObjs())
-            .add(new SelectList());
+            .add(new SelectList())
+            .add(new SelectWithCursor());
         if (tableInfo.havePK()) {
             builder.add(new DeleteById())
                 .add(new DeleteByIds())

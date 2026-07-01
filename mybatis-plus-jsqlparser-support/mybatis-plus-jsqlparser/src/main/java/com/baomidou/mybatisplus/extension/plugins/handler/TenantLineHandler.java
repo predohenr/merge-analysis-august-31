@@ -64,7 +64,7 @@ public interface TenantLineHandler {
      *
      * @param columns        插入字段
      * @param tenantIdColumn 租户 ID 字段
-     * @return
+     * @return 是否忽略, true:表示忽略，false:需要解析并拼接多租户条件
      */
     default boolean ignoreInsert(List<Column> columns, String tenantIdColumn) {
         return columns.stream().map(Column::getColumnName).anyMatch(i -> i.equalsIgnoreCase(tenantIdColumn));
