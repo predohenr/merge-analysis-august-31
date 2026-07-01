@@ -27,11 +27,6 @@ import lombok.experimental.Accessors;
 @EqualsAndHashCode(callSuper = true)
 public class H2User extends SuperEntity {
 
-    /**
-	 * serialVersionUID
-	 */
-	private static final long serialVersionUID = 2043176352335589747L;
-
 	/* 测试忽略验证 */
     private String name;
 

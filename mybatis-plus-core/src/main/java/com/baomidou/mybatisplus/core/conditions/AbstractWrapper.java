@@ -203,14 +203,20 @@ public abstract class AbstractWrapper<T, R, Children extends AbstractWrapper<T, 
 
     @Override
     public Children between(boolean condition, R column, Object val1, Object val2) {
-        return maybeDo(condition, () -> appendSqlSegments(columnToSqlSegment(column), BETWEEN,
-            () -> formatParam(null, val1), AND, () -> formatParam(null, val2)));
+        return maybeDo(condition, () -> {
+            String mapping = columnToMapping(column);
+            appendSqlSegments(columnToSqlSegment(column), BETWEEN,
+                () -> formatParam(mapping, val1), AND, () -> formatParam(mapping, val2));
+        });
     }
 
     @Override
     public Children notBetween(boolean condition, R column, Object val1, Object val2) {
-        return maybeDo(condition, () -> appendSqlSegments(columnToSqlSegment(column), NOT_BETWEEN,
-            () -> formatParam(null, val1), AND, () -> formatParam(null, val2)));
+        return maybeDo(condition, () -> {
+            String mapping = columnToMapping(column);
+            appendSqlSegments(columnToSqlSegment(column), NOT_BETWEEN,
+                () -> formatParam(mapping, val1), AND, () -> formatParam(mapping, val2));
+        });
     }
 
     @Override
@@ -289,12 +295,12 @@ public abstract class AbstractWrapper<T, R, Children extends AbstractWrapper<T, 
 
     @Override
     public Children in(boolean condition, R column, Collection<?> coll) {
-        return maybeDo(condition, () -> appendSqlSegments(columnToSqlSegment(column), IN, inExpression(coll)));
+        return maybeDo(condition, () -> appendSqlSegments(columnToSqlSegment(column), IN, inExpression(coll, columnToMapping(column))));
     }
 
     @Override
     public Children in(boolean condition, R column, Object... values) {
-        return maybeDo(condition, () -> appendSqlSegments(columnToSqlSegment(column), IN, inExpression(values)));
+        return maybeDo(condition, () -> appendSqlSegments(columnToSqlSegment(column), IN, inExpression(values, columnToMapping(column))));
     }
 
     @Override
@@ -451,7 +457,7 @@ public abstract class AbstractWrapper<T, R, Children extends AbstractWrapper<T, 
      */
     protected Children likeValue(boolean condition, SqlKeyword keyword, R column, Object val, SqlLike sqlLike) {
         return maybeDo(condition, () -> appendSqlSegments(columnToSqlSegment(column), keyword,
-            () -> formatParam(null, SqlUtils.concatLike(val, sqlLike))));
+            () -> formatParam(columnToMapping(column), SqlUtils.concatLike(val, sqlLike))));
     }
 
     /**
@@ -464,7 +470,7 @@ public abstract class AbstractWrapper<T, R, Children extends AbstractWrapper<T, 
      */
     protected Children addCondition(boolean condition, R column, SqlKeyword sqlKeyword, Object val) {
         return maybeDo(condition, () -> appendSqlSegments(columnToSqlSegment(column), sqlKeyword,
-            () -> formatParam(null, val)));
+            () -> formatParam(columnToMapping(column), val)));
     }
 
     /**
@@ -552,10 +558,14 @@ public abstract class AbstractWrapper<T, R, Children extends AbstractWrapper<T, 
      * @param value 集合
      */
     protected ISqlSegment inExpression(Collection<?> value) {
+        return inExpression(value, null);
+    }
+
+    protected ISqlSegment inExpression(Collection<?> value, String mapping) {
         if (CollectionUtils.isEmpty(value)) {
             return () -> "()";
         }
-        return () -> value.stream().map(i -> formatParam(null, i))
+        return () -> value.stream().map(i -> formatParam(mapping, i))
             .collect(joining(StringPool.COMMA, StringPool.LEFT_BRACKET, StringPool.RIGHT_BRACKET));
     }
 
@@ -565,10 +575,14 @@ public abstract class AbstractWrapper<T, R, Children extends AbstractWrapper<T, 
      * @param values 数组
      */
     protected ISqlSegment inExpression(Object[] values) {
+        return inExpression(values, null);
+    }
+
+    protected ISqlSegment inExpression(Object[] values, String mapping) {
         if (ArrayUtils.isEmpty(values)) {
             return () -> "()";
         }
-        return () -> Arrays.stream(values).map(i -> formatParam(null, i))
+        return () -> Arrays.stream(values).map(i -> formatParam(mapping, i))
             .collect(joining(StringPool.COMMA, StringPool.LEFT_BRACKET, StringPool.RIGHT_BRACKET));
     }
 
@@ -675,6 +689,10 @@ public abstract class AbstractWrapper<T, R, Children extends AbstractWrapper<T, 
      */
     protected String columnToString(R column) {
         return (String) column;
+    }
+
+    protected String columnToMapping(R column) {
+        return null;
     }
 
     /**

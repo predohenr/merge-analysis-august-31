@@ -68,6 +68,11 @@ public abstract class AbstractLambdaWrapper<T, Children extends AbstractLambdaWr
     }
 
     @Override
+    protected String columnToMapping(SFunction<T, ?> column) {
+        return getColumnCache(column).getMapping();
+    }
+
+    @Override
     @SafeVarargs
     public final Children groupBy(boolean condition, SFunction<T, ?> column, SFunction<T, ?>... columns) {
         return super.groupBy(condition, column, columns);
