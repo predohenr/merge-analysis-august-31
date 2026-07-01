@@ -16,6 +16,7 @@
 package com.baomidou.mybatisplus.core.handlers;
 
 import com.baomidou.mybatisplus.core.toolkit.CollectionUtils;
+import com.baomidou.mybatisplus.core.toolkit.EnumUtils;
 import org.apache.ibatis.type.EnumTypeHandler;
 import org.apache.ibatis.type.JdbcType;
 import org.apache.ibatis.type.TypeException;
@@ -43,7 +44,7 @@ public class CompositeEnumTypeHandler<E extends Enum<E>> implements TypeHandler<
         if (enumClassType == null) {
             throw new IllegalArgumentException("Type argument cannot be null");
         }
-        if (CollectionUtils.computeIfAbsent(MP_ENUM_CACHE, enumClassType, MybatisEnumTypeHandler::isMpEnums)) {
+        if (CollectionUtils.computeIfAbsent(MP_ENUM_CACHE, enumClassType, EnumUtils::isMpEnums)) {
             delegate = new MybatisEnumTypeHandler<>(enumClassType);
         } else {
             delegate = getInstance(enumClassType, defaultEnumTypeHandler);

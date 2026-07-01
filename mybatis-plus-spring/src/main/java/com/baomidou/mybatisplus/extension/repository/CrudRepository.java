@@ -82,7 +82,7 @@ public abstract class CrudRepository<M extends BaseMapper<T>, T> extends Abstrac
         return SqlHelper.saveOrUpdateBatch(getSqlSessionFactory(), this.getMapperClass(), this.log, entityList, batchSize, (sqlSession, entity) -> {
             Object idVal = tableInfo.getPropertyValue(entity, keyProperty);
             return StringUtils.checkValNull(idVal)
-                || CollectionUtils.isEmpty(sqlSession.selectList(getSqlStatement(SqlMethod.SELECT_BY_ID), entity));
+                || CollectionUtils.isEmpty(sqlSession.selectList(getSqlStatement(SqlMethod.SELECT_BY_ID), idVal));
         }, (sqlSession, entity) -> {
             MapperMethod.ParamMap<T> param = new MapperMethod.ParamMap<>();
             param.put(Constants.ENTITY, entity);

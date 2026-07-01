@@ -18,6 +18,7 @@ package com.baomidou.mybatisplus.extension.parser;
 import com.baomidou.mybatisplus.core.toolkit.ExceptionUtils;
 import com.baomidou.mybatisplus.core.toolkit.StringPool;
 import net.sf.jsqlparser.JSQLParserException;
+import net.sf.jsqlparser.schema.Table;
 import net.sf.jsqlparser.statement.Statement;
 import net.sf.jsqlparser.statement.Statements;
 import net.sf.jsqlparser.statement.delete.Delete;
@@ -26,6 +27,8 @@ import net.sf.jsqlparser.statement.select.Select;
 import net.sf.jsqlparser.statement.update.Update;
 import org.apache.ibatis.logging.Log;
 import org.apache.ibatis.logging.LogFactory;
+
+import java.util.Optional;
 
 /**
  * https://github.com/JSQLParser/JSqlParser
@@ -126,5 +129,15 @@ public abstract class JsqlParserSupport {
      */
     protected void processSelect(Select select, int index, String sql, Object obj) {
         throw new UnsupportedOperationException();
+    }
+
+    /**
+     * 获取 schemaName + "." + name 的组合表名称
+     */
+    protected String getSchemaNameDotName(Table table) {
+        return Optional.ofNullable(table.getSchemaName())
+            .filter(s -> !s.isEmpty())
+            .map(s -> s + "." + table.getName())
+            .orElse(table.getName());
     }
 }

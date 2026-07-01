@@ -15,40 +15,26 @@
  */
 package com.baomidou.mybatisplus.core.injector.methods;
 
-import com.baomidou.mybatisplus.core.enums.SqlMethod;
-import com.baomidou.mybatisplus.core.injector.AbstractMethod;
 import com.baomidou.mybatisplus.core.metadata.TableInfo;
 import org.apache.ibatis.mapping.MappedStatement;
 import org.apache.ibatis.mapping.SqlSource;
 
 /**
- * 查询满足条件所有数据
+ * 游标方式查询全部记录
  *
  * @author hubin
- * @since 2018-04-06
+ * @since 2026-06-30
  */
-public class SelectList extends AbstractMethod {
+public class SelectWithCursor extends SelectList {
 
-    public SelectList() {
-        this(SqlMethod.SELECT_LIST.getMethod());
-    }
-
-    /**
-     * @param name 方法名
-     * @since 3.5.0
-     */
-    public SelectList(String name) {
-        super(name);
+    public SelectWithCursor() {
+        super("selectWithCursor");
     }
 
     @Override
     public MappedStatement injectMappedStatement(Class<?> mapperClass, Class<?> modelClass, TableInfo tableInfo) {
-        SqlSource sqlSource = super.createSqlSource(configuration, getSql(tableInfo), modelClass);
-        return this.addSelectMappedStatementForTable(mapperClass, methodName, sqlSource, tableInfo);
-    }
-
-    protected String getSql(TableInfo tableInfo) {
-        return SqlMethod.SELECT_LIST.format(sqlFirst(), sqlSelectColumns(tableInfo, true), tableInfo.getTableName(),
-            sqlWhereEntityWrapper(true, tableInfo), sqlOrderBy(tableInfo), sqlComment());
+        String sql = this.getSql(tableInfo);
+        SqlSource sqlSource = super.createSqlSource(configuration, sql, modelClass);
+        return addSelectMappedStatementForTable( mapperClass, methodName, sqlSource, tableInfo);
     }
 }
