@@ -47,9 +47,9 @@ public class GroovyLambdaMeta implements LambdaMeta {
             Object owner = getOwner.invoke(delegate);
             this.clazz = (owner instanceof Class) ? (Class<?>) owner : owner.getClass();
         } catch (NoSuchMethodException e) {
-            throw new MybatisPlusException("Unsupported proxy type for lambda extraction: "
+            throw new MybatisPlusException("Unsupported proxy type for Groovy lambda extraction: "
                 + handler.getClass().getName()
-                + ". Only IDEA debug proxies and Groovy MethodClosure proxies are supported.", e);
+                + ". Expected a Groovy ConvertedClosure handler exposing getDelegate().", e);
         } catch (Exception e) {
             throw new MybatisPlusException("Failed to extract Groovy lambda meta from proxy handler: "
                 + handler.getClass().getName(), e);

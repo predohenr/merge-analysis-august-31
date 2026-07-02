@@ -99,7 +99,7 @@ class GroovyLambdaMetaTest {
     // ----- tests -----
 
     @Test
-    void testGroovyLambdaMeta_classOwner() {
+    void testGroovyLambdaMetaClassOwner() {
         // Simulate: TestEntity::getName  in a Groovy script
         SFunction<TestEntity, ?> proxy = createGroovyProxy("getName", TestEntity.class);
 
@@ -111,7 +111,7 @@ class GroovyLambdaMetaTest {
     }
 
     @Test
-    void testGroovyLambdaMeta_instanceOwner() {
+    void testGroovyLambdaMetaInstanceOwner() {
         // When the Groovy owner is an instance (e.g. obj::getName), owner.getClass() should be used
         TestEntity instance = new TestEntity();
         SFunction<TestEntity, ?> proxy = createGroovyProxy("getName", instance.getClass());
@@ -123,7 +123,7 @@ class GroovyLambdaMetaTest {
     }
 
     @Test
-    void testLambdaUtils_extractGroovyProxy() {
+    void testLambdaUtilsExtractGroovyProxy() {
         // Ensure LambdaUtils.extract routes to GroovyLambdaMeta for non-MethodHandleProxy proxies
         SFunction<TestEntity, ?> proxy = createGroovyProxy("getName", TestEntity.class);
 
@@ -135,7 +135,7 @@ class GroovyLambdaMetaTest {
     }
 
     @Test
-    void testGroovyLambdaMeta_unsupportedProxy_throws() {
+    void testGroovyLambdaMetaUnsupportedProxyThrows() {
         // A proxy whose handler has no getDelegate() should throw MybatisPlusException
         @SuppressWarnings("unchecked")
         SFunction<TestEntity, ?> proxy = (SFunction<TestEntity, ?>) Proxy.newProxyInstance(
