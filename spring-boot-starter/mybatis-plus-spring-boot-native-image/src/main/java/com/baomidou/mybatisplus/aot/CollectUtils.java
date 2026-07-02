@@ -1,8 +1,23 @@
+/*
+ * Copyright (c) 2011-2025, baomidou (jobob@qq.com).
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package com.baomidou.mybatisplus.aot;
 
-import java.io.BufferedInputStream;
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
@@ -21,13 +36,11 @@ import java.util.regex.Pattern;
  * 类和资源文件的扫描搜集工具类
  *
  * @author xiaochen
- * @since 2025/9/17
+ * @since 2025-09-17
  */
 class CollectUtils {
 
     public static final String[] EMPTY_STRING_ARRAY = new String[0];
-
-    public static final String EMPTY_STRING = "";
 
     public static final Class<?>[] EMPTY_CLASS_ARRAY = new Class[0];
 
@@ -36,6 +49,8 @@ class CollectUtils {
     public static final Field[] EMPTY_FIELD_ARRAY = new Field[0];
 
     public static final boolean debug = Boolean.getBoolean("aot.debug");
+
+    public static final String REGISTER_ALL_XML_PROPERTY = "mybatis-plus.native.register-all-xml";
 
     private final ClassLoader classLoader;
 
@@ -181,12 +196,25 @@ class CollectUtils {
         }
     }
 
+    private boolean isUnderPath(String entryName, String path) {
+        return path.isEmpty() || entryName.startsWith(path + "/");
+    }
+
+    public static boolean isMapperXmlResource(String resourceName) {
+        if (!resourceName.endsWith(".xml")) {
+            return false;
+        }
+        if (Boolean.getBoolean(REGISTER_ALL_XML_PROPERTY)) {
+            return true;
+        }
+        return resourceName.startsWith("mapper/")
+            || resourceName.contains("/mapper/")
+            || resourceName.startsWith("mappers/")
+            || resourceName.contains("/mappers/");
+    }
+
     /**
      * 查找指定包下的类
-     *
-     * @param packageName
-     * @return
-     * @throws IOException
      */
     public Set<String> findClassNames(String packageName) throws IOException {
         return findClassNames(packageName, name -> true);
@@ -194,10 +222,6 @@ class CollectUtils {
 
     /**
      * 查找指定包下的类
-     *
-     * @param packageName
-     * @return
-     * @throws IOException
      */
     public Set<String> findClassNames(String packageName, Predicate<String> filter) throws IOException {
         Set<String> classNames = new HashSet<>();
@@ -222,7 +246,7 @@ class CollectUtils {
                     while (entries.hasMoreElements()) {
                         JarEntry entry = entries.nextElement();
                         String entryName = entry.getName();
-                        if (entryName.endsWith(".class") && !entry.isDirectory()) {
+                        if (entryName.endsWith(".class") && !entry.isDirectory() && isUnderPath(entryName, path)) {
                             String className = entryName.replace('/', '.').substring(0, entryName.length() - 6);
                             if (filter.test(className)) classNames.add(className);
                         }
@@ -237,9 +261,6 @@ class CollectUtils {
 
     /**
      * 查找根目录的类
-     *
-     * @return
-     * @throws IOException
      */
     public Set<String> findClassNames() throws IOException {
         return findClassNames("");
@@ -247,10 +268,6 @@ class CollectUtils {
 
     /**
      * 查找指定包下的资源
-     *
-     * @param packageName
-     * @return
-     * @throws IOException
      */
     public Set<String> findResources(String packageName) throws IOException {
         return findResources(packageName, (name) -> true);
@@ -258,10 +275,6 @@ class CollectUtils {
 
     /**
      * 查找指定包下的资源
-     *
-     * @param packageName
-     * @return
-     * @throws IOException
      */
     public Set<String> findResources(String packageName, Predicate<String> filter) throws IOException {
         Set<String> resources = new HashSet<>();
@@ -277,7 +290,7 @@ class CollectUtils {
                     File rootDir = new File(decodedPath);
 
                     if (rootDir.exists() && rootDir.isDirectory()) {
-                        findResourcesInDirectory(rootDir, "", resources, filter);
+                        findResourcesInDirectory(rootDir, path, resources, filter);
                     }
                 } catch (Exception e) {
                     e.printStackTrace();
@@ -289,7 +302,7 @@ class CollectUtils {
                     while (entries.hasMoreElements()) {
                         JarEntry entry = entries.nextElement();
                         String entryName = entry.getName();
-                        if (!entryName.endsWith(".class") && !entry.isDirectory()) {
+                        if (!entryName.endsWith(".class") && !entry.isDirectory() && isUnderPath(entryName, path)) {
                             if (filter.test(entryName)) resources.add(entryName);
                         }
                     }
@@ -304,9 +317,6 @@ class CollectUtils {
 
     /**
      * 查找根目录的资源（用户的resources资源目录）
-     *
-     * @return
-     * @throws IOException
      */
     public Set<String> findResources() throws IOException {
         return findResources("");
@@ -314,9 +324,6 @@ class CollectUtils {
 
     /**
      * 是否是启动类
-     *
-     * @param c
-     * @return
      */
     public boolean isMainClass(Class<?> c) {
         for (Method method : c.getMethods()) {
@@ -334,9 +341,6 @@ class CollectUtils {
 
     /**
      * 获取启动类
-     *
-     * @return
-     * @throws IOException
      */
     public Set<Class<?>> findMainClasses() throws IOException {
         Set<Class<?>> classes = findClasses(this::isMainClass);
@@ -346,17 +350,17 @@ class CollectUtils {
 
     /**
      * 从native-image.properties中获取启动类
-     *
-     * @return
-     * @throws IOException
      */
     public Set<Class<?>> findMainClassesFromNativeImageProperties() throws IOException {
         Set<Class<?>> classes = new HashSet<>();
         for (String resource : findResources()) {
             if (resource.endsWith("native-image.properties")) {
                 String content;
-                try (BufferedInputStream inputStream = (BufferedInputStream) classLoader.getResource(resource).getContent()) {
-                    content = new String(inputStream.readAllBytes());
+                try (InputStream inputStream = classLoader.getResourceAsStream(resource)) {
+                    if (inputStream == null) {
+                        continue;
+                    }
+                    content = new String(inputStream.readAllBytes(), StandardCharsets.UTF_8);
                 }
                 String className = parseHClassValue(content);
                 if (className != null) {
@@ -386,9 +390,6 @@ class CollectUtils {
 
     /**
      * 获取启动类所在包名
-     *
-     * @return
-     * @throws IOException
      */
     public Set<String> findMainPackages() throws IOException {
         Set<String> set = new HashSet<>();
