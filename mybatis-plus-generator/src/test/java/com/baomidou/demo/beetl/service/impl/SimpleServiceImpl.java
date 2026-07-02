@@ -3,7 +3,7 @@ package com.baomidou.demo.beetl.service.impl;
 import com.baomidou.demo.beetl.entity.Simple;
 import com.baomidou.demo.beetl.mapper.SimpleMapper;
 import com.baomidou.demo.beetl.service.ISimpleService;
-import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.baomidou.mybatisplus.spring.service.impl.ServiceImpl;
 import org.springframework.stereotype.Service;
 
 /**

@@ -1,6 +1,6 @@
 package com.baomidou.mybatisplus.test.multisqlsessionfactory.a.service.impl;
 
-import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.baomidou.mybatisplus.spring.service.impl.ServiceImpl;
 import com.baomidou.mybatisplus.test.multisqlsessionfactory.a.entity.AEntity;
 import com.baomidou.mybatisplus.test.multisqlsessionfactory.a.mapper.AEntityMapper;
 import com.baomidou.mybatisplus.test.multisqlsessionfactory.a.service.AEntityService;

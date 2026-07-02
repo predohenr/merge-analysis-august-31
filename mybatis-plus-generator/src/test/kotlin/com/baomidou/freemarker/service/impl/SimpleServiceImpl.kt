@@ -3,7 +3,7 @@ package com.baomidou.freemarker.service.impl;
 import com.baomidou.freemarker.entity.Simple;
 import com.baomidou.freemarker.mapper.SimpleMapper;
 import com.baomidou.freemarker.service.ISimpleService;
-import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.baomidou.mybatisplus.spring.service.impl.ServiceImpl;
 import org.springframework.stereotype.Service;
 
 /**

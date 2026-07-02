@@ -266,7 +266,7 @@ public class TableInfo {
         } else {
             if (entity.isActiveRecord()) {
                 // 无父类开启 AR 模式
-                this.importPackages.add("com.baomidou.mybatisplus.extension.activerecord.Model");
+                this.importPackages.add("com.baomidou.mybatisplus.spring.activerecord.Model");
             }
         }
         if (entity.isSerialVersionUID() || entity.isActiveRecord()) {

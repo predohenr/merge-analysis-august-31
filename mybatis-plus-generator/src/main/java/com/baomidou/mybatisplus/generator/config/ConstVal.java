@@ -84,8 +84,8 @@ public interface ConstVal {
     String VM_LOAD_PATH_VALUE = "org.apache.velocity.runtime.resource.loader.ClasspathResourceLoader";
 
     String SUPER_MAPPER_CLASS = "com.baomidou.mybatisplus.core.mapper.BaseMapper";
-    String SUPER_SERVICE_CLASS = "com.baomidou.mybatisplus.extension.service.IService";
-    String SUPER_SERVICE_IMPL_CLASS = "com.baomidou.mybatisplus.extension.service.impl.ServiceImpl";
+    String SUPER_SERVICE_CLASS = "com.baomidou.mybatisplus.spring.service.IService";
+    String SUPER_SERVICE_IMPL_CLASS = "com.baomidou.mybatisplus.spring.service.impl.ServiceImpl";
 
     /**
      * @see com.baomidou.mybatisplus.core.metadata.TableInfoHelper.DEFAULT_ID_NAME

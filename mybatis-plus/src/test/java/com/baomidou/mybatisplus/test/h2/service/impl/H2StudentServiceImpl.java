@@ -1,8 +1,8 @@
 package com.baomidou.mybatisplus.test.h2.service.impl;
 
 import com.baomidou.mybatisplus.core.exceptions.MybatisPlusException;
-import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
-import com.baomidou.mybatisplus.extension.toolkit.SqlRunner;
+import com.baomidou.mybatisplus.spring.service.impl.ServiceImpl;
+import com.baomidou.mybatisplus.spring.toolkit.SqlRunner;
 import com.baomidou.mybatisplus.test.h2.entity.H2Student;
 import com.baomidou.mybatisplus.test.h2.mapper.H2StudentMapper;
 import com.baomidou.mybatisplus.test.h2.service.IH2StudentService;

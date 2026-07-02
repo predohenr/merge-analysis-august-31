@@ -1,6 +1,6 @@
 package com.baomidou.mybatisplus.test.postgresql.service.impl;
 
-import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.baomidou.mybatisplus.spring.service.impl.ServiceImpl;
 import com.baomidou.mybatisplus.test.postgresql.entity.Pgtable;
 import com.baomidou.mybatisplus.test.postgresql.mapper.PgtableMappper;
 import com.baomidou.mybatisplus.test.postgresql.service.IPgtableService;

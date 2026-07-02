@@ -4,7 +4,7 @@ import com.baomidou.mybatisplus.core.injector.SqlRunnerInjector;
 import com.baomidou.mybatisplus.extension.plugins.MybatisPlusInterceptor;
 import com.baomidou.mybatisplus.extension.plugins.inner.PaginationInnerInterceptor;
 import com.baomidou.mybatisplus.extension.toolkit.SqlHelper;
-import com.baomidou.mybatisplus.extension.toolkit.SqlRunner;
+import com.baomidou.mybatisplus.spring.toolkit.SqlRunner;
 import com.baomidou.mybatisplus.test.BaseDbTest;
 import org.apache.ibatis.plugin.Interceptor;
 import org.junit.jupiter.api.Test;

@@ -1,7 +1,7 @@
 package com.baomidou.demo.velocity.service;
 
 import com.baomidou.demo.velocity.entity.Simple;
-import com.baomidou.mybatisplus.extension.service.IService;
+import com.baomidou.mybatisplus.spring.service.IService;
 
 /**
  * <p>

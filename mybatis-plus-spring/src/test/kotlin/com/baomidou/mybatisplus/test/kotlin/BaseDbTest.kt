@@ -8,7 +8,7 @@ import com.baomidou.mybatisplus.core.toolkit.CollectionUtils
 import com.baomidou.mybatisplus.core.toolkit.ExceptionUtils
 import com.baomidou.mybatisplus.core.toolkit.GlobalConfigUtils
 import com.baomidou.mybatisplus.core.toolkit.StringUtils
-import com.baomidou.mybatisplus.extension.toolkit.SqlRunner
+import com.baomidou.mybatisplus.spring.toolkit.SqlRunner
 import org.apache.ibatis.io.Resources
 import org.apache.ibatis.logging.slf4j.Slf4jImpl
 import org.apache.ibatis.mapping.Environment

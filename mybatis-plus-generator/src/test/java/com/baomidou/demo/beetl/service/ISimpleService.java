@@ -1,7 +1,7 @@
 package com.baomidou.demo.beetl.service;
 
 import com.baomidou.demo.beetl.entity.Simple;
-import com.baomidou.mybatisplus.extension.service.IService;
+import com.baomidou.mybatisplus.spring.service.IService;
 
 /**
  * <p>

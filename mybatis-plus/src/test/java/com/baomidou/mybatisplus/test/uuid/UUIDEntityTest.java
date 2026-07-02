@@ -1,7 +1,7 @@
 package com.baomidou.mybatisplus.test.uuid;
 
 import com.baomidou.mybatisplus.core.config.GlobalConfig;
-import com.baomidou.mybatisplus.extension.toolkit.SqlRunner;
+import com.baomidou.mybatisplus.spring.toolkit.SqlRunner;
 import com.baomidou.mybatisplus.test.BaseDbTest;
 import org.apache.ibatis.session.Configuration;
 import org.junit.jupiter.api.Assertions;

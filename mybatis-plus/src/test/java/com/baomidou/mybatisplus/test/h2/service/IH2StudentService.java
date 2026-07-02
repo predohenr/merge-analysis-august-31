@@ -1,6 +1,6 @@
 package com.baomidou.mybatisplus.test.h2.service;
 
-import com.baomidou.mybatisplus.extension.service.IService;
+import com.baomidou.mybatisplus.spring.service.IService;
 import com.baomidou.mybatisplus.test.h2.entity.H2Student;
 
 /**

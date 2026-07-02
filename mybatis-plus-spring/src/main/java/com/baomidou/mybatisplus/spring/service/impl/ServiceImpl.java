@@ -13,10 +13,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package com.baomidou.mybatisplus.spring.service.impl;
+
+import com.baomidou.mybatisplus.core.mapper.BaseMapper;
+import com.baomidou.mybatisplus.spring.repository.CrudRepository;
+import com.baomidou.mybatisplus.spring.service.IService;
+
 /**
- * 通用 Service 接口
+ * IService 实现类（ 泛型：M 是 mapper 对象，T 是实体 ）
  *
  * @author hubin
- * @since 2018-06-08
+ * @since 2018-06-23
  */
-package com.baomidou.mybatisplus.extension.service;
+public class ServiceImpl<M extends BaseMapper<T>, T> extends CrudRepository<M, T> implements IService<T> {
+
+}

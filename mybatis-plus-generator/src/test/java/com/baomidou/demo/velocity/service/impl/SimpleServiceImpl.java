@@ -3,7 +3,7 @@ package com.baomidou.demo.velocity.service.impl;
 import com.baomidou.demo.velocity.entity.Simple;
 import com.baomidou.demo.velocity.mapper.SimpleMapper;
 import com.baomidou.demo.velocity.service.ISimpleService;
-import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.baomidou.mybatisplus.spring.service.impl.ServiceImpl;
 import org.springframework.stereotype.Service;
 
 /**

@@ -1,7 +1,7 @@
 package com.baomidou.demo.freemarker.service;
 
 import com.baomidou.demo.freemarker.entity.Simple;
-import com.baomidou.mybatisplus.extension.service.IService;
+import com.baomidou.mybatisplus.spring.service.IService;
 
 /**
  * <p>

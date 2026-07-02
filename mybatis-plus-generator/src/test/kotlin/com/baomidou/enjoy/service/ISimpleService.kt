@@ -1,7 +1,7 @@
 package com.baomidou.enjoy.service;
 
 import com.baomidou.enjoy.entity.Simple;
-import com.baomidou.mybatisplus.extension.service.IService;
+import com.baomidou.mybatisplus.spring.service.IService;
 
 /**
  * <p>
