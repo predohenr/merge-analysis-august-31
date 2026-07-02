@@ -57,11 +57,29 @@ public class DeleteById extends AbstractMethod {
                 .filter(TableFieldInfo::isWithUpdateFill)
                 .filter(f -> !f.isLogicDelete())
                 .collect(toList());
-            if (CollectionUtils.isNotEmpty(fieldInfos)) {
-                String sqlSet = "SET " + SqlScriptUtils.convertIf(fieldInfos.stream()
-                    .map(i -> i.getSqlSet(EMPTY)).collect(joining(EMPTY)),
-                    "@org.apache.ibatis.reflection.SystemMetaObject@forObject(_parameter).findProperty('" + tableInfo.getKeyProperty() + "', false) != null", true)
-                    + tableInfo.getLogicDeleteSql(false, false);
+            TableFieldInfo logicDeleteField = tableInfo.getLogicDeleteFieldInfo();
+            boolean logicDeleteWithFill = logicDeleteField != null && logicDeleteField.isWithUpdateFill();
+            if (CollectionUtils.isNotEmpty(fieldInfos) || logicDeleteWithFill) {
+                String entityCondition = "@org.apache.ibatis.reflection.SystemMetaObject@forObject(_parameter).findProperty('" + tableInfo.getKeyProperty() + "', false) != null";
+                String fillSetSql = fieldInfos.stream().map(i -> i.getSqlSet(EMPTY)).collect(joining(EMPTY));
+                String sqlSet;
+                if (logicDeleteWithFill) {
+                    // When deleting with an entity parameter, use the fill value if non-null; otherwise fall back to the static logic-delete value.
+                    String logicDeleteProperty = logicDeleteField.getProperty();
+                    String fillSql = logicDeleteField.getSqlSet(true, EMPTY);
+                    // Strip the trailing comma from the fill sql since it is the last SET item.
+                    fillSql = fillSql.substring(0, fillSql.length() - COMMA.length());
+                    String whenCondition = entityCondition;
+                    String logicDeleteChoose = SqlScriptUtils.convertChoose(whenCondition, fillSql, tableInfo.getLogicDeleteSql(false, false));
+                    if (CollectionUtils.isNotEmpty(fieldInfos)) {
+                        sqlSet = "SET " + SqlScriptUtils.convertIf(fillSetSql, entityCondition, true) + logicDeleteChoose;
+                    } else {
+                        sqlSet = "SET " + logicDeleteChoose;
+                    }
+                } else {
+                    sqlSet = "SET " + SqlScriptUtils.convertIf(fillSetSql, entityCondition, true)
+                        + tableInfo.getLogicDeleteSql(false, false);
+                }
                 sql = SqlMethod.LOGIC_DELETE_BY_ID.format(tableInfo.getTableName(), sqlSet, tableInfo.getKeyColumn(),
                     tableInfo.getKeyProperty(), tableInfo.getLogicDeleteSql(true, true));
             } else {
