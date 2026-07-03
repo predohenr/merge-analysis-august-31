@@ -7,6 +7,8 @@ import com.baomidou.mybatisplus.generator.config.rules.DbColumnType;
 import org.apache.ibatis.type.JdbcType;
 import org.jetbrains.annotations.NotNull;
 
+import java.util.Objects;
+
 /**
  * Customizes generator field metadata after type conversion and before templates render.
  * <p>
@@ -41,4 +43,20 @@ public interface ITableFieldMetaInfoCustomizer {
      * @param tableField current field info, including {@link TableField.MetaInfo}
      */
     void customize(@NotNull TableInfo tableInfo, @NotNull TableField tableField);
+
+    /**
+     * Returns a composed customizer that performs this customizer,
+     * followed by the {@code after} customizer.
+     *
+     * @param after the customizer to perform after this customizer
+     * @return a composed customizer
+     */
+    @NotNull
+    default ITableFieldMetaInfoCustomizer andThen(@NotNull ITableFieldMetaInfoCustomizer after) {
+        Objects.requireNonNull(after, "after");
+        return (tableInfo, tableField) -> {
+            customize(tableInfo, tableField);
+            after.customize(tableInfo, tableField);
+        };
+    }
 }
