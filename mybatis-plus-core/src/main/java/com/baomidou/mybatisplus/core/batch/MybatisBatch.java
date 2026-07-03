@@ -29,7 +29,6 @@ import org.apache.ibatis.session.SqlSessionFactory;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.BiPredicate;
@@ -290,6 +289,7 @@ public class MybatisBatch<T> {
         public <E> BatchMethod<E> update(Function<E, Wrapper<T>> wrapperFunction) {
             return new BatchMethod<>(namespace + StringPool.DOT + SqlMethod.UPDATE.getMethod(), (parameter) -> {
                 Map<String, Object> param = new MapperMethod.ParamMap<>();
+                param.put(Constants.ENTITY, null);
                 param.put(Constants.WRAPPER, wrapperFunction.apply(parameter));
                 return param;
             });
