@@ -48,4 +48,12 @@ public class H2User2 extends SuperEntity {
     @TableField("created_dt")
     private LocalDateTime createdDt;
 
+    public H2User2() {
+
+    }
+
+    public H2User2(Long testId, String name) {
+        this.setTestId(testId);
+        this.name = name;
+    }
 }
