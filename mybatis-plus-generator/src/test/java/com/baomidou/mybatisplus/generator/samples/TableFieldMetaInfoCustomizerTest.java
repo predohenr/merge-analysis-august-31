@@ -1,5 +1,6 @@
 package com.baomidou.mybatisplus.generator.samples;
 
+import com.baomidou.mybatisplus.generator.AutoGenerator;
 import com.baomidou.mybatisplus.generator.config.DataSourceConfig;
 import com.baomidou.mybatisplus.generator.config.GlobalConfig;
 import com.baomidou.mybatisplus.generator.config.StrategyConfig;
@@ -8,12 +9,18 @@ import com.baomidou.mybatisplus.generator.config.po.TableField;
 import com.baomidou.mybatisplus.generator.config.po.TableInfo;
 import com.baomidou.mybatisplus.generator.config.querys.H2Query;
 import com.baomidou.mybatisplus.generator.config.rules.DbColumnType;
+import com.baomidou.mybatisplus.generator.model.AnnotationAttributes;
 import com.baomidou.mybatisplus.generator.query.DefaultQuery;
 import com.baomidou.mybatisplus.generator.query.SQLQuery;
 import org.apache.ibatis.type.JdbcType;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.sql.SQLException;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -159,5 +166,32 @@ class TableFieldMetaInfoCustomizerTest extends BaseGeneratorTest {
         public String fieldType() {
             return "DATA_TYPE";
         }
+    }
+
+    @Test
+    void shouldGenerateImportForCustomizedFieldAnnotation(@TempDir Path outputDir) throws IOException {
+        StrategyConfig strategyConfig = new StrategyConfig.Builder()
+            .addInclude("t_simple")
+            .addTablePrefix("t_")
+            .entityBuilder()
+            .tableFieldMetaInfoCustomizer((tableInfo, tableField) -> {
+                if ("name".equals(tableField.getColumnName())) {
+                    tableField.addAnnotationAttributesList(new AnnotationAttributes("@Sensitive",
+                        "com.example.security.Sensitive"));
+                }
+            })
+            .mapperBuilder().disable()
+            .serviceBuilder().disable()
+            .controllerBuilder().disable()
+            .build();
+        GlobalConfig globalConfig = globalConfig().disableOpenDir().outputDir(outputDir.toString()).build();
+
+        AutoGenerator generator = new AutoGenerator(DATA_SOURCE_CONFIG);
+        generator.config(new ConfigBuilder(null, DATA_SOURCE_CONFIG, strategyConfig, null, globalConfig, null));
+        generator.execute();
+
+        String entity = Files.readString(outputDir.resolve("com/baomidou/entity/Simple.java"));
+        assertThat(entity).contains("import com.example.security.Sensitive;");
+        assertThat(entity).contains("@Sensitive");
     }
 }
