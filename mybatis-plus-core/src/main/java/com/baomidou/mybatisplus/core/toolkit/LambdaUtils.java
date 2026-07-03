@@ -19,6 +19,7 @@ import com.baomidou.mybatisplus.core.metadata.TableInfo;
 import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
 import com.baomidou.mybatisplus.core.toolkit.support.*;
 
+import java.lang.invoke.MethodHandleProxies;
 import java.lang.invoke.SerializedLambda;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
@@ -71,7 +72,11 @@ public final class LambdaUtils {
     public static <T> LambdaMeta extract(SFunction<T, ?> func) {
         // 1. IDEA 调试模式下 lambda 表达式是一个代理
         if (func instanceof Proxy) {
-            return new IdeaProxyLambdaMeta((Proxy) func);
+            if (MethodHandleProxies.isWrapperInstance(func)) {
+                return new IdeaProxyLambdaMeta((Proxy) func);
+            }
+            // Groovy 脚本中 :: 方法引用也会生成代理，使用 GroovyLambdaMeta 解析
+            return new GroovyLambdaMeta((Proxy) func);
         }
         // 2. 反射读取
         try {
