@@ -1,11 +1,33 @@
 package com.baomidou.mybatisplus.generator;
 
+import com.baomidou.mybatisplus.generator.config.StrategyConfig;
 import com.baomidou.mybatisplus.generator.config.po.TableField;
 import com.baomidou.mybatisplus.generator.config.po.TableInfo;
+import com.baomidou.mybatisplus.generator.config.rules.DbColumnType;
+import org.apache.ibatis.type.JdbcType;
 import org.jetbrains.annotations.NotNull;
 
 /**
  * Customizes generator field metadata after type conversion and before templates render.
+ * <p>
+ * The customizer runs after the database metadata has been converted to {@link TableField.MetaInfo}
+ * and {@link TableField#setColumnType(com.baomidou.mybatisplus.generator.config.rules.IColumnType) column type},
+ * and before property-name conversion, annotation handling,
+ * import collection, and template rendering.
+ * <p>
+ * Example: keep most fields on the default conversion path, but adjust a special database type such
+ * as {@code POINT} before generated templates see it:
+ * <pre>{@code
+ * new StrategyConfig.Builder()
+ *     .entityBuilder()
+ *     .tableFieldMetaInfoCustomizer((tableInfo, tableField) -> {
+ *         TableField.MetaInfo metaInfo = tableField.getMetaInfo();
+ *         if ("POINT".equalsIgnoreCase(metaInfo.getTypeName())) {
+ *             metaInfo.setJdbcType(JdbcType.OTHER);
+ *             tableField.setColumnType(DbColumnType.OBJECT);
+ *         }
+ *     });
+ * }</pre>
  *
  * @since 3.5.18
  */

@@ -757,7 +757,16 @@ public class Entity implements ITemplate {
         }
 
         /**
-         * Add table field meta info customizers.
+         * Customize table field metadata after type conversion and before property-name conversion,
+         * annotation handling, import collection, and template rendering.
+         * <p>
+         * This is useful for special database types or custom value objects that need to adjust
+         * {@link com.baomidou.mybatisplus.generator.config.po.TableField.MetaInfo} and the field column
+         * type before generated entity templates consume the field.
+         *
+         * @param tableFieldMetaInfoCustomizer table field meta info customizer
+         * @return this
+         * @since 3.5.18
          */
         public Builder tableFieldMetaInfoCustomizer(@NotNull ITableFieldMetaInfoCustomizer tableFieldMetaInfoCustomizer) {
             this.entity.tableFieldMetaInfoCustomizer = tableFieldMetaInfoCustomizer;
