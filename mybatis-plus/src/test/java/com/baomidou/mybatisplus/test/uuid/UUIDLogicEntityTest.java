@@ -26,6 +26,7 @@ public class UUIDLogicEntityTest extends BaseDbTest<UUIDLogicEntityMapper> {
             Assertions.assertEquals(1, m.insert(uuidEntity));
             Assertions.assertNotNull(m.selectById(uuidEntity.getId()));
             Assertions.assertEquals(1, m.deleteById(uuidEntity));
+            Assertions.assertNull(m.selectById(uuidEntity.getId()));
         });
 
         doTest(m -> {
@@ -35,6 +36,7 @@ public class UUIDLogicEntityTest extends BaseDbTest<UUIDLogicEntityMapper> {
             uuidEntity.setDeleted(false);
             Assertions.assertEquals(1, m.insert(uuidEntity));
             Assertions.assertEquals(1, m.deleteByIds(List.of(uuidEntity.getId())));
+            Assertions.assertNull(m.selectById(uuidEntity.getId()));
         });
 
         doTest(m -> {
@@ -44,6 +46,7 @@ public class UUIDLogicEntityTest extends BaseDbTest<UUIDLogicEntityMapper> {
             uuidEntity.setDeleted(false);
             Assertions.assertEquals(1, m.insert(uuidEntity));
             Assertions.assertEquals(1, m.deleteByIds(List.of(uuidEntity)));
+            Assertions.assertNull(m.selectById(uuidEntity.getId()));
         });
 
 

@@ -129,7 +129,8 @@ public interface BaseMapper<T> extends Mapper<T> {
             Assert.notNull(tableInfo, "Can not get TableInfo for entity " + entityClass);
             String keyProperty = tableInfo.getKeyProperty();
             Assert.notEmpty(keyProperty, "The current table has no primary key.");
-            if (tableInfo.isWithLogicDelete() && tableInfo.isWithUpdateFill()) {
+            if (tableInfo.isWithLogicDelete() && tableInfo.isWithUpdateFill()
+                && !tableInfo.getLogicDeleteFieldInfo().isWithUpdateFill()) {
                 T instance = tableInfo.newInstance();
                 tableInfo.setPropertyValue(instance, keyProperty, OgnlOps.convertValue(obj, tableInfo.getKeyType()));
                 return this.deleteById(instance);

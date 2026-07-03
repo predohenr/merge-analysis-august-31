@@ -64,13 +64,9 @@ public class DeleteById extends AbstractMethod {
                 String fillSetSql = fieldInfos.stream().map(i -> i.getSqlSet(EMPTY)).collect(joining(EMPTY));
                 String sqlSet;
                 if (logicDeleteWithFill) {
-                    // When deleting with an entity parameter, use the fill value if non-null; otherwise fall back to the static logic-delete value.
-                    String logicDeleteProperty = logicDeleteField.getProperty();
                     String fillSql = logicDeleteField.getSqlSet(true, EMPTY);
-                    // Strip the trailing comma from the fill sql since it is the last SET item.
                     fillSql = fillSql.substring(0, fillSql.length() - COMMA.length());
-                    String whenCondition = entityCondition;
-                    String logicDeleteChoose = SqlScriptUtils.convertChoose(whenCondition, fillSql, tableInfo.getLogicDeleteSql(false, false));
+                    String logicDeleteChoose = SqlScriptUtils.convertChoose(entityCondition, fillSql, tableInfo.getLogicDeleteSql(false, false));
                     if (CollectionUtils.isNotEmpty(fieldInfos)) {
                         sqlSet = "SET " + SqlScriptUtils.convertIf(fillSetSql, entityCondition, true) + logicDeleteChoose;
                     } else {

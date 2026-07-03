@@ -16,7 +16,9 @@
 package com.baomidou.mybatisplus.core;
 
 import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.core.enums.SqlMethod;
 import com.baomidou.mybatisplus.core.incrementer.IdentifierGenerator;
+import com.baomidou.mybatisplus.core.metadata.TableFieldInfo;
 import com.baomidou.mybatisplus.core.metadata.TableInfo;
 import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
 import com.baomidou.mybatisplus.core.toolkit.ArrayUtils;
@@ -110,8 +112,28 @@ public class MybatisParameterHandler extends DefaultParameterHandler {
                     insertFill(metaObject, tableInfo);
                 } else {
                     updateFill(metaObject, tableInfo);
+                    fillLogicDeleteValue(metaObject, tableInfo);
                 }
             }
+        }
+    }
+
+    protected void fillLogicDeleteValue(MetaObject metaObject, TableInfo tableInfo) {
+        if (!tableInfo.isWithLogicDelete()) {
+            return;
+        }
+        TableFieldInfo logicDeleteFieldInfo = tableInfo.getLogicDeleteFieldInfo();
+        if (logicDeleteFieldInfo == null || !logicDeleteFieldInfo.isWithUpdateFill()) {
+            return;
+        }
+        String methodName = mappedStatement.getId().substring(mappedStatement.getId().lastIndexOf('.') + 1);
+        if (!SqlMethod.DELETE_BY_ID.getMethod().equals(methodName) && !SqlMethod.DELETE_BY_IDS.getMethod().equals(methodName)) {
+            return;
+        }
+        String property = logicDeleteFieldInfo.getProperty();
+        Object currentValue = metaObject.getValue(property);
+        if (currentValue == null || String.valueOf(currentValue).equals(logicDeleteFieldInfo.getLogicNotDeleteValue())) {
+            metaObject.setValue(property, OgnlOps.convertValue(logicDeleteFieldInfo.getLogicDeleteValue(), logicDeleteFieldInfo.getPropertyType()));
         }
     }
 
