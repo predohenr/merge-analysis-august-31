@@ -77,6 +77,28 @@ class CollectUtilsTest {
     }
 
     @Test
+    void findResourcesScansJarEntriesWithoutDirectoryEntries() throws Exception {
+        Path jar = Files.createTempFile("aot-resources-no-directories", ".jar");
+        writeJar(jar,
+            "com/example/mapper/UserMapper.xml",
+            "mapper/OrderMapper.xml",
+            "logback.xml"
+        );
+
+        try (URLClassLoader classLoader = new URLClassLoader(new URL[]{jar.toUri().toURL()}, null)) {
+            CollectUtils collectUtils = new CollectUtils(classLoader);
+
+            Set<String> mapperResources = collectUtils.findResources("", CollectUtils::isMapperXmlResource);
+            Set<String> resourcesUnderMapper = collectUtils.findResources("mapper", name -> name.endsWith(".xml"));
+
+            assertTrue(mapperResources.contains("com/example/mapper/UserMapper.xml"));
+            assertTrue(mapperResources.contains("mapper/OrderMapper.xml"));
+            assertFalse(mapperResources.contains("logback.xml"));
+            assertTrue(resourcesUnderMapper.contains("mapper/OrderMapper.xml"));
+        }
+    }
+
+    @Test
     void mapperXmlFilterExcludesNonMapperXmlByDefault() {
         assertTrue(CollectUtils.isMapperXmlResource("mapper/UserMapper.xml"));
         assertTrue(CollectUtils.isMapperXmlResource("com/example/mapper/UserMapper.xml"));

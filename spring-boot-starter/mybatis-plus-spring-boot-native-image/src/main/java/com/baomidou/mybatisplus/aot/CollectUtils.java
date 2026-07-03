@@ -22,7 +22,9 @@ import java.lang.annotation.Annotation;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
+import java.net.JarURLConnection;
 import java.net.URL;
+import java.net.URLClassLoader;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
@@ -200,6 +202,124 @@ class CollectUtils {
         return path.isEmpty() || entryName.startsWith(path + "/");
     }
 
+    private Set<URL> findClasspathRoots(String path) throws IOException {
+        Set<URL> roots = new LinkedHashSet<>();
+        Enumeration<URL> resources = classLoader.getResources(path);
+        while (resources.hasMoreElements()) {
+            roots.add(resources.nextElement());
+        }
+        collectClassLoaderUrls(classLoader, roots);
+        collectJavaClassPathUrls(roots);
+        return roots;
+    }
+
+    private void collectClassLoaderUrls(ClassLoader loader, Set<URL> roots) {
+        ClassLoader current = loader;
+        while (current != null) {
+            if (current instanceof URLClassLoader urlClassLoader) {
+                roots.addAll(Arrays.asList(urlClassLoader.getURLs()));
+            }
+            current = current.getParent();
+        }
+    }
+
+    private void collectJavaClassPathUrls(Set<URL> roots) {
+        String classPath = System.getProperty("java.class.path");
+        if (classPath == null || classPath.isBlank()) {
+            return;
+        }
+        for (String item : classPath.split(Pattern.quote(File.pathSeparator))) {
+            if (item.isBlank()) {
+                continue;
+            }
+            File file = new File(item);
+            if (!file.exists()) {
+                continue;
+            }
+            try {
+                roots.add(file.toURI().toURL());
+            } catch (Exception ignored) {
+            }
+        }
+    }
+
+    private File resolveDirectory(File directory, String path) {
+        if (path.isEmpty()) {
+            return directory;
+        }
+        String normalizedDirectory = directory.toPath().normalize().toString().replace(File.separatorChar, '/');
+        if (normalizedDirectory.equals(path) || normalizedDirectory.endsWith("/" + path)) {
+            return directory;
+        }
+        File nestedDirectory = new File(directory, path);
+        return nestedDirectory.isDirectory() ? nestedDirectory : null;
+    }
+
+    private String getJarFilePath(URL url) throws IOException {
+        if ("jar".equals(url.getProtocol())) {
+            try {
+                JarURLConnection connection = (JarURLConnection) url.openConnection();
+                return new File(connection.getJarFileURL().toURI()).getPath();
+            } catch (Exception ignored) {
+                String file = url.getFile();
+                int separatorIndex = file.indexOf('!');
+                if (separatorIndex < 0) {
+                    return null;
+                }
+                String jarPath = file.substring(0, separatorIndex);
+                if (jarPath.startsWith("file:")) {
+                    jarPath = jarPath.substring(5);
+                }
+                return URLDecoder.decode(jarPath, StandardCharsets.UTF_8);
+            }
+        }
+        if ("file".equals(url.getProtocol())) {
+            try {
+                File file = new File(url.toURI());
+                if (file.isFile() && file.getName().endsWith(".jar")) {
+                    return file.getPath();
+                }
+            } catch (Exception ignored) {
+                File file = new File(URLDecoder.decode(url.getFile(), StandardCharsets.UTF_8));
+                if (file.isFile() && file.getName().endsWith(".jar")) {
+                    return file.getPath();
+                }
+            }
+        }
+        return null;
+    }
+
+    private void findClassNamesInJar(String jarPath, String path, Set<String> classNames, Predicate<String> filter) {
+        try (JarFile jar = new JarFile(jarPath)) {
+            Enumeration<JarEntry> entries = jar.entries();
+            while (entries.hasMoreElements()) {
+                JarEntry entry = entries.nextElement();
+                String entryName = entry.getName();
+                if (entryName.endsWith(".class") && !entry.isDirectory() && isUnderPath(entryName, path)) {
+                    String className = entryName.replace('/', '.').substring(0, entryName.length() - 6);
+                    if (filter.test(className)) classNames.add(className);
+                }
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void findResourcesInJar(String jarPath, String path, Set<String> resources, Predicate<String> filter) {
+        try (JarFile jar = new JarFile(jarPath)) {
+            Enumeration<JarEntry> entries = jar.entries();
+            while (entries.hasMoreElements()) {
+                JarEntry entry = entries.nextElement();
+                String entryName = entry.getName();
+                if (!entryName.endsWith(".class") && !entry.isDirectory() && isUnderPath(entryName, path)) {
+                    if (filter.test(entryName)) resources.add(entryName);
+                }
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
     public static boolean isMapperXmlResource(String resourceName) {
         if (!resourceName.endsWith(".xml")) {
             return false;
@@ -226,30 +346,18 @@ class CollectUtils {
     public Set<String> findClassNames(String packageName, Predicate<String> filter) throws IOException {
         Set<String> classNames = new HashSet<>();
         String path = packageName.replace('.', '/');
-        Enumeration<URL> resources = classLoader.getResources(path);
-        while (resources.hasMoreElements()) {
-            URL resource = resources.nextElement();
+        for (URL resource : findClasspathRoots(path)) {
+            String jarPath = getJarFilePath(resource);
+            if (jarPath != null) {
+                findClassNamesInJar(jarPath, path, classNames, filter);
+                continue;
+            }
             String protocol = resource.getProtocol();
             if ("file".equals(protocol)) {
                 try {
-                    File directory = new File(URLDecoder.decode(resource.getFile(), StandardCharsets.UTF_8));
-                    if (directory.exists()) {
+                    File directory = resolveDirectory(new File(resource.toURI()), path);
+                    if (directory != null && directory.exists()) {
                         findClassesInDirectory(directory, packageName, classNames, filter);
-                    }
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
-            } else if ("jar".equals(protocol)) {
-                String jarPath = resource.getFile().substring(5, resource.getFile().indexOf('!'));
-                try (JarFile jar = new JarFile(URLDecoder.decode(jarPath, StandardCharsets.UTF_8))) {
-                    Enumeration<JarEntry> entries = jar.entries();
-                    while (entries.hasMoreElements()) {
-                        JarEntry entry = entries.nextElement();
-                        String entryName = entry.getName();
-                        if (entryName.endsWith(".class") && !entry.isDirectory() && isUnderPath(entryName, path)) {
-                            String className = entryName.replace('/', '.').substring(0, entryName.length() - 6);
-                            if (filter.test(className)) classNames.add(className);
-                        }
                     }
                 } catch (Exception e) {
                     e.printStackTrace();
@@ -279,32 +387,20 @@ class CollectUtils {
     public Set<String> findResources(String packageName, Predicate<String> filter) throws IOException {
         Set<String> resources = new HashSet<>();
         String path = packageName.replace('.', '/');
-        Enumeration<URL> roots = classLoader.getResources(path);
-        while (roots.hasMoreElements()) {
-            URL root = roots.nextElement();
+        for (URL root : findClasspathRoots(path)) {
+            String jarPath = getJarFilePath(root);
+            if (jarPath != null) {
+                findResourcesInJar(jarPath, path, resources, filter);
+                continue;
+            }
             String protocol = root.getProtocol();
 
             if ("file".equals(protocol)) {
                 try {
-                    String decodedPath = URLDecoder.decode(root.getFile(), StandardCharsets.UTF_8);
-                    File rootDir = new File(decodedPath);
+                    File rootDir = resolveDirectory(new File(root.toURI()), path);
 
-                    if (rootDir.exists() && rootDir.isDirectory()) {
+                    if (rootDir != null && rootDir.exists() && rootDir.isDirectory()) {
                         findResourcesInDirectory(rootDir, path, resources, filter);
-                    }
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
-            } else if ("jar".equals(protocol)) {
-                String jarPath = root.getFile().substring(5, root.getFile().indexOf('!'));
-                try (JarFile jar = new JarFile(URLDecoder.decode(jarPath, StandardCharsets.UTF_8))) {
-                    Enumeration<JarEntry> entries = jar.entries();
-                    while (entries.hasMoreElements()) {
-                        JarEntry entry = entries.nextElement();
-                        String entryName = entry.getName();
-                        if (!entryName.endsWith(".class") && !entry.isDirectory() && isUnderPath(entryName, path)) {
-                            if (filter.test(entryName)) resources.add(entryName);
-                        }
                     }
                 } catch (Exception e) {
                     e.printStackTrace();
