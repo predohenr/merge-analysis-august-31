@@ -35,7 +35,6 @@ import org.apache.ibatis.executor.Executor;
 import org.apache.ibatis.executor.statement.StatementHandler;
 import org.apache.ibatis.mapping.BoundSql;
 import org.apache.ibatis.mapping.MappedStatement;
-import org.apache.ibatis.mapping.SqlCommandType;
 import org.apache.ibatis.session.ResultHandler;
 import org.apache.ibatis.session.RowBounds;
 
@@ -54,7 +53,7 @@ import java.util.Properties;
 @EqualsAndHashCode(callSuper = true)
 @SuppressWarnings({"rawtypes"})
 public class TenantLineInnerInterceptor extends BaseMultiTableInnerInterceptor implements InnerInterceptor {
-
+    private static final String TENANT_LINE_ALREADY_PARSED = "_MP_TENANT_LINE_ALREADY_PARSED";
     private TenantLineHandler tenantLineHandler;
 
     @Override
@@ -62,6 +61,7 @@ public class TenantLineInnerInterceptor extends BaseMultiTableInnerInterceptor i
         if (InterceptorIgnoreHelper.willIgnoreTenantLine(ms.getId())) {
             return;
         }
+        boundSql.setAdditionalParameter(TENANT_LINE_ALREADY_PARSED, true);
         PluginUtils.MPBoundSql mpBs = PluginUtils.mpBoundSql(boundSql);
         mpBs.sql(parserSingle(mpBs.sql(), null));
     }
@@ -69,9 +69,9 @@ public class TenantLineInnerInterceptor extends BaseMultiTableInnerInterceptor i
     @Override
     public void beforePrepare(StatementHandler sh, Connection connection, Integer transactionTimeout) {
         PluginUtils.MPStatementHandler mpSh = PluginUtils.mpStatementHandler(sh);
-        MappedStatement ms = mpSh.mappedStatement();
-        SqlCommandType sct = ms.getSqlCommandType();
-        if (sct == SqlCommandType.INSERT || sct == SqlCommandType.UPDATE || sct == SqlCommandType.DELETE) {
+        BoundSql boundSql = mpSh.boundSql();
+        if (!boundSql.hasAdditionalParameter(TENANT_LINE_ALREADY_PARSED)) {
+            MappedStatement ms = mpSh.mappedStatement();
             if (InterceptorIgnoreHelper.willIgnoreTenantLine(ms.getId())) {
                 return;
             }
