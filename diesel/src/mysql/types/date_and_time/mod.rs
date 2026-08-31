@@ -84,7 +84,7 @@ impl MysqlTime {
         feature = "i-implement-a-third-party-backend-and-opt-into-breaking-changes"
     )]
     #[allow(unsafe_code)] // manual serialization of a type to a byte array
-    pub(crate) fn serialize(&self) -> [u8; mem::size_of::<MysqlTime>()] {
+    pub(crate) fn serialize(&self) -> [u8; core::mem::size_of::<Self>()] {
         unsafe fn copy_bytes<T>(out: &mut [u8], field_ptr: &T, start: *const MysqlTime)
         where
             T: Copy,
