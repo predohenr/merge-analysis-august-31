@@ -125,6 +125,21 @@ fn msrv_1_70() {
     //~^ map_unwrap_or
 }
 
+fn issue15752() {
+    struct Foo<'a>(&'a [u32]);
+
+    let x = Some(Foo(&[1, 2, 3]));
+    x.map(|y| y.0).unwrap_or(&[]);
+    //~^ map_unwrap_or
+}
+
+fn issue16901() {
+    let raw = String::from("scope:value");
+    let after_scope = raw.split_once(':').map(|(_, v)| v).unwrap_or(&raw);
+    //~^ map_unwrap_or
+    let _: &str = after_scope;
+}
+
 mod issue_10579 {
     // Different variations of the same issue.
     fn v1() {
@@ -152,19 +167,4 @@ mod issue_10579 {
         let y = Some(()).map(|_| s.v.clone()).unwrap_or(s.v);
         println!("{y:?}");
     }
-}
-
-fn issue15752() {
-    struct Foo<'a>(&'a [u32]);
-
-    let x = Some(Foo(&[1, 2, 3]));
-    x.map(|y| y.0).unwrap_or(&[]);
-    //~^ map_unwrap_or
-}
-
-fn issue16901() {
-    let raw = String::from("scope:value");
-    let after_scope = raw.split_once(':').map(|(_, v)| v).unwrap_or(&raw);
-    //~^ map_unwrap_or
-    let _: &str = after_scope;
 }
