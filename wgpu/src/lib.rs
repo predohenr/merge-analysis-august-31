@@ -659,7 +659,9 @@ impl core::Renderer for Renderer {
     fn allocate_image(
         &self,
         _handle: &core::image::Handle,
-        _callback: impl FnOnce(Result<core::image::Allocation, core::image::Error>) + Send + 'static,
+        _callback: impl FnOnce(Result<core::image::Allocation, core::image::Error>)
+        + Send
+        + 'static,
     ) {
         #[cfg(feature = "image")]
         self.image_cache
@@ -873,7 +875,8 @@ impl renderer::Headless for Renderer {
         }
 
         let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor {
-            backends: wgpu::Backends::from_env().unwrap_or(wgpu::Backends::PRIMARY),
+            backends: wgpu::Backends::from_env()
+                .unwrap_or(wgpu::Backends::PRIMARY),
             flags: wgpu::InstanceFlags::empty(),
             ..wgpu::InstanceDescriptor::default()
         });
