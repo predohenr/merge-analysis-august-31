@@ -12,6 +12,47 @@ use crate::clint;
 use crate::interrupts;
 use rv32i::pmp::{simple::SimplePMP, PMPUserMPU};
 
+/// Trap handler for board/chip specific code.
+///
+/// For the arty-e21 this gets called when an interrupt occurs while the chip is
+/// in kernel mode. All we need to do is check which interrupt occurred and
+/// disable it.
+#[export_name = "_start_trap_rust_from_kernel"]
+pub extern "C" fn start_trap_rust() {
+    let mcause = rv32i::csr::CSR.mcause.extract();
+
+    match rv32i::csr::mcause::Trap::from(mcause) {
+        rv32i::csr::mcause::Trap::Interrupt(_interrupt) => {
+            // Since we are using the CLIC, the hardware includes the interrupt
+            // index in the mcause register. The interrupt number is the lowest
+            // 8 bits.
+            let interrupt_index = mcause.read(rv32i::csr::mcause::mcause::reason) & 0xFF;
+            unsafe {
+                rv32i::clic::disable_interrupt(interrupt_index as u32);
+            }
+        }
+
+        rv32i::csr::mcause::Trap::Exception(_exception) => {
+            // Otherwise, the kernel encountered a fault...so panic!()?
+            panic!("kernel exception");
+        }
+    }
+}
+
+/// Function that gets called if an interrupt occurs while an app was running.
+///
+/// mcause is passed in, and this function should correctly handle disabling the
+/// interrupt that fired so that it does not trigger again.
+#[export_name = "_disable_interrupt_trap_rust_from_app"]
+pub extern "C" fn disable_interrupt_trap_handler(mcause: u32) {
+    // The interrupt number is then the lowest 8
+    // bits.
+    let interrupt_index = mcause & 0xFF;
+    unsafe {
+        rv32i::clic::disable_interrupt(interrupt_index);
+    }
+}
+
 pub type ArtyExxClint<'a> = sifive::clint::Clint<'a, Freq32KHz>;
 
 pub struct ArtyExx<'a, I: InterruptService + 'a> {
@@ -36,11 +77,11 @@ impl ArtyExxDefaultPeripherals<'_> {
             uart0: sifive::uart::Uart::new(crate::uart::UART0_BASE, 32_000_000),
         }
     }
-
-    // Resolves any circular dependencies and sets up deferred calls
     pub fn init(&'static self) {
         kernel::deferred_call::DeferredCallClient::register(&self.uart0);
     }
+
+    // Resolves any circular dependencies and sets up deferred calls
 }
 
 impl InterruptService for ArtyExxDefaultPeripherals<'_> {
@@ -188,46 +229,5 @@ impl<'a, I: InterruptService + 'a> kernel::platform::chip::Chip for ArtyExx<'a, 
 
     unsafe fn print_state(&self, write: &mut dyn Write) {
         rv32i::print_riscv_state(write);
-    }
-}
-
-/// Trap handler for board/chip specific code.
-///
-/// For the arty-e21 this gets called when an interrupt occurs while the chip is
-/// in kernel mode. All we need to do is check which interrupt occurred and
-/// disable it.
-#[export_name = "_start_trap_rust_from_kernel"]
-pub extern "C" fn start_trap_rust() {
-    let mcause = rv32i::csr::CSR.mcause.extract();
-
-    match rv32i::csr::mcause::Trap::from(mcause) {
-        rv32i::csr::mcause::Trap::Interrupt(_interrupt) => {
-            // Since we are using the CLIC, the hardware includes the interrupt
-            // index in the mcause register. The interrupt number is the lowest
-            // 8 bits.
-            let interrupt_index = mcause.read(rv32i::csr::mcause::mcause::reason) & 0xFF;
-            unsafe {
-                rv32i::clic::disable_interrupt(interrupt_index as u32);
-            }
-        }
-
-        rv32i::csr::mcause::Trap::Exception(_exception) => {
-            // Otherwise, the kernel encountered a fault...so panic!()?
-            panic!("kernel exception");
-        }
-    }
-}
-
-/// Function that gets called if an interrupt occurs while an app was running.
-///
-/// mcause is passed in, and this function should correctly handle disabling the
-/// interrupt that fired so that it does not trigger again.
-#[export_name = "_disable_interrupt_trap_rust_from_app"]
-pub extern "C" fn disable_interrupt_trap_handler(mcause: u32) {
-    // The interrupt number is then the lowest 8
-    // bits.
-    let interrupt_index = mcause & 0xFF;
-    unsafe {
-        rv32i::clic::disable_interrupt(interrupt_index);
     }
 }
