@@ -8,19 +8,6 @@
 
 use core::fmt::Write;
 
-pub mod mpu {
-    use kernel::utilities::StaticRef;
-
-    pub type MPU = cortexm::mpu::MPU<8, 32>;
-
-    const MPU_BASE_ADDRESS: StaticRef<cortexm::mpu::MpuRegisters> =
-        unsafe { StaticRef::new(0xE000ED90 as *const cortexm::mpu::MpuRegisters) };
-
-    pub unsafe fn new() -> MPU {
-        MPU::new(MPU_BASE_ADDRESS)
-    }
-}
-
 pub use cortexm::dwt;
 pub use cortexm::initialize_ram_jump_to_main;
 pub use cortexm::nvic;
@@ -29,6 +16,18 @@ pub use cortexm::support;
 pub use cortexm::systick;
 pub use cortexm::unhandled_interrupt;
 pub use cortexm::CortexMVariant;
+
+pub mod mpu {
+    use kernel::utilities::StaticRef;
+
+    pub unsafe fn new() -> MPU {
+        MPU::new(MPU_BASE_ADDRESS)
+    }
+    pub type MPU = cortexm::mpu::MPU<8, 32>;
+
+    const MPU_BASE_ADDRESS: StaticRef<cortexm::mpu::MpuRegisters> =
+        unsafe { StaticRef::new(0xE000ED90 as *const cortexm::mpu::MpuRegisters) };
+}
 
 // Enum with no variants to ensure that this type is not instantiable. It is
 // only used to pass architecture-specific constants and functions via the
