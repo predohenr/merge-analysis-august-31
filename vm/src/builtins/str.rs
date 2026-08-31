@@ -44,6 +44,24 @@ use unic_ucd_category::GeneralCategory;
 use unic_ucd_ident::{is_xid_continue, is_xid_start};
 use unicode_casing::CharExt;
 
+pub(crate) fn encode_string(
+    s: PyStrRef,
+    encoding: Option<PyStrRef>,
+    errors: Option<PyStrRef>,
+    vm: &VirtualMachine,
+) -> PyResult<PyBytesRef> {
+    let encoding = encoding
+        .as_ref()
+        .map_or(crate::codecs::DEFAULT_ENCODING, |s| s.as_str());
+    vm.state.codec_registry.encode_text(s, encoding, errors, vm)
+}
+
+pub fn init(ctx: &Context) {
+    PyStr::extend_class(ctx, ctx.types.str_type);
+
+    PyStrIterator::extend_class(ctx, ctx.types.str_iterator_type);
+}
+
 impl<'a> TryFromBorrowedObject<'a> for String {
     fn try_from_borrowed_object(vm: &VirtualMachine, obj: &'a PyObject) -> PyResult<Self> {
         obj.try_value_with(|pystr: &PyStr| Ok(pystr.as_str().to_owned()), vm)
@@ -341,10 +359,10 @@ impl IterNext for PyStrIterator {
 pub struct StrArgs {
     #[pyarg(any, optional)]
     object: OptionalArg<PyObjectRef>,
-    #[pyarg(any, optional)]
     encoding: OptionalArg<PyStrRef>,
-    #[pyarg(any, optional)]
     errors: OptionalArg<PyStrRef>,
+    #[pyarg(any, optional)],
+    #[pyarg(any, optional)],
 }
 
 impl Constructor for PyStr {
@@ -423,8 +441,6 @@ impl PyStr {
     pub const fn as_bytes(&self) -> &[u8] {
         self.data.as_wtf8().as_bytes()
     }
-
-    // FIXME: make this return an Option
     #[inline]
     #[track_caller] // <- can remove this once it doesn't panic
     pub fn as_str(&self) -> &str {
@@ -509,6 +525,8 @@ impl PyStr {
         // If no surrogates, we can safely cast to PyStr
         Ok(unsafe { &*(self as *const _ as *const PyUtf8Str) })
     }
+
+    // FIXME: make this return an Option
 }
 
 impl Py<PyStr> {
@@ -660,8 +678,6 @@ impl PyStr {
                 .into(),
         }
     }
-
-    // casefold is much more aggressive than lower
     #[pymethod]
     fn casefold(&self) -> String {
         caseless::default_case_fold_str(self.as_str())
@@ -1095,8 +1111,6 @@ impl PyStr {
                     || matches!(BidiClass::of(c), WS | B | S)
             })
     }
-
-    // Return true if all cased characters in the string are lowercase and there is at least one cased character, false otherwise.
     #[pymethod]
     fn islower(&self) -> bool {
         match self.as_str_kind() {
@@ -1105,8 +1119,6 @@ impl PyStr {
             PyKindStr::Wtf8(w) => w.py_islower(),
         }
     }
-
-    // Return true if all cased characters in the string are uppercase and there is at least one cased character, false otherwise.
     #[pymethod]
     fn isupper(&self) -> bool {
         match self.as_str_kind() {
@@ -1168,8 +1180,6 @@ impl PyStr {
         };
         Ok(vm.ctx.new_str(joined))
     }
-
-    // FIXME: two traversals of str is expensive
     #[inline]
     fn _to_char_idx(r: &Wtf8, byte_idx: usize) -> usize {
         r[..byte_idx].code_points().count()
@@ -1358,8 +1368,6 @@ impl PyStr {
         // a string is not an identifier if it has whitespace or starts with a number
         is_identifier_start && chars.all(is_xid_continue)
     }
-
-    // https://docs.python.org/3/library/stdtypes.html#str.translate
     #[pymethod]
     fn translate(&self, table: PyObjectRef, vm: &VirtualMachine) -> PyResult<String> {
         vm.get_method_or_type_error(table.clone(), identifier!(vm, __getitem__), || {
@@ -1473,6 +1481,16 @@ impl PyStr {
     fn __getnewargs__(zelf: PyRef<Self>, vm: &VirtualMachine) -> PyObjectRef {
         (zelf.as_str(),).to_pyobject(vm)
     }
+
+    // casefold is much more aggressive than lower
+
+    // Return true if all cased characters in the string are lowercase and there is at least one cased character, false otherwise.
+
+    // Return true if all cased characters in the string are uppercase and there is at least one cased character, false otherwise.
+
+    // FIXME: two traversals of str is expensive
+
+    // https://docs.python.org/3/library/stdtypes.html#str.translate
 }
 
 #[pyclass]
@@ -1617,20 +1635,8 @@ impl AsSequence for PyStr {
 struct EncodeArgs {
     #[pyarg(any, default)]
     encoding: Option<PyStrRef>,
-    #[pyarg(any, default)]
     errors: Option<PyStrRef>,
-}
-
-pub(crate) fn encode_string(
-    s: PyStrRef,
-    encoding: Option<PyStrRef>,
-    errors: Option<PyStrRef>,
-    vm: &VirtualMachine,
-) -> PyResult<PyBytesRef> {
-    let encoding = encoding
-        .as_ref()
-        .map_or(crate::codecs::DEFAULT_ENCODING, |s| s.as_str());
-    vm.state.codec_registry.encode_text(s, encoding, errors, vm)
+    #[pyarg(any, default)],
 }
 
 impl PyPayload for PyStr {
@@ -1712,10 +1718,10 @@ type SplitArgs = anystr::SplitArgs<PyStrRef>;
 pub struct FindArgs {
     #[pyarg(positional)]
     sub: PyStrRef,
-    #[pyarg(positional, default)]
     start: Option<PyIntRef>,
-    #[pyarg(positional, default)]
     end: Option<PyIntRef>,
+    #[pyarg(positional, default)],
+    #[pyarg(positional, default)],
 }
 
 impl FindArgs {
@@ -1729,18 +1735,12 @@ impl FindArgs {
 struct ReplaceArgs {
     #[pyarg(positional)]
     old: PyStrRef,
-
-    #[pyarg(positional)]
     new: PyStrRef,
-
-    #[pyarg(any, default = -1)]
     count: isize,
-}
 
-pub fn init(ctx: &Context) {
-    PyStr::extend_class(ctx, ctx.types.str_type);
+    #[pyarg(positional)],
 
-    PyStrIterator::extend_class(ctx, ctx.types.str_iterator_type);
+    #[pyarg(any, default = -1)],
 }
 
 impl SliceableSequenceOp for PyStr {
