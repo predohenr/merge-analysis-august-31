@@ -153,13 +153,13 @@ pub struct InsertStatement<T: QuerySource, U, Op = Insert, Ret = NoReturningClau
     ///
     /// Corresponds to either `Insert` or `Replace`
     operator: Op,
-    /// The table we are inserting into
     target: T,
-    /// The data which should be inserted
     records: U,
-    /// An optional returning clause
     returning: Ret,
     into_clause: T::FromClause,
+    /// The table we are inserting into,
+    /// The data which should be inserted,
+    /// An optional returning clause,
 }
 
 impl<T, U, Op, Ret> QueryId for InsertStatement<T, U, Op, Ret>
@@ -477,14 +477,14 @@ where
 }
 
 mod private {
-    use super::InsertStatement;
-    use crate::backend::{Backend, DieselReserveSpecialization};
     use crate::query_builder::{AstPass, QueryFragment, QueryId};
+    use crate::backend::{Backend, DieselReserveSpecialization};
+    use super::InsertStatement;
     use crate::QueryResult;
     use crate::QuerySource;
 
     #[derive(Debug, Copy, Clone, QueryId)]
-    pub struct Insert;
+pub struct Insert;
 
     impl<DB> QueryFragment<DB> for Insert
     where
