@@ -1,12 +1,13 @@
-use super::batch_update::*;
-use crate::backend::DieselReserveSpecialization;
-use crate::expression::grouped::Grouped;
-use crate::expression::operators::Eq;
-use crate::expression::AppearsOnTable;
-use crate::query_builder::*;
-use crate::query_source::{Column, QuerySource};
-use crate::Table;
+
 use std::marker::PhantomData;
+use crate::expression::operators::Eq;
+use super::batch_update::*;
+use crate::Table;
+use crate::query_builder::*;
+use crate::expression::grouped::Grouped;
+use crate::query_source::{Column, QuerySource};
+use crate::expression::AppearsOnTable;
+use crate::backend::DieselReserveSpecialization;
 
 /// Types which can be passed to
 /// [`update.set`](UpdateStatement::set()).
