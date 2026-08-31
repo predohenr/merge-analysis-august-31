@@ -230,11 +230,11 @@ pub struct Config {
     pub(crate) connect_timeout: Option<Duration>,
     pub(crate) tcp_user_timeout: Option<Duration>,
     pub(crate) keepalives: bool,
-    #[cfg(not(target_arch = "wasm32"))]
     pub(crate) keepalive_config: KeepaliveConfig,
     pub(crate) target_session_attrs: TargetSessionAttrs,
     pub(crate) channel_binding: ChannelBinding,
     pub(crate) load_balance_hosts: LoadBalanceHosts,
+    #[cfg(not(target_arch = "wasm32"))],
 }
 
 impl Default for Config {
