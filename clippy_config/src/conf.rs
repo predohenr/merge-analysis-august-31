@@ -20,6 +20,210 @@ use std::path::PathBuf;
 use std::str::FromStr;
 use std::sync::OnceLock;
 use std::{cmp, env, fmt, fs, io};
+pub fn sanitize_explanation(raw_docs: &str) -> String {
+    // Remove tags and hidden code:
+    let mut explanation = String::with_capacity(128);
+    let mut in_code = false;
+    for line in raw_docs.lines() {
+        let line = line.strip_prefix(' ').unwrap_or(line);
+
+        if let Some(lang) = line.strip_prefix("```") {
+            let tag = lang.split_once(',').map_or(lang, |(left, _)| left);
+            if !in_code && matches!(tag, "" | "rust" | "ignore" | "should_panic" | "no_run" | "compile_fail") {
+                explanation += "```rust\n";
+            } else {
+                explanation += line;
+                explanation.push('\n');
+            }
+            in_code = !in_code;
+        } else if !(in_code && line.starts_with("# ")) {
+            explanation += line;
+            explanation.push('\n');
+        }
+    }
+
+    explanation
+}
+
+fn union(x: &Range<usize>, y: &Range<usize>) -> Range<usize> {
+    Range {
+        start: cmp::min(x.start, y.start),
+        end: cmp::max(x.end, y.end),
+    }
+}
+
+fn span_from_toml_range(file: &SourceFile, span: Range<usize>) -> Span {
+    Span::new(
+        file.start_pos + BytePos::from_usize(span.start),
+        file.start_pos + BytePos::from_usize(span.end),
+        SyntaxContext::root(),
+        None,
+    )
+}
+
+/// Search for the configuration file.
+///
+/// # Errors
+///
+/// Returns any unexpected filesystem error encountered when searching for the config file
+pub fn lookup_conf_file() -> io::Result<(Option<PathBuf>, Vec<String>)> {
+    /// Possible filename to search for.
+    const CONFIG_FILE_NAMES: [&str; 2] = [".clippy.toml", "clippy.toml"];
+
+    // Start looking for a config file in CLIPPY_CONF_DIR, or failing that, CARGO_MANIFEST_DIR.
+    // If neither of those exist, use ".". (Update documentation if this priority changes)
+    let mut current = env::var_os("CLIPPY_CONF_DIR")
+        .or_else(|| env::var_os("CARGO_MANIFEST_DIR"))
+        .map_or_else(|| PathBuf::from("."), PathBuf::from)
+        .canonicalize()?;
+
+    let mut found_config: Option<PathBuf> = None;
+    let mut warnings = vec![];
+
+    loop {
+        for config_file_name in &CONFIG_FILE_NAMES {
+            if let Ok(config_file) = current.join(config_file_name).canonicalize() {
+                match fs::metadata(&config_file) {
+                    Err(e) if e.kind() == io::ErrorKind::NotFound => {},
+                    Err(e) => return Err(e),
+                    Ok(md) if md.is_dir() => {},
+                    Ok(_) => {
+                        // warn if we happen to find two config files #8323
+                        if let Some(ref found_config) = found_config {
+                            warnings.push(format!(
+                                "using config file `{}`, `{}` will be ignored",
+                                found_config.display(),
+                                config_file.display()
+                            ));
+                        } else {
+                            found_config = Some(config_file);
+                        }
+                    },
+                }
+            }
+        }
+
+        if found_config.is_some() {
+            return Ok((found_config, warnings));
+        }
+
+        // If the current directory has no parent, we're done searching.
+        if !current.pop() {
+            return Ok((None, warnings));
+        }
+    }
+}
+
+fn deserialize(file: &SourceFile) -> TryConf {
+    match toml::de::Deserializer::new(file.src.as_ref().unwrap()).deserialize_map(ConfVisitor(file)) {
+        Ok(mut conf) => {
+            extend_vec_if_indicator_present(&mut conf.conf.disallowed_names, DEFAULT_DISALLOWED_NAMES);
+            extend_vec_if_indicator_present(&mut conf.conf.allowed_prefixes, DEFAULT_ALLOWED_PREFIXES);
+            extend_vec_if_indicator_present(
+                &mut conf.conf.allow_renamed_params_for,
+                DEFAULT_ALLOWED_TRAITS_WITH_RENAMED_PARAMS,
+            );
+
+            // Confirms that the user has not accidentally configured ordering requirements for groups that
+            // aren't configured.
+            if let SourceItemOrderingWithinModuleItemGroupings::Custom(groupings) =
+                &conf.conf.module_items_ordered_within_groupings
+            {
+                for grouping in groupings {
+                    if !conf.conf.module_item_order_groupings.is_grouping(grouping) {
+                        // Since this isn't fixable by rustfix, don't emit a `Suggestion`. This just adds some useful
+                        // info for the user instead.
+
+                        let names = conf.conf.module_item_order_groupings.grouping_names();
+                        let suggestion = suggest_candidate(grouping, names.iter().map(String::as_str))
+                            .map(|s| format!(" perhaps you meant `{s}`?"))
+                            .unwrap_or_default();
+                        let names = names.iter().map(|s| format!("`{s}`")).join(", ");
+                        let message = format!(
+                            "unknown ordering group: `{grouping}` was not specified in `module-items-ordered-within-groupings`,{suggestion} expected one of: {names}"
+                        );
+
+                        let span = conf
+                            .value_spans
+                            .get("module_item_order_groupings")
+                            .cloned()
+                            .unwrap_or_default();
+                        conf.errors.push(ConfError::spanned(file, message, None, span));
+                    }
+                }
+            }
+
+            // TODO: THIS SHOULD BE TESTED, this comment will be gone soon
+            if conf.conf.allowed_idents_below_min_chars.iter().any(|e| e == "..") {
+                conf.conf
+                    .allowed_idents_below_min_chars
+                    .extend(DEFAULT_ALLOWED_IDENTS_BELOW_MIN_CHARS.iter().map(ToString::to_string));
+            }
+            if conf.conf.doc_valid_idents.iter().any(|e| e == "..") {
+                conf.conf
+                    .doc_valid_idents
+                    .extend(DEFAULT_DOC_VALID_IDENTS.iter().map(ToString::to_string));
+            }
+
+            conf
+        },
+        Err(e) => TryConf::from_toml_error(file, &e),
+    }
+}
+
+fn extend_vec_if_indicator_present(vec: &mut Vec<String>, default: &[&str]) {
+    if vec.contains(&"..".to_string()) {
+        vec.extend(default.iter().map(ToString::to_string));
+    }
+}
+
+fn calculate_dimensions(fields: &[&str]) -> (usize, Vec<usize>) {
+    let columns = env::var("CLIPPY_TERMINAL_WIDTH")
+        .ok()
+        .and_then(|s| <usize as FromStr>::from_str(&s).ok())
+        .map_or(1, |terminal_width| {
+            let max_field_width = fields.iter().map(|field| field.len()).max().unwrap();
+            cmp::max(1, terminal_width / (SEPARATOR_WIDTH + max_field_width))
+        });
+
+    let rows = fields.len().div_ceil(columns);
+
+    let column_widths = (0..columns)
+        .map(|column| {
+            if column < columns - 1 {
+                (0..rows)
+                    .map(|row| {
+                        let index = column * rows + row;
+                        let field = fields.get(index).copied().unwrap_or_default();
+                        field.len()
+                    })
+                    .max()
+                    .unwrap()
+            } else {
+                // Avoid adding extra space to the last column.
+                0
+            }
+        })
+        .collect::<Vec<_>>();
+
+    (rows, column_widths)
+}
+
+/// Given a user-provided value that couldn't be matched to a known option, finds the most likely
+/// candidate among candidates that the user might have meant.
+fn suggest_candidate<'a, I>(value: &str, candidates: I) -> Option<&'a str>
+where
+    I: IntoIterator<Item = &'a str>,
+{
+    candidates
+        .into_iter()
+        .filter_map(|expected| {
+            let dist = edit_distance(value, expected, 4)?;
+            Some((dist, expected))
+        })
+        .min_by_key(|&(dist, _)| dist)
+        .map(|(_, suggestion)| suggestion)
+}
 
 #[rustfmt::skip]
 const DEFAULT_DOC_VALID_IDENTS: &[&str] = &[
@@ -127,30 +331,6 @@ impl ConfError {
 }
 
 // Remove code tags and code behind '# 's, as they are not needed for the lint docs and --explain
-pub fn sanitize_explanation(raw_docs: &str) -> String {
-    // Remove tags and hidden code:
-    let mut explanation = String::with_capacity(128);
-    let mut in_code = false;
-    for line in raw_docs.lines() {
-        let line = line.strip_prefix(' ').unwrap_or(line);
-
-        if let Some(lang) = line.strip_prefix("```") {
-            let tag = lang.split_once(',').map_or(lang, |(left, _)| left);
-            if !in_code && matches!(tag, "" | "rust" | "ignore" | "should_panic" | "no_run" | "compile_fail") {
-                explanation += "```rust\n";
-            } else {
-                explanation += line;
-                explanation.push('\n');
-            }
-            in_code = !in_code;
-        } else if !(in_code && line.starts_with("# ")) {
-            explanation += line;
-            explanation.push('\n');
-        }
-    }
-
-    explanation
-}
 
 macro_rules! wrap_option {
     () => {
@@ -323,22 +503,6 @@ macro_rules! define_Conf {
             )*]
         }
     };
-}
-
-fn union(x: &Range<usize>, y: &Range<usize>) -> Range<usize> {
-    Range {
-        start: cmp::min(x.start, y.start),
-        end: cmp::max(x.end, y.end),
-    }
-}
-
-fn span_from_toml_range(file: &SourceFile, span: Range<usize>) -> Span {
-    Span::new(
-        file.start_pos + BytePos::from_usize(span.start),
-        file.start_pos + BytePos::from_usize(span.end),
-        SyntaxContext::root(),
-        None,
-    )
 }
 
 define_Conf! {
@@ -884,122 +1048,6 @@ define_Conf! {
     warn_unsafe_macro_metavars_in_private_macros: bool = false,
 }
 
-/// Search for the configuration file.
-///
-/// # Errors
-///
-/// Returns any unexpected filesystem error encountered when searching for the config file
-pub fn lookup_conf_file() -> io::Result<(Option<PathBuf>, Vec<String>)> {
-    /// Possible filename to search for.
-    const CONFIG_FILE_NAMES: [&str; 2] = [".clippy.toml", "clippy.toml"];
-
-    // Start looking for a config file in CLIPPY_CONF_DIR, or failing that, CARGO_MANIFEST_DIR.
-    // If neither of those exist, use ".". (Update documentation if this priority changes)
-    let mut current = env::var_os("CLIPPY_CONF_DIR")
-        .or_else(|| env::var_os("CARGO_MANIFEST_DIR"))
-        .map_or_else(|| PathBuf::from("."), PathBuf::from)
-        .canonicalize()?;
-
-    let mut found_config: Option<PathBuf> = None;
-    let mut warnings = vec![];
-
-    loop {
-        for config_file_name in &CONFIG_FILE_NAMES {
-            if let Ok(config_file) = current.join(config_file_name).canonicalize() {
-                match fs::metadata(&config_file) {
-                    Err(e) if e.kind() == io::ErrorKind::NotFound => {},
-                    Err(e) => return Err(e),
-                    Ok(md) if md.is_dir() => {},
-                    Ok(_) => {
-                        // warn if we happen to find two config files #8323
-                        if let Some(ref found_config) = found_config {
-                            warnings.push(format!(
-                                "using config file `{}`, `{}` will be ignored",
-                                found_config.display(),
-                                config_file.display()
-                            ));
-                        } else {
-                            found_config = Some(config_file);
-                        }
-                    },
-                }
-            }
-        }
-
-        if found_config.is_some() {
-            return Ok((found_config, warnings));
-        }
-
-        // If the current directory has no parent, we're done searching.
-        if !current.pop() {
-            return Ok((None, warnings));
-        }
-    }
-}
-
-fn deserialize(file: &SourceFile) -> TryConf {
-    match toml::de::Deserializer::new(file.src.as_ref().unwrap()).deserialize_map(ConfVisitor(file)) {
-        Ok(mut conf) => {
-            extend_vec_if_indicator_present(&mut conf.conf.disallowed_names, DEFAULT_DISALLOWED_NAMES);
-            extend_vec_if_indicator_present(&mut conf.conf.allowed_prefixes, DEFAULT_ALLOWED_PREFIXES);
-            extend_vec_if_indicator_present(
-                &mut conf.conf.allow_renamed_params_for,
-                DEFAULT_ALLOWED_TRAITS_WITH_RENAMED_PARAMS,
-            );
-
-            // Confirms that the user has not accidentally configured ordering requirements for groups that
-            // aren't configured.
-            if let SourceItemOrderingWithinModuleItemGroupings::Custom(groupings) =
-                &conf.conf.module_items_ordered_within_groupings
-            {
-                for grouping in groupings {
-                    if !conf.conf.module_item_order_groupings.is_grouping(grouping) {
-                        // Since this isn't fixable by rustfix, don't emit a `Suggestion`. This just adds some useful
-                        // info for the user instead.
-
-                        let names = conf.conf.module_item_order_groupings.grouping_names();
-                        let suggestion = suggest_candidate(grouping, names.iter().map(String::as_str))
-                            .map(|s| format!(" perhaps you meant `{s}`?"))
-                            .unwrap_or_default();
-                        let names = names.iter().map(|s| format!("`{s}`")).join(", ");
-                        let message = format!(
-                            "unknown ordering group: `{grouping}` was not specified in `module-items-ordered-within-groupings`,{suggestion} expected one of: {names}"
-                        );
-
-                        let span = conf
-                            .value_spans
-                            .get("module_item_order_groupings")
-                            .cloned()
-                            .unwrap_or_default();
-                        conf.errors.push(ConfError::spanned(file, message, None, span));
-                    }
-                }
-            }
-
-            // TODO: THIS SHOULD BE TESTED, this comment will be gone soon
-            if conf.conf.allowed_idents_below_min_chars.iter().any(|e| e == "..") {
-                conf.conf
-                    .allowed_idents_below_min_chars
-                    .extend(DEFAULT_ALLOWED_IDENTS_BELOW_MIN_CHARS.iter().map(ToString::to_string));
-            }
-            if conf.conf.doc_valid_idents.iter().any(|e| e == "..") {
-                conf.conf
-                    .doc_valid_idents
-                    .extend(DEFAULT_DOC_VALID_IDENTS.iter().map(ToString::to_string));
-            }
-
-            conf
-        },
-        Err(e) => TryConf::from_toml_error(file, &e),
-    }
-}
-
-fn extend_vec_if_indicator_present(vec: &mut Vec<String>, default: &[&str]) {
-    if vec.contains(&"..".to_string()) {
-        vec.extend(default.iter().map(ToString::to_string));
-    }
-}
-
 impl Conf {
     pub fn read(sess: &Session, path: &io::Result<(Option<PathBuf>, Vec<String>)>) -> &'static Conf {
         static CONF: OnceLock<Conf> = OnceLock::new();
@@ -1135,54 +1183,6 @@ impl serde::de::Error for FieldError {
 
         Self { error: msg, suggestion }
     }
-}
-
-fn calculate_dimensions(fields: &[&str]) -> (usize, Vec<usize>) {
-    let columns = env::var("CLIPPY_TERMINAL_WIDTH")
-        .ok()
-        .and_then(|s| <usize as FromStr>::from_str(&s).ok())
-        .map_or(1, |terminal_width| {
-            let max_field_width = fields.iter().map(|field| field.len()).max().unwrap();
-            cmp::max(1, terminal_width / (SEPARATOR_WIDTH + max_field_width))
-        });
-
-    let rows = fields.len().div_ceil(columns);
-
-    let column_widths = (0..columns)
-        .map(|column| {
-            if column < columns - 1 {
-                (0..rows)
-                    .map(|row| {
-                        let index = column * rows + row;
-                        let field = fields.get(index).copied().unwrap_or_default();
-                        field.len()
-                    })
-                    .max()
-                    .unwrap()
-            } else {
-                // Avoid adding extra space to the last column.
-                0
-            }
-        })
-        .collect::<Vec<_>>();
-
-    (rows, column_widths)
-}
-
-/// Given a user-provided value that couldn't be matched to a known option, finds the most likely
-/// candidate among candidates that the user might have meant.
-fn suggest_candidate<'a, I>(value: &str, candidates: I) -> Option<&'a str>
-where
-    I: IntoIterator<Item = &'a str>,
-{
-    candidates
-        .into_iter()
-        .filter_map(|expected| {
-            let dist = edit_distance(value, expected, 4)?;
-            Some((dist, expected))
-        })
-        .min_by_key(|&(dist, _)| dist)
-        .map(|(_, suggestion)| suggestion)
 }
 
 #[cfg(test)]
