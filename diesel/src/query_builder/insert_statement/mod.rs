@@ -477,11 +477,11 @@ where
 }
 
 mod private {
-    use super::InsertStatement;
-    use crate::backend::{Backend, DieselReserveSpecialization};
-    use crate::query_builder::{AstPass, QueryFragment, QueryId};
     use crate::QueryResult;
+    use crate::backend::{Backend, DieselReserveSpecialization};
+    use super::InsertStatement;
     use crate::QuerySource;
+    use crate::query_builder::{AstPass, QueryFragment, QueryId};
 
     #[derive(Debug, Copy, Clone, QueryId)]
     pub struct Insert;
