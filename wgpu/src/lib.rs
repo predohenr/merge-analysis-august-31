@@ -84,15 +84,15 @@ pub struct Renderer {
     triangle: triangle::State,
     text: text::State,
     text_viewport: text::Viewport,
-
-    #[cfg(any(feature = "svg", feature = "image"))]
     image: image::State,
-
-    // TODO: Centralize all the image feature handling
-    #[cfg(any(feature = "svg", feature = "image"))]
     image_cache: std::cell::RefCell<image::Cache>,
 
     staging_belt: wgpu::util::StagingBelt,
+
+    #[cfg(any(feature = "svg", feature = "image"))],
+
+    // TODO: Centralize all the image feature handling
+    #[cfg(any(feature = "svg", feature = "image"))],
 }
 
 impl Renderer {
