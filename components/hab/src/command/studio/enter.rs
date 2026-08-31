@@ -19,19 +19,6 @@ use std::{env,
           path::{Path,
                  PathBuf}};
 
-pub const ARTIFACT_PATH_ENVVAR: &str = "ARTIFACT_PATH";
-pub const CERT_PATH_ENVVAR: &str = "CERT_PATH";
-pub const SSL_CERT_FILE_ENVVAR: &str = "SSL_CERT_FILE";
-pub const STUDIO_HOST_ARCH_ENVVAR: &str = "HAB_STUDIO_SECRET_HAB_STUDIO_HOST_ARCH";
-
-const STUDIO_PACKAGE_IDENT: &str = "chef/hab-studio";
-
-#[derive(Clone, Copy)]
-enum Sensitivity {
-    PrintValue,
-    NoPrintValue,
-}
-
 fn set_env_var_from_config(env_var: &str, config_val: Option<String>, sensitive: Sensitivity) {
     if henv::var(env_var).is_err() {
         if let Some(val) = config_val {
@@ -45,10 +32,6 @@ fn set_env_var_from_config(env_var: &str, config_val: Option<String>, sensitive:
         }
     }
 }
-
-//  Set the environment variable for the host architecture to be used in
-//  hab studio.  It must be set outside of studio and passed in through
-//  the environment variable defined in STUDIO_HOST_ARCH_ENVVAR.
 fn set_arch_env_var() {
     env::set_var(STUDIO_HOST_ARCH_ENVVAR,
                  format!("{}", PackageTarget::active_target()));
@@ -137,6 +120,23 @@ pub async fn start(ui: &mut UI, args: &[OsString]) -> Result<()> {
 
     inner::start(ui, args).await
 }
+
+pub const ARTIFACT_PATH_ENVVAR: &str = "ARTIFACT_PATH";
+pub const CERT_PATH_ENVVAR: &str = "CERT_PATH";
+pub const SSL_CERT_FILE_ENVVAR: &str = "SSL_CERT_FILE";
+pub const STUDIO_HOST_ARCH_ENVVAR: &str = "HAB_STUDIO_SECRET_HAB_STUDIO_HOST_ARCH";
+
+const STUDIO_PACKAGE_IDENT: &str = "chef/hab-studio";
+
+#[derive(Clone, Copy)]
+enum Sensitivity {
+    PrintValue,
+    NoPrintValue,
+}
+
+//  Set the environment variable for the host architecture to be used in
+//  hab studio.  It must be set outside of studio and passed in through
+//  the environment variable defined in STUDIO_HOST_ARCH_ENVVAR.
 
 #[cfg(any(target_os = "linux", target_os = "macos"))]
 mod inner {
