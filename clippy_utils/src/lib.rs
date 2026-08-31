@@ -1747,7 +1747,13 @@ pub fn any_parent_has_attr(tcx: TyCtxt<'_>, node: HirId, symbol: Symbol) -> bool
 pub fn in_automatically_derived(tcx: TyCtxt<'_>, id: HirId) -> bool {
     tcx.hir_parent_owner_iter(id)
         .filter(|(_, node)| matches!(node, OwnerNode::Item(item) if matches!(item.kind, ItemKind::Impl(_))))
-        .any(|(id, _)| find_attr!(tcx, id.def_id, AutomaticallyDerived))
+        .any(|(id, _)| {
+            find_attr!(
+                tcx,
+                id.def_id,
+                AutomaticallyDerived
+            )
+        })
 }
 
 /// Checks if the given `DefId` matches the `libc` item.
