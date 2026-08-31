@@ -30,50 +30,6 @@ pub use self::workspace::{
     print_available_examples, print_available_packages, print_available_tests,
 };
 
-pub mod auth;
-pub mod cache_lock;
-mod canonical_url;
-pub mod command_prelude;
-pub mod context;
-mod counter;
-pub mod cpu;
-pub mod credential;
-mod dependency_queue;
-pub mod diagnostic_server;
-pub mod edit_distance;
-pub mod errors;
-pub mod flock;
-pub mod frontmatter;
-pub mod graph;
-mod hasher;
-pub mod hex;
-mod hostname;
-pub mod important_paths;
-pub mod interning;
-pub mod into_url;
-mod into_url_with_base;
-mod io;
-pub mod job;
-pub mod lints;
-mod lockserver;
-pub mod log_message;
-pub mod logger;
-pub mod machine_message;
-pub mod network;
-mod once;
-mod progress;
-mod queue;
-pub mod restricted_names;
-pub mod rustc;
-mod semver_eval_ext;
-mod semver_ext;
-pub mod sqlite;
-pub mod style;
-pub mod toml;
-pub mod toml_mut;
-mod vcs;
-mod workspace;
-
 pub fn is_rustup() -> bool {
     // ALLOWED: `RUSTUP_HOME` should only be read from process env, otherwise
     // other tools may point to executables from incompatible distributions.
@@ -88,29 +44,6 @@ pub fn elapsed(duration: Duration) -> String {
         format!("{}m {:02}s", secs / 60, secs % 60)
     } else {
         format!("{}.{:02}s", secs, duration.subsec_nanos() / 10_000_000)
-    }
-}
-
-/// Formats a number of bytes into a human readable SI-prefixed size.
-pub struct HumanBytes(pub u64);
-
-impl std::fmt::Display for HumanBytes {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        const UNITS: [&str; 7] = ["B", "KiB", "MiB", "GiB", "TiB", "PiB", "EiB"];
-        let bytes = self.0 as f32;
-        let i = ((bytes.log2() / 10.0) as usize).min(UNITS.len() - 1);
-        let unit = UNITS[i];
-        let size = bytes / 1024_f32.powi(i as i32);
-
-        // Don't show a fractional number of bytes.
-        if i == 0 {
-            return write!(f, "{size}{unit}");
-        }
-
-        let Some(precision) = f.precision() else {
-            return write!(f, "{size}{unit}");
-        };
-        write!(f, "{size:.precision$}{unit}",)
     }
 }
 
@@ -176,6 +109,73 @@ pub fn get_umask() -> u32 {
         libc::umask(umask);
         umask
     }) as u32 // it is u16 on macos
+}
+
+pub mod auth;
+pub mod cache_lock;
+mod canonical_url;
+pub mod command_prelude;
+pub mod context;
+mod counter;
+pub mod cpu;
+pub mod credential;
+mod dependency_queue;
+pub mod diagnostic_server;
+pub mod edit_distance;
+pub mod errors;
+pub mod flock;
+pub mod frontmatter;
+pub mod graph;
+mod hasher;
+pub mod hex;
+mod hostname;
+pub mod important_paths;
+pub mod interning;
+pub mod into_url;
+mod into_url_with_base;
+mod io;
+pub mod job;
+pub mod lints;
+mod lockserver;
+pub mod log_message;
+pub mod logger;
+pub mod machine_message;
+pub mod network;
+mod once;
+mod progress;
+mod queue;
+pub mod restricted_names;
+pub mod rustc;
+mod semver_eval_ext;
+mod semver_ext;
+pub mod sqlite;
+pub mod style;
+pub mod toml;
+pub mod toml_mut;
+mod vcs;
+mod workspace;
+
+/// Formats a number of bytes into a human readable SI-prefixed size.
+pub struct HumanBytes(pub u64);
+
+impl std::fmt::Display for HumanBytes {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        const UNITS: [&str; 7] = ["B", "KiB", "MiB", "GiB", "TiB", "PiB", "EiB"];
+        let bytes = self.0 as f32;
+        let i = ((bytes.log2() / 10.0) as usize).min(UNITS.len() - 1);
+        let unit = UNITS[i];
+        let size = bytes / 1024_f32.powi(i as i32);
+
+        // Don't show a fractional number of bytes.
+        if i == 0 {
+            return write!(f, "{size}{unit}");
+        }
+
+        let Some(precision) = f.precision() else {
+            return write!(f, "{size}{unit}");
+        };
+        write!(f, "{size:.precision$}{unit}",)
+    }
 }
 
 #[cfg(test)]
