@@ -24,64 +24,6 @@ use syntax::{
 };
 
 use crate::{FileId, navigation_target::TryToNav};
-
-mod adjustment;
-mod bind_pat;
-mod binding_mode;
-mod bounds;
-mod chaining;
-mod closing_brace;
-mod closure_captures;
-mod closure_ret;
-mod discriminant;
-mod extern_block;
-mod generic_param;
-mod implicit_drop;
-mod implicit_static;
-mod implied_dyn_trait;
-mod lifetime;
-mod param_name;
-mod placeholders;
-mod ra_fixture;
-mod range_exclusive;
-
-// Feature: Inlay Hints
-//
-// rust-analyzer shows additional information inline with the source code.
-// Editors usually render this using read-only virtual text snippets interspersed with code.
-//
-// rust-analyzer by default shows hints for
-//
-// * types of local variables
-// * names of function arguments
-// * names of const generic parameters
-// * types of chained expressions
-//
-// Optionally, one can enable additional hints for
-//
-// * return types of closure expressions
-// * elided lifetimes
-// * compiler inserted reborrows
-// * names of generic type and lifetime parameters
-//
-// Note: inlay hints for function argument names are heuristically omitted to reduce noise and will not appear if
-// any of the
-// [following criteria](https://github.com/rust-lang/rust-analyzer/blob/6b8b8ff4c56118ddee6c531cde06add1aad4a6af/crates/ide/src/inlay_hints/param_name.rs#L92-L99)
-// are met:
-//
-// * the parameter name is a suffix of the function's name
-// * the argument is a qualified constructing or call expression where the qualifier is an ADT
-// * exact argument<->parameter match(ignoring leading underscore) or parameter is a prefix/suffix
-//   of argument with _ splitting it off
-// * the parameter name starts with `ra_fixture`
-// * the parameter name is a
-// [well known name](https://github.com/rust-lang/rust-analyzer/blob/6b8b8ff4c56118ddee6c531cde06add1aad4a6af/crates/ide/src/inlay_hints/param_name.rs#L200)
-// in a unary function
-// * the parameter name is a
-// [single character](https://github.com/rust-lang/rust-analyzer/blob/6b8b8ff4c56118ddee6c531cde06add1aad4a6af/crates/ide/src/inlay_hints/param_name.rs#L201)
-// in a unary function
-//
-// ![Inlay hints](https://user-images.githubusercontent.com/48062697/113020660-b5f98b80-917a-11eb-8d70-3be3fd558cdd.png)
 pub(crate) fn inlay_hints(
     db: &RootDatabase,
     file_id: FileId,
@@ -121,12 +63,6 @@ pub(crate) fn inlay_hints(
         acc.retain(|hint| range_limit.contains_range(hint.range));
     }
     acc
-}
-
-#[derive(Default)]
-struct InlayHintCtx {
-    lifetime_stacks: Vec<Vec<SmolStr>>,
-    extern_block_parent: Option<ast::ExternBlock>,
 }
 
 pub(crate) fn inlay_hints_resolve(
@@ -201,9 +137,6 @@ fn handle_event(ctx: &mut InlayHintCtx, node: WalkEvent<SyntaxNode>) -> Option<S
         }
     }
 }
-
-// FIXME: At some point when our hir infra is fleshed out enough we should flip this and traverse the
-// HIR instead of the syntax tree.
 fn hints(
     hints: &mut Vec<InlayHint>,
     ctx: &mut InlayHintCtx,
@@ -298,6 +231,220 @@ fn hints(
         }
     };
 }
+
+fn label_of_ty(
+    famous_defs @ FamousDefs(sema, _): &FamousDefs<'_, '_>,
+    config: &InlayHintsConfig<'_>,
+    ty: &hir::Type<'_>,
+    display_target: DisplayTarget,
+) -> Option<InlayHintLabel> {
+    fn rec(
+        sema: &Semantics<'_, RootDatabase>,
+        famous_defs: &FamousDefs<'_, '_>,
+        mut max_length: Option<usize>,
+        ty: &hir::Type<'_>,
+        label_builder: &mut InlayHintLabelBuilder<'_>,
+        config: &InlayHintsConfig<'_>,
+        display_target: DisplayTarget,
+    ) -> Result<(), HirDisplayError> {
+        let iter_item_type = hint_iterator(sema, famous_defs, ty);
+        match iter_item_type {
+            Some((iter_trait, item, ty)) => {
+                const LABEL_START: &str = "impl ";
+                const LABEL_ITERATOR: &str = "Iterator";
+                const LABEL_MIDDLE: &str = "<";
+                const LABEL_ITEM: &str = "Item";
+                const LABEL_MIDDLE2: &str = " = ";
+                const LABEL_END: &str = ">";
+
+                max_length = max_length.map(|len| {
+                    len.saturating_sub(
+                        LABEL_START.len()
+                            + LABEL_ITERATOR.len()
+                            + LABEL_MIDDLE.len()
+                            + LABEL_MIDDLE2.len()
+                            + LABEL_END.len(),
+                    )
+                });
+
+                let module_def_location = |label_builder: &mut InlayHintLabelBuilder<'_>,
+                                           def: ModuleDef,
+                                           name| {
+                    let def = def.try_into();
+                    if let Ok(def) = def {
+                        label_builder.start_location_link(def);
+                    }
+                    #[expect(
+                        clippy::question_mark,
+                        reason = "false positive; replacing with `?` leads to 'type annotations needed' error"
+                    )]
+                    if let Err(err) = label_builder.write_str(name) {
+                        return Err(err);
+                    }
+                    if def.is_ok() {
+                        label_builder.end_location_link();
+                    }
+                    Ok(())
+                };
+
+                label_builder.write_str(LABEL_START)?;
+                module_def_location(label_builder, ModuleDef::from(iter_trait), LABEL_ITERATOR)?;
+                label_builder.write_str(LABEL_MIDDLE)?;
+                module_def_location(label_builder, ModuleDef::from(item), LABEL_ITEM)?;
+                label_builder.write_str(LABEL_MIDDLE2)?;
+                rec(sema, famous_defs, max_length, &ty, label_builder, config, display_target)?;
+                label_builder.write_str(LABEL_END)?;
+                Ok(())
+            }
+            None => ty
+                .display_truncated(sema.db, max_length, display_target)
+                .with_closure_style(config.closure_style)
+                .write_to(label_builder),
+        }
+    }
+
+    let mut label_builder = InlayHintLabelBuilder {
+        sema,
+        last_part: String::new(),
+        location: None,
+        result: InlayHintLabel::default(),
+        resolve: config.fields_to_resolve.resolve_label_location,
+    };
+    let _ =
+        rec(sema, famous_defs, config.max_length, ty, &mut label_builder, config, display_target);
+    let r = label_builder.finish();
+    Some(r)
+}
+
+/// Checks if the type is an Iterator from std::iter and returns the iterator trait and the item type of the concrete iterator.
+fn hint_iterator<'db>(
+    sema: &Semantics<'db, RootDatabase>,
+    famous_defs: &FamousDefs<'_, 'db>,
+    ty: &hir::Type<'db>,
+) -> Option<(hir::Trait, hir::TypeAlias, hir::Type<'db>)> {
+    let db = sema.db;
+    let strukt = ty.strip_references().as_adt()?;
+    let krate = strukt.module(db).krate(db);
+    if krate != famous_defs.core()? {
+        return None;
+    }
+    let iter_trait = famous_defs.core_iter_Iterator()?;
+    let iter_mod = famous_defs.core_iter()?;
+
+    // Assert that this struct comes from `core::iter`.
+    if !(strukt.visibility(db) == hir::Visibility::Public
+        && strukt.module(db).path_to_root(db).contains(&iter_mod))
+    {
+        return None;
+    }
+
+    if ty.impls_trait(db, iter_trait, &[]) {
+        let assoc_type_item = iter_trait.items(db).into_iter().find_map(|item| match item {
+            hir::AssocItem::TypeAlias(alias) if alias.name(db) == sym::Item => Some(alias),
+            _ => None,
+        })?;
+        if let Some(ty) = ty.normalize_trait_assoc_type(db, &[], assoc_type_item) {
+            return Some((iter_trait, assoc_type_item, ty));
+        }
+    }
+
+    None
+}
+
+fn ty_to_text_edit(
+    sema: &Semantics<'_, RootDatabase>,
+    config: &InlayHintsConfig<'_>,
+    node_for_hint: &SyntaxNode,
+    ty: &hir::Type<'_>,
+    offset_to_insert_ty: TextSize,
+    additional_edits: &dyn Fn(&mut TextEditBuilder),
+    prefix: impl Into<String>,
+) -> Option<LazyProperty<TextEdit>> {
+    // FIXME: Limit the length and bail out on excess somehow?
+    let rendered = sema
+        .scope(node_for_hint)
+        .and_then(|scope| ty.display_source_code(scope.db, scope.module().into(), false).ok())?;
+    Some(config.lazy_text_edit(|| {
+        let mut builder = TextEdit::builder();
+        builder.insert(offset_to_insert_ty, prefix.into());
+        builder.insert(offset_to_insert_ty, rendered);
+
+        additional_edits(&mut builder);
+
+        builder.finish()
+    }))
+}
+
+fn closure_has_block_body(closure: &ast::ClosureExpr) -> bool {
+    matches!(closure.body(), Some(ast::Expr::BlockExpr(_)))
+}
+
+mod adjustment;
+mod bind_pat;
+mod binding_mode;
+mod bounds;
+mod chaining;
+mod closing_brace;
+mod closure_captures;
+mod closure_ret;
+mod discriminant;
+mod extern_block;
+mod generic_param;
+mod implicit_drop;
+mod implicit_static;
+mod implied_dyn_trait;
+mod lifetime;
+mod param_name;
+mod placeholders;
+mod ra_fixture;
+mod range_exclusive;
+
+// Feature: Inlay Hints
+//
+// rust-analyzer shows additional information inline with the source code.
+// Editors usually render this using read-only virtual text snippets interspersed with code.
+//
+// rust-analyzer by default shows hints for
+//
+// * types of local variables
+// * names of function arguments
+// * names of const generic parameters
+// * types of chained expressions
+//
+// Optionally, one can enable additional hints for
+//
+// * return types of closure expressions
+// * elided lifetimes
+// * compiler inserted reborrows
+// * names of generic type and lifetime parameters
+//
+// Note: inlay hints for function argument names are heuristically omitted to reduce noise and will not appear if
+// any of the
+// [following criteria](https://github.com/rust-lang/rust-analyzer/blob/6b8b8ff4c56118ddee6c531cde06add1aad4a6af/crates/ide/src/inlay_hints/param_name.rs#L92-L99)
+// are met:
+//
+// * the parameter name is a suffix of the function's name
+// * the argument is a qualified constructing or call expression where the qualifier is an ADT
+// * exact argument<->parameter match(ignoring leading underscore) or parameter is a prefix/suffix
+//   of argument with _ splitting it off
+// * the parameter name starts with `ra_fixture`
+// * the parameter name is a
+// [well known name](https://github.com/rust-lang/rust-analyzer/blob/6b8b8ff4c56118ddee6c531cde06add1aad4a6af/crates/ide/src/inlay_hints/param_name.rs#L200)
+// in a unary function
+// * the parameter name is a
+// [single character](https://github.com/rust-lang/rust-analyzer/blob/6b8b8ff4c56118ddee6c531cde06add1aad4a6af/crates/ide/src/inlay_hints/param_name.rs#L201)
+// in a unary function
+//
+// ![Inlay hints](https://user-images.githubusercontent.com/48062697/113020660-b5f98b80-917a-11eb-8d70-3be3fd558cdd.png)
+
+#[derive(Default)]
+struct InlayHintCtx {
+    lifetime_stacks: Vec<Vec<SmolStr>>,
+    extern_block_parent: Option<ast::ExternBlock>,
+}
+
+// FIXME: At some point when our hir infra is fleshed out enough we should flip this and traverse the
+// HIR instead of the syntax tree.
 
 #[derive(Clone, Debug)]
 pub struct InlayHintsConfig<'a> {
@@ -489,15 +636,15 @@ pub struct InlayHint {
     pub position: InlayHintPosition,
     pub pad_left: bool,
     pub pad_right: bool,
-    /// The kind of this inlay hint.
     pub kind: InlayKind,
-    /// The actual label to show in the inlay hint.
     pub label: InlayHintLabel,
-    /// Text edit to apply when "accepting" this inlay hint.
     pub text_edit: Option<LazyProperty<TextEdit>>,
-    /// Range to recompute inlay hints when trying to resolve for this hint. If this is none, the
-    /// hint does not support resolving.
     pub resolve_parent: Option<TextRange>,
+    /// The kind of this inlay hint.,
+    /// The actual label to show in the inlay hint.,
+    /// Text edit to apply when "accepting" this inlay hint.,
+    /// Range to recompute inlay hints when trying to resolve for this hint. If this is none, the
+    /// hint does not support resolving.,
 }
 
 /// A type signaling that a value is either computed, or is available for computation.
@@ -643,15 +790,15 @@ impl fmt::Debug for InlayHintLabel {
 #[derive(UpmapFromRaFixture)]
 pub struct InlayHintLabelPart {
     pub text: String,
+    pub linked_location: Option<LazyProperty<FileRange>>,
+    pub tooltip: Option<LazyProperty<InlayTooltip>>,
     /// Source location represented by this label part. The client will use this to fetch the part's
     /// hover tooltip, and Ctrl+Clicking the label part will navigate to the definition the location
     /// refers to (not necessarily the location itself).
     /// When setting this, no tooltip must be set on the containing hint, or VS Code will display
-    /// them both.
-    pub linked_location: Option<LazyProperty<FileRange>>,
+    /// them both.,
     /// The tooltip to show when hovering over the inlay hint, this may invoke other actions like
-    /// hover requests to show.
-    pub tooltip: Option<LazyProperty<InlayTooltip>>,
+    /// hover requests to show.,
 }
 
 impl std::hash::Hash for InlayHintLabelPart {
@@ -755,153 +902,6 @@ impl InlayHintLabelBuilder<'_> {
     }
 }
 
-fn label_of_ty(
-    famous_defs @ FamousDefs(sema, _): &FamousDefs<'_, '_>,
-    config: &InlayHintsConfig<'_>,
-    ty: &hir::Type<'_>,
-    display_target: DisplayTarget,
-) -> Option<InlayHintLabel> {
-    fn rec(
-        sema: &Semantics<'_, RootDatabase>,
-        famous_defs: &FamousDefs<'_, '_>,
-        mut max_length: Option<usize>,
-        ty: &hir::Type<'_>,
-        label_builder: &mut InlayHintLabelBuilder<'_>,
-        config: &InlayHintsConfig<'_>,
-        display_target: DisplayTarget,
-    ) -> Result<(), HirDisplayError> {
-        let iter_item_type = hint_iterator(sema, famous_defs, ty);
-        match iter_item_type {
-            Some((iter_trait, item, ty)) => {
-                const LABEL_START: &str = "impl ";
-                const LABEL_ITERATOR: &str = "Iterator";
-                const LABEL_MIDDLE: &str = "<";
-                const LABEL_ITEM: &str = "Item";
-                const LABEL_MIDDLE2: &str = " = ";
-                const LABEL_END: &str = ">";
-
-                max_length = max_length.map(|len| {
-                    len.saturating_sub(
-                        LABEL_START.len()
-                            + LABEL_ITERATOR.len()
-                            + LABEL_MIDDLE.len()
-                            + LABEL_MIDDLE2.len()
-                            + LABEL_END.len(),
-                    )
-                });
-
-                let module_def_location = |label_builder: &mut InlayHintLabelBuilder<'_>,
-                                           def: ModuleDef,
-                                           name| {
-                    let def = def.try_into();
-                    if let Ok(def) = def {
-                        label_builder.start_location_link(def);
-                    }
-                    #[expect(
-                        clippy::question_mark,
-                        reason = "false positive; replacing with `?` leads to 'type annotations needed' error"
-                    )]
-                    if let Err(err) = label_builder.write_str(name) {
-                        return Err(err);
-                    }
-                    if def.is_ok() {
-                        label_builder.end_location_link();
-                    }
-                    Ok(())
-                };
-
-                label_builder.write_str(LABEL_START)?;
-                module_def_location(label_builder, ModuleDef::from(iter_trait), LABEL_ITERATOR)?;
-                label_builder.write_str(LABEL_MIDDLE)?;
-                module_def_location(label_builder, ModuleDef::from(item), LABEL_ITEM)?;
-                label_builder.write_str(LABEL_MIDDLE2)?;
-                rec(sema, famous_defs, max_length, &ty, label_builder, config, display_target)?;
-                label_builder.write_str(LABEL_END)?;
-                Ok(())
-            }
-            None => ty
-                .display_truncated(sema.db, max_length, display_target)
-                .with_closure_style(config.closure_style)
-                .write_to(label_builder),
-        }
-    }
-
-    let mut label_builder = InlayHintLabelBuilder {
-        sema,
-        last_part: String::new(),
-        location: None,
-        result: InlayHintLabel::default(),
-        resolve: config.fields_to_resolve.resolve_label_location,
-    };
-    let _ =
-        rec(sema, famous_defs, config.max_length, ty, &mut label_builder, config, display_target);
-    let r = label_builder.finish();
-    Some(r)
-}
-
-/// Checks if the type is an Iterator from std::iter and returns the iterator trait and the item type of the concrete iterator.
-fn hint_iterator<'db>(
-    sema: &Semantics<'db, RootDatabase>,
-    famous_defs: &FamousDefs<'_, 'db>,
-    ty: &hir::Type<'db>,
-) -> Option<(hir::Trait, hir::TypeAlias, hir::Type<'db>)> {
-    let db = sema.db;
-    let strukt = ty.strip_references().as_adt()?;
-    let krate = strukt.module(db).krate(db);
-    if krate != famous_defs.core()? {
-        return None;
-    }
-    let iter_trait = famous_defs.core_iter_Iterator()?;
-    let iter_mod = famous_defs.core_iter()?;
-
-    // Assert that this struct comes from `core::iter`.
-    if !(strukt.visibility(db) == hir::Visibility::Public
-        && strukt.module(db).path_to_root(db).contains(&iter_mod))
-    {
-        return None;
-    }
-
-    if ty.impls_trait(db, iter_trait, &[]) {
-        let assoc_type_item = iter_trait.items(db).into_iter().find_map(|item| match item {
-            hir::AssocItem::TypeAlias(alias) if alias.name(db) == sym::Item => Some(alias),
-            _ => None,
-        })?;
-        if let Some(ty) = ty.normalize_trait_assoc_type(db, &[], assoc_type_item) {
-            return Some((iter_trait, assoc_type_item, ty));
-        }
-    }
-
-    None
-}
-
-fn ty_to_text_edit(
-    sema: &Semantics<'_, RootDatabase>,
-    config: &InlayHintsConfig<'_>,
-    node_for_hint: &SyntaxNode,
-    ty: &hir::Type<'_>,
-    offset_to_insert_ty: TextSize,
-    additional_edits: &dyn Fn(&mut TextEditBuilder),
-    prefix: impl Into<String>,
-) -> Option<LazyProperty<TextEdit>> {
-    // FIXME: Limit the length and bail out on excess somehow?
-    let rendered = sema
-        .scope(node_for_hint)
-        .and_then(|scope| ty.display_source_code(scope.db, scope.module().into(), false).ok())?;
-    Some(config.lazy_text_edit(|| {
-        let mut builder = TextEdit::builder();
-        builder.insert(offset_to_insert_ty, prefix.into());
-        builder.insert(offset_to_insert_ty, rendered);
-
-        additional_edits(&mut builder);
-
-        builder.finish()
-    }))
-}
-
-fn closure_has_block_body(closure: &ast::ClosureExpr) -> bool {
-    matches!(closure.body(), Some(ast::Expr::BlockExpr(_)))
-}
-
 #[cfg(test)]
 mod tests {
 
@@ -917,53 +917,6 @@ mod tests {
 
     use super::{
         ClosureReturnTypeHints, GenericParameterHints, InlayFieldsToResolve, TypeHintsPlacement,
-    };
-
-    pub(super) const DISABLED_CONFIG: InlayHintsConfig<'_> = InlayHintsConfig {
-        discriminant_hints: DiscriminantHints::Never,
-        render_colons: false,
-        type_hints: false,
-        type_hints_placement: TypeHintsPlacement::Inline,
-        parameter_hints: false,
-        parameter_hints_for_missing_arguments: false,
-        sized_bound: false,
-        generic_parameter_hints: GenericParameterHints {
-            type_hints: false,
-            lifetime_hints: false,
-            const_hints: false,
-        },
-        chaining_hints: false,
-        lifetime_elision_hints: LifetimeElisionHints::Never,
-        closure_return_type_hints: ClosureReturnTypeHints::Never,
-        closure_capture_hints: false,
-        adjustment_hints: AdjustmentHints::Never,
-        adjustment_hints_disable_reborrows: false,
-        adjustment_hints_mode: AdjustmentHintsMode::Prefix,
-        adjustment_hints_hide_outside_unsafe: false,
-        binding_mode_hints: false,
-        hide_inferred_type_hints: false,
-        hide_named_constructor_hints: false,
-        hide_closure_initialization_hints: false,
-        hide_closure_parameter_hints: false,
-        closure_style: ClosureStyle::ImplFn,
-        param_names_for_lifetime_elision_hints: false,
-        max_length: None,
-        closing_brace_hints_min_lines: None,
-        fields_to_resolve: InlayFieldsToResolve::empty(),
-        implicit_drop_hints: false,
-        implied_dyn_trait_hints: false,
-        range_exclusive_hints: false,
-        ra_fixture: RaFixtureConfig::default(),
-    };
-    pub(super) const TEST_CONFIG: InlayHintsConfig<'_> = InlayHintsConfig {
-        type_hints: true,
-        type_hints_placement: TypeHintsPlacement::Inline,
-        parameter_hints: true,
-        chaining_hints: true,
-        closure_return_type_hints: ClosureReturnTypeHints::WithBlock,
-        binding_mode_hints: true,
-        lifetime_elision_hints: LifetimeElisionHints::Always,
-        ..DISABLED_CONFIG
     };
 
     #[track_caller]
@@ -1157,4 +1110,51 @@ where
         "#,
         );
     }
+
+    pub(super) const DISABLED_CONFIG: InlayHintsConfig<'_> = InlayHintsConfig {
+        discriminant_hints: DiscriminantHints::Never,
+        render_colons: false,
+        type_hints: false,
+        type_hints_placement: TypeHintsPlacement::Inline,
+        parameter_hints: false,
+        parameter_hints_for_missing_arguments: false,
+        sized_bound: false,
+        generic_parameter_hints: GenericParameterHints {
+            type_hints: false,
+            lifetime_hints: false,
+            const_hints: false,
+        },
+        chaining_hints: false,
+        lifetime_elision_hints: LifetimeElisionHints::Never,
+        closure_return_type_hints: ClosureReturnTypeHints::Never,
+        closure_capture_hints: false,
+        adjustment_hints: AdjustmentHints::Never,
+        adjustment_hints_disable_reborrows: false,
+        adjustment_hints_mode: AdjustmentHintsMode::Prefix,
+        adjustment_hints_hide_outside_unsafe: false,
+        binding_mode_hints: false,
+        hide_inferred_type_hints: false,
+        hide_named_constructor_hints: false,
+        hide_closure_initialization_hints: false,
+        hide_closure_parameter_hints: false,
+        closure_style: ClosureStyle::ImplFn,
+        param_names_for_lifetime_elision_hints: false,
+        max_length: None,
+        closing_brace_hints_min_lines: None,
+        fields_to_resolve: InlayFieldsToResolve::empty(),
+        implicit_drop_hints: false,
+        implied_dyn_trait_hints: false,
+        range_exclusive_hints: false,
+        ra_fixture: RaFixtureConfig::default(),
+    };
+    pub(super) const TEST_CONFIG: InlayHintsConfig<'_> = InlayHintsConfig {
+        type_hints: true,
+        type_hints_placement: TypeHintsPlacement::Inline,
+        parameter_hints: true,
+        chaining_hints: true,
+        closure_return_type_hints: ClosureReturnTypeHints::WithBlock,
+        binding_mode_hints: true,
+        lifetime_elision_hints: LifetimeElisionHints::Always,
+        ..DISABLED_CONFIG
+    };
 }
