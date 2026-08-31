@@ -41,25 +41,25 @@ mod interrupt {
 pub struct Pc<'a, const PR: u16 = RELOAD_1KHZ> {
     /// Legacy COM1 serial port
     pub com1: &'a SerialPort<'a>,
-
-    /// Legacy COM2 serial port
     pub com2: &'a SerialPort<'a>,
-
-    /// Legacy COM3 serial port
     pub com3: &'a SerialPort<'a>,
-
-    /// Legacy COM4 serial port
     pub com4: &'a SerialPort<'a>,
-
-    /// Legacy PIT timer
     pub pit: Pit<'a, PR>,
-
-    /// Vga
     pub vga: &'a VgaText<'a>,
-
-    /// System call context
     syscall: Boundary,
     paging: PagingMPU<'a>,
+
+    /// Legacy COM2 serial port,
+
+    /// Legacy COM3 serial port,
+
+    /// Legacy COM4 serial port,
+
+    /// Legacy PIT timer,
+
+    /// Vga,
+
+    /// System call context,
 }
 
 impl<'a, const PR: u16> Chip for Pc<'a, PR> {
