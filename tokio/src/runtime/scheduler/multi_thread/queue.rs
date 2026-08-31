@@ -61,12 +61,12 @@ unsafe impl<T> Sync for Inner<T> {}
 
 #[cfg(not(loom))]
 const LOCAL_QUEUE_CAPACITY: usize = 256;
+#[cfg(loom)]
+const LOCAL_QUEUE_CAPACITY: usize = 4;
 
 // Shrink the size of the local queue when using loom. This shouldn't impact
 // logic, but allows loom to test more edge cases in a reasonable a mount of
 // time.
-#[cfg(loom)]
-const LOCAL_QUEUE_CAPACITY: usize = 4;
 
 const MASK: usize = LOCAL_QUEUE_CAPACITY - 1;
 
