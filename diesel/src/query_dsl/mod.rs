@@ -1841,7 +1841,7 @@ pub trait RunQueryDsl<Conn>: Sized {
 /// Primarially used to simplify diesel_async implementing the async version of RunQueryDsl
 pub trait RunQueryDslSupport {}
 
-impl<T> RunQueryDslSupport for T where T: QueryRelation {}
+impl<T> RunQueryDslSupport for T where T: Table {}
 
 // We can now use a blanket implementation against RunQueryDslSuport which
 // preserves the exiting functionality where we specifically
@@ -1849,4 +1849,4 @@ impl<T> RunQueryDslSupport for T where T: QueryRelation {}
 // resolution. Otherwise our users will get an error saying `<3 page long type>:
 // ExecuteDsl is not satisfied` instead of a specific error telling them what
 // part of their query is wrong.
-impl<T, Conn> RunQueryDsl<Conn> for T where T: RunQueryDslSupport {}
+impl<T, Conn> RunQueryDsl<Conn> for T where T: RunQueryDslSupport + QueryRelation {}

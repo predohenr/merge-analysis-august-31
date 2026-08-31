@@ -1,7 +1,8 @@
 use super::Query;
 use crate::backend::{Backend, DieselReserveSpecialization};
+use crate::connection::Connection;
 use crate::query_builder::{AstPass, QueryFragment, QueryId};
-use crate::query_dsl::RunQueryDslSupport;
+use crate::query_dsl::{RunQueryDsl, RunQueryDslSupport};
 use crate::result::QueryResult;
 use crate::serialize::ToSql;
 use crate::sql_types::{HasSqlType, Untyped};

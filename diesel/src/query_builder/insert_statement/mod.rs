@@ -19,7 +19,7 @@ use crate::query_builder::returning::{
     InsertStmtKind, NoReturningClause, ReturningClause, ReturningQuerySource,
 };
 use crate::query_builder::*;
-use crate::query_dsl::RunQueryDslSupport;
+use crate::query_dsl::{RunQueryDsl, RunQueryDslSupport};
 use crate::query_source::{Column, Table};
 use crate::{QuerySource, insertable::*};
 use core::marker::PhantomData;

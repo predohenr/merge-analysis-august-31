@@ -12,7 +12,7 @@ use crate::query_builder::returning::{
 };
 use crate::query_builder::where_clause::*;
 use crate::query_builder::*;
-use crate::query_dsl::RunQueryDslSupport;
+use crate::query_dsl::{RunQueryDsl, RunQueryDslSupport};
 use crate::query_dsl::methods::{BoxedDsl, FilterDsl};
 use crate::query_source::Table;
 use crate::result::EmptyChangeset;

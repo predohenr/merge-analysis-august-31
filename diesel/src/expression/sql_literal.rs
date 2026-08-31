@@ -1,6 +1,6 @@
 use crate::expression::*;
 use crate::query_builder::*;
-use crate::query_dsl::RunQueryDslSupport;
+use crate::query_dsl::{RunQueryDsl, RunQueryDslSupport};
 use crate::result::QueryResult;
 use crate::sql_types::DieselNumericOps;
 use alloc::string::String;
