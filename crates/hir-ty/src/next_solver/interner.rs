@@ -446,6 +446,11 @@ pub struct AdtDef(AdtDefInner);
 
 const _: () = assert!(size_of::<AdtDef>() == 12);
 
+const _: () = {
+    const fn is_copy<T: Copy>() {}
+    is_copy::<Pattern<'static>>();
+};
+
 impl AdtDef {
     pub fn new<'db>(def_id: AdtId, interner: DbInterner<'db>) -> Self {
         let db = interner.db();
@@ -711,11 +716,6 @@ pub struct Pattern<'db> {
 struct PatternInterned(PatternKind<'static>);
 
 impl_internable!(gc; PatternInterned);
-
-const _: () = {
-    const fn is_copy<T: Copy>() {}
-    is_copy::<Pattern<'static>>();
-};
 
 impl<'db> Pattern<'db> {
     pub fn new(_interner: DbInterner<'db>, kind: PatternKind<'db>) -> Self {
