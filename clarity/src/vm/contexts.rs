@@ -2377,45 +2377,6 @@ mod test {
     }
 
     #[test]
-    fn eval_raw_empty_program() {
-        // Setup environment
-        let mut tl_env_factory = tl_env_factory();
-        let mut env = tl_env_factory.get_env(StacksEpochId::latest());
-
-        // Call eval_read_only with an empty program
-        let program = ""; // empty program triggers parsed.is_empty()
-        let err = env.eval_raw(program).unwrap_err();
-
-        assert!(
-            matches!(
-            err,
-            VmExecutionError::Runtime(RuntimeError::TypeParseFailure(msg), _) if msg.contains("Expected a program of at least length 1")),
-            "Expected a type parse failure"
-        );
-    }
-
-    #[test]
-    fn eval_read_only_empty_program() {
-        // Setup environment
-        let mut tl_env_factory = tl_env_factory();
-        let mut env = tl_env_factory.get_env(StacksEpochId::latest());
-
-        // Construct a dummy contract context
-        let contract_id = QualifiedContractIdentifier::local("dummy-contract").unwrap();
-
-        // Call eval_read_only with an empty program
-        let program = ""; // empty program triggers parsed.is_empty()
-        let err = env.eval_read_only(&contract_id, program).unwrap_err();
-
-        assert!(
-            matches!(
-            err,
-            VmExecutionError::Runtime(RuntimeError::TypeParseFailure(msg), _) if msg.contains("Expected a program of at least length 1")),
-            "Expected a type parse failure"
-        );
-    }
-
-    #[test]
     fn max_context_depth_exceeded() {
         let root = LocalContext {
             function_context: None,
@@ -2485,5 +2446,44 @@ mod test {
             err,
             VmExecutionError::Unchecked(CheckErrorKind::ContractAlreadyExists(_))
         ));
+    }
+
+    #[test]
+    fn eval_raw_empty_program() {
+        // Setup environment
+        let mut tl_env_factory = tl_env_factory();
+        let mut env = tl_env_factory.get_env(StacksEpochId::latest());
+
+        // Call eval_read_only with an empty program
+        let program = ""; // empty program triggers parsed.is_empty()
+        let err = env.eval_raw(program).unwrap_err();
+
+        assert!(
+            matches!(
+            err,
+            VmExecutionError::Runtime(RuntimeError::TypeParseFailure(msg), _) if msg.contains("Expected a program of at least length 1")),
+            "Expected a type parse failure"
+        );
+    }
+
+    #[test]
+    fn eval_read_only_empty_program() {
+        // Setup environment
+        let mut tl_env_factory = tl_env_factory();
+        let mut env = tl_env_factory.get_env(StacksEpochId::latest());
+
+        // Construct a dummy contract context
+        let contract_id = QualifiedContractIdentifier::local("dummy-contract").unwrap();
+
+        // Call eval_read_only with an empty program
+        let program = ""; // empty program triggers parsed.is_empty()
+        let err = env.eval_read_only(&contract_id, program).unwrap_err();
+
+        assert!(
+            matches!(
+            err,
+            VmExecutionError::Runtime(RuntimeError::TypeParseFailure(msg), _) if msg.contains("Expected a program of at least length 1")),
+            "Expected a type parse failure"
+        );
     }
 }
