@@ -17,6 +17,25 @@ use crate::{
 };
 pub use _io::{OpenArgs, io_open as open};
 
+pub(crate) fn make_module(vm: &VirtualMachine) -> PyRef<PyModule> {
+    let ctx = &vm.ctx;
+
+    let module = _io::make_module(vm);
+
+    #[cfg(any(not(target_arch = "wasm32"), target_os = "wasi"))]
+    fileio::extend_module(vm, &module).unwrap();
+
+    let unsupported_operation = _io::UNSUPPORTED_OPERATION
+        .get_or_init(|| _io::make_unsupportedop(ctx))
+        .clone();
+    extend_module!(vm, &module, {
+        "UnsupportedOperation" => unsupported_operation,
+        "BlockingIOError" => ctx.exceptions.blocking_io_error.to_owned(),
+    });
+
+    module
+}
+
 impl ToPyException for std::io::Error {
     fn to_pyexception(&self, vm: &VirtualMachine) -> PyBaseExceptionRef {
         let errno = self.posix_errno();
@@ -46,25 +65,6 @@ impl IntoPyException for std::io::Error {
     fn into_pyexception(self, vm: &VirtualMachine) -> PyBaseExceptionRef {
         self.to_pyexception(vm)
     }
-}
-
-pub(crate) fn make_module(vm: &VirtualMachine) -> PyRef<PyModule> {
-    let ctx = &vm.ctx;
-
-    let module = _io::make_module(vm);
-
-    #[cfg(any(not(target_arch = "wasm32"), target_os = "wasi"))]
-    fileio::extend_module(vm, &module).unwrap();
-
-    let unsupported_operation = _io::UNSUPPORTED_OPERATION
-        .get_or_init(|| _io::make_unsupportedop(ctx))
-        .clone();
-    extend_module!(vm, &module, {
-        "UnsupportedOperation" => unsupported_operation,
-        "BlockingIOError" => ctx.exceptions.blocking_io_error.to_owned(),
-    });
-
-    module
 }
 
 // not used on all platforms
