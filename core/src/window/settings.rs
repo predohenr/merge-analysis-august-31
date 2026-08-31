@@ -34,42 +34,43 @@ pub use platform::PlatformSpecific;
 pub struct Settings {
     /// The initial logical dimensions of the window.
     pub size: Size,
-
-    /// Whether the window should start maximized.
     pub maximized: bool,
-
-    /// Whether the window should start fullscreen.
     pub fullscreen: bool,
-
-    /// The initial position of the window.
     pub position: Position,
-
-    /// The minimum size of the window.
     pub min_size: Option<Size>,
-
-    /// The maximum size of the window.
     pub max_size: Option<Size>,
-
-    /// Whether the window should be visible or not.
     pub visible: bool,
-
-    /// Whether the window should be resizable or not.
     pub resizable: bool,
-
-    /// Whether the window should have a border, a title bar, etc. or not.
     pub decorations: bool,
-
-    /// Whether the window should be transparent.
     pub transparent: bool,
-
-    /// The window [`Level`].
     pub level: Level,
-
-    /// The icon of the window.
     pub icon: Option<Icon>,
-
-    /// Platform specific settings.
     pub platform_specific: PlatformSpecific,
+    pub exit_on_close_request: bool,
+
+    /// Whether the window should start maximized.,
+
+    /// Whether the window should start fullscreen.,
+
+    /// The initial position of the window.,
+
+    /// The minimum size of the window.,
+
+    /// The maximum size of the window.,
+
+    /// Whether the window should be visible or not.,
+
+    /// Whether the window should be resizable or not.,
+
+    /// Whether the window should have a border, a title bar, etc. or not.,
+
+    /// Whether the window should be transparent.,
+
+    /// The window [`Level`].,
+
+    /// The icon of the window.,
+
+    /// Platform specific settings.,
 
     /// Whether the window will close when the user requests it, e.g. when a user presses the
     /// close button.
@@ -78,8 +79,7 @@ pub struct Settings {
     /// actually destroyed. If you disable this, you must manually close the window with the
     /// `window::close` command.
     ///
-    /// By default this is enabled.
-    pub exit_on_close_request: bool,
+    /// By default this is enabled.,
 }
 
 impl Default for Settings {
