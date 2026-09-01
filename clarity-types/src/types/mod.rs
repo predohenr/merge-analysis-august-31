@@ -597,12 +597,12 @@ impl SequenceData {
         }
     }
 
-    /// Filters the sequence in-place, retaining only elements for which the
-    /// predicate returns `Ok(true)`.
-    ///
-    /// Uses a single forward pass (O(n)): kept elements are swapped to the
-    /// front, then the tail is truncated.
-    ///
+    /// Filters the sequence in-place, retaining only elements for which the                                                                                    
+    /// predicate returns `Ok(true)`.                                                                                                                           
+    ///                                                                                                                                                         
+    /// Uses a single forward pass (O(n)): kept elements are swapped to the                                                                                     
+    /// front, then the tail is truncated.                                                                                                                      
+    ///                                                         
     /// On error the sequence is consumed and cannot be recovered
     pub fn try_retain<E, F>(mut self, mut predicate: F) -> Result<Self, RetainValuesError<E>>
     where
@@ -613,7 +613,8 @@ impl SequenceData {
                 let mut write = 0;
                 for read in 0..$data.data.len() {
                     let value =
-                        $seq_type::to_value(&$data.data[read]).map_err(RetainValuesError::Internal)?;
+                        $seq_type::to_value(&$data.data[read])
+                            .map_err(RetainValuesError::Internal)?;
                     let keep = predicate(value).map_err(RetainValuesError::Predicate)?;
                     if keep {
                         if write != read {
