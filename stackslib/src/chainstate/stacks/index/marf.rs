@@ -36,29 +36,6 @@ use crate::types::chainstate::TrieHash;
 use crate::util::hash::Sha512Trunc256Sum;
 use crate::util_lib::db::Error as db_error;
 
-pub const BLOCK_HASH_TO_HEIGHT_MAPPING_KEY: &str = "__MARF_BLOCK_HASH_TO_HEIGHT";
-pub const BLOCK_HEIGHT_TO_HASH_MAPPING_KEY: &str = "__MARF_BLOCK_HEIGHT_TO_HASH";
-pub const OWN_BLOCK_HEIGHT_KEY: &str = "__MARF_BLOCK_HEIGHT_SELF";
-
-#[cfg(any(test, feature = "testing"))]
-/// Global default override for MARF compression used in tests.
-///
-/// This constant allows forcing *all* MARF instances created in tests
-/// to use compression (`Some(true)`) or to disable it (`Some(false)`),
-/// regardless of the test’s local configuration.
-///
-/// When set to `None`, test's own MARF configuration is used.
-const TEST_MARF_COMPRESSION_DEFAULT: Option<bool> = None;
-
-#[cfg(any(test, feature = "testing"))]
-/// Test flag used to override MARF compression during test execution.
-///
-/// This flag enables tests to dynamically enable or disable MARF compression
-/// *after* process startup, allowing scenarios where compression is switched
-/// on and off within the same test.
-static TEST_MARF_COMPRESSION_FLAG: LazyLock<TestFlag<Option<bool>>> =
-    LazyLock::new(TestFlag::default);
-
 #[cfg(any(test, feature = "testing"))]
 /// Inject a runtime override for MARF compression in tests.
 pub fn fault_injection_marf_compression(enabled: bool) {
@@ -93,6 +70,29 @@ pub fn test_override_marf_compression(marf_opts: &mut MARFOpenOpts) {
 /// No-op stub for non-test builds.
 pub fn test_override_marf_compression(_marf_opts: &mut MARFOpenOpts) {}
 
+pub const BLOCK_HASH_TO_HEIGHT_MAPPING_KEY: &str = "__MARF_BLOCK_HASH_TO_HEIGHT";
+pub const BLOCK_HEIGHT_TO_HASH_MAPPING_KEY: &str = "__MARF_BLOCK_HEIGHT_TO_HASH";
+pub const OWN_BLOCK_HEIGHT_KEY: &str = "__MARF_BLOCK_HEIGHT_SELF";
+
+#[cfg(any(test, feature = "testing"))]
+/// Global default override for MARF compression used in tests.
+///
+/// This constant allows forcing *all* MARF instances created in tests
+/// to use compression (`Some(true)`) or to disable it (`Some(false)`),
+/// regardless of the test’s local configuration.
+///
+/// When set to `None`, test's own MARF configuration is used.
+const TEST_MARF_COMPRESSION_DEFAULT: Option<bool> = None;
+
+#[cfg(any(test, feature = "testing"))]
+/// Test flag used to override MARF compression during test execution.
+///
+/// This flag enables tests to dynamically enable or disable MARF compression
+/// *after* process startup, allowing scenarios where compression is switched
+/// on and off within the same test.
+static TEST_MARF_COMPRESSION_FLAG: LazyLock<TestFlag<Option<bool>>> =
+    LazyLock::new(TestFlag::default);
+
 /// Merklized Adaptive-Radix Forest -- a collection of Merklized Adaptive-Radix Tries.
 pub struct MARF<T: MarfTrieId> {
     storage: TrieFileStorage<T>,
@@ -115,14 +115,14 @@ struct WriteChainTip<T> {
 pub struct MARFOpenOpts {
     /// Hash calculation mode for calculating a trie root hash
     pub hash_calculation_mode: TrieHashCalculationMode,
-    /// Cache strategy to use
     pub cache_strategy: String,
-    /// store trie blobs externally from the DB, in a flat file
     pub external_blobs: bool,
-    /// unconditionally do a DB migration (used for testing)
     pub force_db_migrate: bool,
-    /// compress the MARF
     pub compress: bool,
+    /// Cache strategy to use,
+    /// store trie blobs externally from the DB, in a flat file,
+    /// unconditionally do a DB migration (used for testing),
+    /// compress the MARF,
 }
 
 impl MARFOpenOpts {
@@ -711,8 +711,6 @@ impl<T: MarfTrieId> MARF<T> {
         let h = tx.seal()?;
         Ok(h)
     }
-
-    // helper method for walking a node's backpr
     fn walk_backptr(
         storage: &mut TrieStorageConnection<T>,
         start_node: &TrieNodeType,
@@ -1187,8 +1185,6 @@ impl<T: MarfTrieId> MARF<T> {
         }
         MARF::do_insert_leaf(storage, block_hash, path, value, true)
     }
-
-    // like insert_leaf, but don't update the merkle skiplist
     pub fn insert_leaf_in_batch(
         storage: &mut TrieStorageTransaction<T>,
         block_hash: &T,
@@ -1438,6 +1434,10 @@ impl<T: MarfTrieId> MARF<T> {
 
         result
     }
+
+    // helper method for walking a node's backpr
+
+    // like insert_leaf, but don't update the merkle skiplist
 }
 
 // instance methods
@@ -1624,8 +1624,6 @@ impl<T: MarfTrieId> MARF<T> {
         }
         Ok(())
     }
-
-    // Comes from the marf.
     pub fn get_block_height_of(
         &mut self,
         bhh: &T,
@@ -1723,4 +1721,6 @@ impl<T: MarfTrieId> MARF<T> {
     pub fn get_db_path(&self) -> &str {
         &self.storage.db_path
     }
+
+    // Comes from the marf.
 }
