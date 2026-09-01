@@ -19,6 +19,18 @@ pub fn is_big_endian() -> bool {
     u32::from_be(0x1Au32) == 0x1Au32
 }
 
+#[cfg(test)]
+pub fn is_trace() -> bool {
+    use std::env;
+    TRACE_ENABLED && env::var("BLOCKSTACK_TRACE") == Ok("1".to_string())
+}
+
+#[cfg(not(test))]
+#[inline]
+pub fn is_trace() -> bool {
+    false
+}
+
 /// Define an iterable enum: an enum where each variant is an atomic
 /// type (i.e., has no paramters), and the variants can be iterated over
 /// with an Enum::ALL const
@@ -679,18 +691,6 @@ macro_rules! test_debug {
 
 #[cfg(test)]
 pub const TRACE_ENABLED: bool = true;
-
-#[cfg(test)]
-pub fn is_trace() -> bool {
-    use std::env;
-    TRACE_ENABLED && env::var("BLOCKSTACK_TRACE") == Ok("1".to_string())
-}
-
-#[cfg(not(test))]
-#[inline]
-pub fn is_trace() -> bool {
-    false
-}
 
 #[allow(unused_macros)]
 macro_rules! trace {
