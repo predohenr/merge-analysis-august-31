@@ -18,8 +18,7 @@ use crate::vm::contexts::{Environment, LocalContext};
 use crate::vm::costs::cost_functions::ClarityCostFunction;
 use crate::vm::costs::{runtime_cost, CostTracker, MemoryConsumer};
 use crate::vm::errors::{
-    check_arguments_at_least, CheckErrors, EarlyReturnError, InterpreterError,
-    InterpreterResult as Result, RuntimeError,
+    check_arguments_at_least, CheckErrors, InterpreterError, EarlyReturnError, RuntimeError, InterpreterResult as Result,
 };
 use crate::vm::types::{CallableData, OptionalData, ResponseData, TypeSignature, Value};
 use crate::vm::Value::CallableContract;
