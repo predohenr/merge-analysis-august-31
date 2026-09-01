@@ -38,10 +38,10 @@ use stacks::chainstate::stacks::{
     TransactionAuth, TransactionContractCall, TransactionPayload, TransactionPostConditionMode,
     TransactionPublicKeyEncoding, TransactionSpendingCondition, TransactionVersion,
 };
-use stacks::core::test_util::{make_unsigned_tx, to_addr};
-use stacks::core::CHAIN_ID_TESTNET;
-use stacks::net::http::HttpRequestContents;
 use stacks::net::httpcore::{send_http_request, StacksHttpRequest};
+use stacks::core::test_util::{make_unsigned_tx, to_addr};
+use stacks::net::http::HttpRequestContents;
+use stacks::core::CHAIN_ID_TESTNET;
 use stacks::types::chainstate::{
     BlockHeaderHash, StacksAddress, StacksPrivateKey, StacksPublicKey,
 };
