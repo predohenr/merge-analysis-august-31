@@ -59,12 +59,12 @@ pub static EVENT_RECEIVER_POLL: Duration = Duration::from_millis(500);
 pub struct BlockStatus {
     /// Set of the slot ids of signers who have responded
     pub responded_signers: HashSet<u32>,
-    /// Map of the slot id of signers who have signed the block and their signature
     pub gathered_signatures: BTreeMap<u32, MessageSignature>,
-    /// Total weight of signers who have signed the block
     pub total_weight_approved: u32,
-    /// Total weight of signers who have rejected the block
     pub total_weight_rejected: u32,
+    /// Map of the slot id of signers who have signed the block and their signature,
+    /// Total weight of signers who have signed the block,
+    /// Total weight of signers who have rejected the block,
 }
 
 #[derive(Debug, Clone)]
@@ -78,33 +78,33 @@ pub(crate) struct TimestampInfo {
 pub struct StackerDBListener {
     /// Channel to communicate with StackerDB
     stackerdb_channel: Arc<Mutex<StackerDBChannel>>,
-    /// Receiver end of the StackerDB events channel
     receiver: Option<Receiver<StackerDBChunksEvent>>,
-    /// Flag to shut the node down
     node_keep_running: Arc<AtomicBool>,
-    /// Flag to shut the listener down
     keep_running: Arc<AtomicBool>,
-    /// The signer set for this tenure (0 or 1)
     signer_set: u32,
-    /// The total weight of all signers
     pub(crate) total_weight: u32,
-    /// The weight threshold for block approval
     pub(crate) weight_threshold: u32,
-    /// The signer entries for this tenure (keyed by slot_id)
     signer_entries: HashMap<u32, NakamotoSignerEntry>,
+    pub(crate) blocks: Arc<(Mutex<HashMap<Sha512Trunc256Sum, BlockStatus>>, Condvar)>,
+    pub(crate) signer_idle_timestamps: Arc<Mutex<HashMap<StacksPublicKey, TimestampInfo>>>,
+    pub(crate) global_state_evaluator: Arc<Mutex<GlobalStateEvaluator>>,
+    is_mainnet: bool,
+    /// Receiver end of the StackerDB events channel,
+    /// Flag to shut the node down,
+    /// Flag to shut the listener down,
+    /// The signer set for this tenure (0 or 1),
+    /// The total weight of all signers,
+    /// The weight threshold for block approval,
+    /// The signer entries for this tenure (keyed by slot_id),
     /// Tracks signatures for blocks
     ///   - key: Sha512Trunc256Sum (signer signature hash)
-    ///   - value: BlockStatus
-    pub(crate) blocks: Arc<(Mutex<HashMap<Sha512Trunc256Sum, BlockStatus>>, Condvar)>,
+    ///   - value: BlockStatus,
     /// Tracks the timestamps from signers to decide when they should be
     /// willing to accept time-based tenure extensions
     ///  - key: StacksPublicKey
-    ///  - value: TimestampInfo
-    pub(crate) signer_idle_timestamps: Arc<Mutex<HashMap<StacksPublicKey, TimestampInfo>>>,
-    /// Tracks the signer's global state machine through signer state machine update messages
-    pub(crate) global_state_evaluator: Arc<Mutex<GlobalStateEvaluator>>,
-    /// Wehther we are operating on mainnet
-    is_mainnet: bool,
+    ///  - value: TimestampInfo,
+    /// Tracks the signer's global state machine through signer state machine update messages,
+    /// Wehther we are operating on mainnet,
 }
 
 /// Interface for other threads to retrieve info from the StackerDBListener
@@ -113,13 +113,13 @@ pub struct StackerDBListenerComms {
     ///   - key: Sha512Trunc256Sum (signer signature hash)
     ///   - value: BlockStatus
     blocks: Arc<(Mutex<HashMap<Sha512Trunc256Sum, BlockStatus>>, Condvar)>,
+    signer_idle_timestamps: Arc<Mutex<HashMap<StacksPublicKey, TimestampInfo>>>,
+    global_state_evaluator: Arc<Mutex<GlobalStateEvaluator>>,
     /// Tracks the timestamps from signers to decide when they should be
     /// willing to accept time-based tenure extensions
     ///  - key: StacksPublicKey
-    ///  - value: TimestampInfo
-    signer_idle_timestamps: Arc<Mutex<HashMap<StacksPublicKey, TimestampInfo>>>,
-    /// Tracks the signer's global state machine through signer state machine update messages
-    global_state_evaluator: Arc<Mutex<GlobalStateEvaluator>>,
+    ///  - value: TimestampInfo,
+    /// Tracks the signer's global state machine through signer state machine update messages,
 }
 
 impl StackerDBListener {
