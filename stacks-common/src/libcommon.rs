@@ -21,6 +21,21 @@ pub use stacks_codec::{
     impl_byte_array_message_codec, impl_stacks_message_codec_for_int, BITVEC_LEN,
 };
 
+/// This test asserts that the constant above doesn't change.
+/// This exists because the constant above is used by Epoch 2.5 instantiation code.
+///
+/// Adding more slots will require instantiating more .signers contracts through either
+///  consensus changes (i.e., a new epoch) or through non-consensus-critical contract
+///  deployments.
+#[test]
+fn signer_slots_count_2_5() {
+    assert_eq!(
+        consts::SIGNER_SLOTS_PER_USER,
+        13,
+        "The .signers-x-y contracts in Epoch 2.5 were instantiated with 13 slots"
+    );
+}
+
 #[cfg(all(unix, feature = "ctrlc-handler"))]
 extern crate nix;
 
@@ -66,10 +81,10 @@ pub mod consts {
     pub const CHAIN_ID_TESTNET: u32 = 0x80000000;
 
     #[cfg(any(test, feature = "testing"))]
-    pub const MINER_REWARD_MATURITY: u64 = 2; // small for testing purposes
+    pub const MINER_REWARD_MATURITY: u64 = 2;
 
     #[cfg(not(any(test, feature = "testing")))]
-    pub const MINER_REWARD_MATURITY: u64 = 100;
+    pub const MINER_REWARD_MATURITY: u64 = 100; // small for testing purposes
 
     pub const STACKS_EPOCH_MAX: u64 = i64::MAX as u64;
 
@@ -116,19 +131,4 @@ pub mod consts {
 
 pub mod versions {
     include!(concat!(env!("OUT_DIR"), "/versions.rs"));
-}
-
-/// This test asserts that the constant above doesn't change.
-/// This exists because the constant above is used by Epoch 2.5 instantiation code.
-///
-/// Adding more slots will require instantiating more .signers contracts through either
-///  consensus changes (i.e., a new epoch) or through non-consensus-critical contract
-///  deployments.
-#[test]
-fn signer_slots_count_2_5() {
-    assert_eq!(
-        consts::SIGNER_SLOTS_PER_USER,
-        13,
-        "The .signers-x-y contracts in Epoch 2.5 were instantiated with 13 slots"
-    );
 }
