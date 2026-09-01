@@ -29,45 +29,6 @@ use crate::codec::{read_next, write_next, Error as codec_error, StacksMessageCod
 use crate::types::chainstate::{TrieHash, BLOCK_HEADER_HASH_ENCODED_SIZE};
 use crate::util::hash::to_hex;
 
-#[derive(Debug, Clone, PartialEq)]
-pub enum CursorError {
-    PathDiverged,
-    BackptrEncountered(TriePtr),
-    ChrNotFound,
-}
-
-impl fmt::Display for CursorError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match *self {
-            CursorError::PathDiverged => write!(f, "Path diverged"),
-            CursorError::BackptrEncountered(_) => write!(f, "Back-pointer encountered"),
-            CursorError::ChrNotFound => write!(f, "Node child not found"),
-        }
-    }
-}
-
-impl error::Error for CursorError {
-    fn cause(&self) -> Option<&dyn error::Error> {
-        None
-    }
-}
-
-// All numeric values of a Trie node when encoded.
-// The low 5 bits encode the base TrieNodeID value (0-6).
-// * the 8th bit (0x80) indicates a back-pointer to be followed
-// * the 7th bit (0x40) indicates the ptrs are compressed. Cleared on read.
-// * the 6th bit (0x20) indicates the ptr offset is encoded as u64, instead of u32. Cleared on read.
-// * the 5th bit (0x10) indicates a compressed inline pointer contains a back_block payload. Cleared on read.
-define_u8_enum!(TrieNodeID {
-    Empty = 0,
-    Leaf = 1,
-    Node4 = 2,
-    Node16 = 3,
-    Node48 = 4,
-    Node256 = 5,
-    Patch = 6
-});
-
 /// A node ID encodes a back-pointer if its high bit is set
 pub fn is_backptr(id: u8) -> bool {
     id & 0x80 != 0
@@ -139,8 +100,6 @@ pub const fn clear_u64_ptr(id: u8) -> u8 {
 pub fn clear_ctrl_bits(id: u8) -> u8 {
     id & 0x0f
 }
-
-// Byte writing operations for pointer lists, paths.
 
 /// Write out the list of TriePtrs to the given Write object.
 /// The written pointers will NOT be compressed.
@@ -255,6 +214,88 @@ fn ptrs_consensus_hash<W: Write, M: BlockMap>(
     }
     Ok(())
 }
+
+pub fn ptrs_fmt(ptrs: &[TriePtr]) -> String {
+    let mut strs = vec![];
+    for ptr in ptrs.iter() {
+        if ptr.id != TrieNodeID::Empty as u8 {
+            strs.push(format!(
+                "id({})chr({:02x})ptr({})bblk({})",
+                ptr.id, ptr.chr, ptr.ptr, ptr.back_block
+            ))
+        }
+    }
+    strs.join(",")
+}
+
+/// Turn each non-empty, non-backptr in `ptrs` into a backptr.
+/// If `back_block` is already non-zero (squash annotation), it is preserved;
+/// otherwise it is set to `child_block_id`.
+pub(crate) fn node_copy_update_ptrs(ptrs: &mut [TriePtr], child_block_id: u32) {
+    for pointer in ptrs.iter_mut() {
+        // if the node is empty, do nothing, if it's a back pointer,
+        if pointer.id() == TrieNodeID::Empty as u8 || is_backptr(pointer.id()) {
+            continue;
+        }
+        if pointer.back_block == 0 {
+            pointer.back_block = child_block_id;
+        }
+        pointer.id = set_backptr(pointer.id());
+    }
+}
+
+/// Given the current block ID, convert every backptr pointer whose back_block is equal to
+/// `cur_block_id` to a normal pointer.  This is used when applying patches.
+fn node_normalize_ptrs(ptrs: &mut [TriePtr], cur_block_id: u32) {
+    for ptr in ptrs.iter_mut() {
+        if is_backptr(ptr.id) && ptr.back_block == cur_block_id {
+            // normalize
+            ptr.id = clear_backptr(ptr.id);
+            ptr.back_block = 0;
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum CursorError {
+    PathDiverged,
+    BackptrEncountered(TriePtr),
+    ChrNotFound,
+}
+
+impl fmt::Display for CursorError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            CursorError::PathDiverged => write!(f, "Path diverged"),
+            CursorError::BackptrEncountered(_) => write!(f, "Back-pointer encountered"),
+            CursorError::ChrNotFound => write!(f, "Node child not found"),
+        }
+    }
+}
+
+impl error::Error for CursorError {
+    fn cause(&self) -> Option<&dyn error::Error> {
+        None
+    }
+}
+
+// All numeric values of a Trie node when encoded.
+// They are all 4-bit numbers (values 0-6)
+// * the 8th bit (0x80) indicates a back-pointer to be followed
+// * the 7th bit (0x40) indicates the ptrs are compressed. Cleared on read.
+// * the 6th bit (0x20) indicates the ptr offset is encoded as u64, instead of u32. Cleared on read.
+// * the 5th bit (0x10) indicates a compressed inline pointer contains a back_block payload. Cleared on read.
+define_u8_enum!(TrieNodeID {
+    Empty = 0,
+    Leaf = 1,
+    Node4 = 2,
+    Node16 = 3,
+    Node48 = 4,
+    Node256 = 5,
+    Patch = 6
+});
+
+// Byte writing operations for pointer lists, paths.
 
 /// Copy-on-write pointer to a node.  When the MARF writes a new key/value pair, it copies
 /// intermediate nodes from the parent trie into the new trie being built.  This struct is a
@@ -422,26 +463,13 @@ impl<T: TrieNode, M: BlockMap> ConsensusSerializable<M> for T {
 pub struct TriePtr {
     /// Node type ID of the child (see [`TrieNodeID`]). Bit 0x80 marks a back-pointer.
     pub id: u8,
-    /// Path character at which this child resides.
     pub chr: u8,
-    /// Byte offset of the child's encoded data within the trie storage.
     pub ptr: u64,
-    /// Block ID of the trie containing the child. Zero for same-block inline children
-    /// (unless carrying a squash annotation).
     pub back_block: u32,
-}
-
-pub fn ptrs_fmt(ptrs: &[TriePtr]) -> String {
-    let mut strs = vec![];
-    for ptr in ptrs.iter() {
-        if ptr.id != TrieNodeID::Empty as u8 {
-            strs.push(format!(
-                "id({})chr({:02x})ptr({})bblk({})",
-                ptr.id, ptr.chr, ptr.ptr, ptr.back_block
-            ))
-        }
-    }
-    strs.join(",")
+    /// Path character at which this child resides.,
+    /// Byte offset of the child's encoded data within the trie storage.,
+    /// Block ID of the trie containing the child. Zero for same-block inline children
+    /// (unless carrying a squash annotation).,
 }
 
 impl Default for TriePtr {
@@ -771,13 +799,13 @@ impl TriePtr {
 /// nodes to visit when updating the root node hash.
 #[derive(Debug, Clone, PartialEq)]
 pub struct TrieCursor<T: MarfTrieId> {
-    pub path: TrieHash,                  // the path to walk
-    pub index: usize,                    // index into the path
-    pub node_path_index: usize,          // index into the currently-visited node's compressed path
-    pub nodes: Vec<TrieNodeType>,        // list of nodes this cursor visits
-    pub node_ptrs: Vec<TriePtr>,         // list of ptr branches this cursor has taken
-    pub block_hashes: Vec<T>, // list of Tries we've visited.  block_hashes[i] corresponds to node_ptrs[i]
-    pub last_error: Option<CursorError>, // last error encountered while walking (used to make sure the client calls the right "recovery" method)
+    pub path: TrieHash,
+    pub index: usize,
+    pub node_path_index: usize,
+    pub nodes: Vec<TrieNodeType>,
+    pub node_ptrs: Vec<TriePtr>,
+    pub block_hashes: Vec<T>,
+    pub last_error: Option<CursorError>,                  // the path to walk,                    // index into the path,          // index into the currently-visited node's compressed path,        // list of nodes this cursor visits,         // list of ptr branches this cursor has taken, // list of Tries we've visited.  block_hashes[i] corresponds to node_ptrs[i], // last error encountered while walking (used to make sure the client calls the right "recovery" method)
 }
 
 impl<T: MarfTrieId> TrieCursor<T> {
@@ -1077,10 +1105,10 @@ impl StacksMessageCodec for TrieLeaf {
 pub struct TrieNode4 {
     pub path: Vec<u8>,
     pub ptrs: [TriePtr; 4],
-    /// If this node was created by copy-on-write, then this points to the node it was copied from.
     pub cowptr: Option<TrieCowPtr>,
-    /// List of patches applied to this node.  Fields are (node block ID, pointer to node, patch itself)
     pub patches: Vec<(u32, TriePtr, TrieNodePatch)>,
+    /// If this node was created by copy-on-write, then this points to the node it was copied from.,
+    /// List of patches applied to this node.  Fields are (node block ID, pointer to node, patch itself),
 }
 
 impl fmt::Debug for TrieNode4 {
@@ -1110,10 +1138,10 @@ impl TrieNode4 {
 pub struct TrieNode16 {
     pub path: Vec<u8>,
     pub ptrs: [TriePtr; 16],
-    /// If this node was created by copy-on-write, then this points to the node it was copied from.
     pub cowptr: Option<TrieCowPtr>,
-    /// List of patches applied to this node.  Fields are (node block ID, pointer to node, patch itself)
     pub patches: Vec<(u32, TriePtr, TrieNodePatch)>,
+    /// If this node was created by copy-on-write, then this points to the node it was copied from.,
+    /// List of patches applied to this node.  Fields are (node block ID, pointer to node, patch itself),
 }
 
 impl fmt::Debug for TrieNode16 {
@@ -1154,12 +1182,12 @@ impl TrieNode16 {
 #[derive(Clone)]
 pub struct TrieNode48 {
     pub path: Vec<u8>,
-    pub(crate) indexes: [i8; 256], // indexes[i], if non-negative, is an index into ptrs.
+    pub(crate) indexes: [i8; 256],
     pub ptrs: [TriePtr; 48],
-    /// If this node was created by copy-on-write, then this points to the node it was copied from.
     pub cowptr: Option<TrieCowPtr>,
-    /// List of patches applied to this node.  Fields are (node block ID, pointer to node, patch itself)
-    pub patches: Vec<(u32, TriePtr, TrieNodePatch)>,
+    pub patches: Vec<(u32, TriePtr, TrieNodePatch)>, // indexes[i], if non-negative, is an index into ptrs.,
+    /// If this node was created by copy-on-write, then this points to the node it was copied from.,
+    /// List of patches applied to this node.  Fields are (node block ID, pointer to node, patch itself),
 }
 
 impl fmt::Debug for TrieNode48 {
@@ -1216,10 +1244,10 @@ impl TrieNode48 {
 pub struct TrieNode256 {
     pub path: Vec<u8>,
     pub ptrs: [TriePtr; 256],
-    /// If this node was created by copy-on-write, then this points to the node it was copied from.
     pub cowptr: Option<TrieCowPtr>,
-    /// List of patches applied to this node.  Fields are (node block ID, pointer to node, patch itself)
     pub patches: Vec<(u32, TriePtr, TrieNodePatch)>,
+    /// If this node was created by copy-on-write, then this points to the node it was copied from.,
+    /// List of patches applied to this node.  Fields are (node block ID, pointer to node, patch itself),
 }
 
 impl fmt::Debug for TrieNode256 {
@@ -1248,9 +1276,6 @@ impl TrieNode256 {
             patches: vec![],
         }
     }
-
-    // allow indexing because this function operates on
-    //  fixed size arrays (256 array can always be indexed by u8)
     #[allow(clippy::indexing_slicing)]
     pub fn from_node4(node4: &TrieNode4) -> TrieNode256 {
         let mut ptrs = [TriePtr::default(); 256];
@@ -1283,6 +1308,9 @@ impl TrieNode256 {
             patches: vec![],
         }
     }
+
+    // allow indexing because this function operates on
+    //  fixed size arrays (256 array can always be indexed by u8)
 }
 
 /// This is a non-consensus "patch node" that applies a diff atop a base node.  There can be up to
@@ -1291,8 +1319,8 @@ impl TrieNode256 {
 pub struct TrieNodePatch {
     /// Pointer to the node we're patching (will always be a back-block ptr)
     pub ptr: TriePtr,
-    /// Field of ptrs to insert atop the base node
     pub ptr_diff: Vec<TriePtr>,
+    /// Field of ptrs to insert atop the base node,
 }
 
 impl fmt::Debug for TrieNodePatch {
@@ -1398,34 +1426,6 @@ impl StacksMessageCodec for TrieNodePatch {
             ptr_diff.push(TriePtr::read_bytes_compressed(fd)?);
         }
         Ok(Self { ptr, ptr_diff })
-    }
-}
-
-/// Turn each non-empty, non-backptr in `ptrs` into a backptr.
-/// If `back_block` is already non-zero (squash annotation), it is preserved;
-/// otherwise it is set to `child_block_id`.
-pub(crate) fn node_copy_update_ptrs(ptrs: &mut [TriePtr], child_block_id: u32) {
-    for pointer in ptrs.iter_mut() {
-        // if the node is empty, do nothing, if it's a back pointer,
-        if pointer.id() == TrieNodeID::Empty as u8 || is_backptr(pointer.id()) {
-            continue;
-        }
-        if pointer.back_block == 0 {
-            pointer.back_block = child_block_id;
-        }
-        pointer.id = set_backptr(pointer.id());
-    }
-}
-
-/// Given the current block ID, convert every backptr pointer whose back_block is equal to
-/// `cur_block_id` to a normal pointer.  This is used when applying patches.
-fn node_normalize_ptrs(ptrs: &mut [TriePtr], cur_block_id: u32) {
-    for ptr in ptrs.iter_mut() {
-        if is_backptr(ptr.id) && ptr.back_block == cur_block_id {
-            // normalize
-            ptr.id = clear_backptr(ptr.id);
-            ptr.back_block = 0;
-        }
     }
 }
 
@@ -1935,9 +1935,6 @@ impl TrieNode for TrieNode48 {
             patches: vec![],
         }
     }
-
-    // allow indexing here because self.indexes is an array of
-    // 256, so it can always return a u8
     #[allow(clippy::indexing_slicing)]
     fn walk(&self, chr: u8) -> Option<TriePtr> {
         let idx = self.indexes[chr as usize];
@@ -2094,6 +2091,9 @@ impl TrieNode for TrieNode48 {
         node.patches.extend_from_slice(patches);
         Some(node)
     }
+
+    // allow indexing here because self.indexes is an array of
+    // 256, so it can always return a u8
 }
 
 impl TrieNode for TrieNode256 {
