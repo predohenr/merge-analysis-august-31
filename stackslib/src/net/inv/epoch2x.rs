@@ -46,19 +46,19 @@ pub const INV_REWARD_CYCLES: u64 = 2;
 pub struct PeerBlocksInv {
     /// Bitmap of which anchored blocks this peer has
     pub block_inv: Vec<u8>,
-    /// Bitmap of which microblock streams this peer has
     pub microblocks_inv: Vec<u8>,
-    /// Bitmap of PoX anchor block knowledge this peer has
     pub pox_inv: Vec<u8>,
-    /// Number of sortitions we know this peer knows about (after successive
-    /// getblocksinv/blocksinv rounds)
     pub num_sortitions: u64,
-    /// Number of reward cycles we know this peer knows about
     pub num_reward_cycles: u64,
-    /// Time of last update, in seconds
     pub last_updated_at: u64,
-    /// Burn block height of first sortition
     pub first_block_height: u64,
+    /// Bitmap of which microblock streams this peer has,
+    /// Bitmap of PoX anchor block knowledge this peer has,
+    /// Number of sortitions we know this peer knows about (after successive
+    /// getblocksinv/blocksinv rounds),
+    /// Number of reward cycles we know this peer knows about,
+    /// Time of last update, in seconds,
+    /// Burn block height of first sortition,
 }
 
 impl PeerBlocksInv {
@@ -485,40 +485,40 @@ pub enum NodeStatus {
 pub struct NeighborBlockStats {
     /// Who are we talking to?
     pub nk: NeighborKey,
-    /// What blocks do we know this peer has?
     pub inv: PeerBlocksInv,
-    /// Current scan height for PoX (in reward cycles)
     pub pox_reward_cycle: u64,
-    /// Scan height for block invs (in reward cycles)
     pub block_reward_cycle: u64,
-    /// Scan state
     pub state: InvWorkState,
-    /// Peer status
     pub status: NodeStatus,
-    /// Ongoing request
     pub request: Option<ReplyHandleP2P>,
-    /// How many blocks do we expect, if this is a BlocksInv we're expecting
     pub num_blocks_expected: u64,
-    /// Ongoing request's PoX target reward cycle
     pub target_pox_reward_cycle: u64,
-    /// Ongoing request's block target reward cycle
     pub target_block_reward_cycle: u64,
-    /// Received PoxInv
     pub pox_inv: Option<PoxInvData>,
-    /// Received BlocksInv
     pub blocks_inv: Option<BlocksInvData>,
-    /// Last time we did a scan
     pub last_rescan_timestamp: u64,
-    /// Finished synchronizing?
     pub done: bool,
-    /// Did we learn anything new?
     pub learned_data: bool,
-    /// What height do we learn at?
     pub learned_data_height: u64,
-    /// How many times have we hit up this neighbor?
     pub scans: u64,
-    /// Is this an always-allowed peer?
     pub is_bootstrap_peer: bool,
+    /// What blocks do we know this peer has?,
+    /// Current scan height for PoX (in reward cycles),
+    /// Scan height for block invs (in reward cycles),
+    /// Scan state,
+    /// Peer status,
+    /// Ongoing request,
+    /// How many blocks do we expect, if this is a BlocksInv we're expecting,
+    /// Ongoing request's PoX target reward cycle,
+    /// Ongoing request's block target reward cycle,
+    /// Received PoxInv,
+    /// Received BlocksInv,
+    /// Last time we did a scan,
+    /// Finished synchronizing?,
+    /// Did we learn anything new?,
+    /// What height do we learn at?,
+    /// How many times have we hit up this neighbor?,
+    /// Is this an always-allowed peer?,
 }
 
 impl NeighborBlockStats {
@@ -937,32 +937,32 @@ pub struct InvState {
     /// beyond connection resets (since they can be expensive
     /// to build up).
     pub block_stats: HashMap<NeighborKey, NeighborBlockStats>,
-
-    /// How long is a request allowed to take?
     request_timeout: u64,
-    /// First burn block height
     first_block_height: u64,
-
-    /// Last time we learned about new blocks
     pub last_change_at: u64,
-    /// How often to re-sync
     sync_interval: u64,
-    /// Did any neighbor learn any new data?
     pub hint_learned_data: bool,
     pub hint_learned_data_height: u64,
-    /// Should we do a re-scan?
     hint_do_rescan: bool,
-    /// last time a rescan was completed
     last_rescanned_at: u64,
-
-    /// How many passes -- short and full -- have we done?
     num_inv_syncs: u64,
-
-    /// What's the last reward cycle we _started_ the inv scan at?
     pub block_sortition_start: u64,
-
-    /// event IDs of connections we established, so they don't get pruned
     pinned: HashSet<usize>,
+
+    /// How long is a request allowed to take?,
+    /// First burn block height,
+
+    /// Last time we learned about new blocks,
+    /// How often to re-sync,
+    /// Did any neighbor learn any new data?,
+    /// Should we do a re-scan?,
+    /// last time a rescan was completed,
+
+    /// How many passes -- short and full -- have we done?,
+
+    /// What's the last reward cycle we _started_ the inv scan at?,
+
+    /// event IDs of connections we established, so they don't get pruned,
 }
 
 impl InvState {
