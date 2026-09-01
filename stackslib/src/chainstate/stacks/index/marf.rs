@@ -58,12 +58,12 @@ struct WriteChainTip<T> {
 pub struct MARFOpenOpts {
     /// Hash calculation mode for calculating a trie root hash
     pub hash_calculation_mode: TrieHashCalculationMode,
-    /// Cache strategy to use
     pub cache_strategy: String,
-    /// store trie blobs externally from the DB, in a flat file
     pub external_blobs: bool,
-    /// unconditionally do a DB migration (used for testing)
     pub force_db_migrate: bool,
+    /// Cache strategy to use,
+    /// store trie blobs externally from the DB, in a flat file,
+    /// unconditionally do a DB migration (used for testing),
 }
 
 impl MARFOpenOpts {
@@ -651,8 +651,6 @@ impl<T: MarfTrieId> MARF<T> {
         let h = tx.seal()?;
         Ok(h)
     }
-
-    // helper method for walking a node's backpr
     fn walk_backptr(
         storage: &mut TrieStorageConnection<T>,
         start_node: &TrieNodeType,
@@ -1121,8 +1119,6 @@ impl<T: MarfTrieId> MARF<T> {
         }
         MARF::do_insert_leaf(storage, block_hash, path, value, true)
     }
-
-    // like insert_leaf, but don't update the merkle skiplist
     pub fn insert_leaf_in_batch(
         storage: &mut TrieStorageTransaction<T>,
         block_hash: &T,
@@ -1372,6 +1368,10 @@ impl<T: MarfTrieId> MARF<T> {
 
         result
     }
+
+    // helper method for walking a node's backpr
+
+    // like insert_leaf, but don't update the merkle skiplist
 }
 
 // instance methods
