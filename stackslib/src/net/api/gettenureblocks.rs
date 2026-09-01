@@ -64,16 +64,16 @@ pub struct RPCTenure {
 pub struct RPCTenureStream {
     /// connection to the headers DB
     pub headers_conn: DBConn,
-    /// the tenure consensus hash
     pub consensus_hash: ConsensusHash,
-    /// next block to process
     pub next_block_id: StacksBlockId,
-    /// the first part of the json chunk to send (it is set to None after the chunk generation)
     pub tenure_first_chunk: Option<Vec<u8>>,
-    /// do we need to send the last chunk?
     pub last_chunk: bool,
-    /// is this the first block we are generating?
     pub first_block: bool,
+    /// the tenure consensus hash,
+    /// next block to process,
+    /// the first part of the json chunk to send (it is set to None after the chunk generation),
+    /// do we need to send the last chunk?,
+    /// is this the first block we are generating?,
 }
 
 impl RPCTenureStream {
