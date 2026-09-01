@@ -207,12 +207,12 @@ pub struct GlobalContext<'a, 'hooks> {
     read_only: Vec<bool>,
     pub cost_track: LimitedCostTracker,
     pub mainnet: bool,
-    /// This is the epoch of the block that this transaction is executing within.
     pub epoch_id: StacksEpochId,
-    /// This is the chain ID of the transaction
     pub chain_id: u32,
     pub eval_hooks: Option<Vec<&'hooks mut dyn EvalHook>>,
     pub execution_time_tracker: ExecutionTimeTracker,
+    /// This is the epoch of the block that this transaction is executing within.,
+    /// This is the chain ID of the transaction,
 }
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -222,17 +222,17 @@ pub struct ContractContext {
     pub functions: HashMap<ClarityName, DefinedFunction>,
     pub defined_traits: HashMap<ClarityName, BTreeMap<ClarityName, FunctionSignature>>,
     pub implemented_traits: HashSet<TraitIdentifier>,
-    // tracks the names of NFTs, FTs, Maps, and Data Vars.
-    //  used for ensuring that they never are defined twice.
     pub persisted_names: HashSet<ClarityName>,
-    // track metadata for contract defined storage
     pub meta_data_map: HashMap<ClarityName, DataMapMetadata>,
     pub meta_data_var: HashMap<ClarityName, DataVariableMetadata>,
     pub meta_nft: HashMap<ClarityName, NonFungibleTokenMetadata>,
     pub meta_ft: HashMap<ClarityName, FungibleTokenMetadata>,
     pub data_size: u64,
-    /// track the clarity version of the contract
     clarity_version: ClarityVersion,
+    // tracks the names of NFTs, FTs, Maps, and Data Vars.
+    //  used for ensuring that they never are defined twice.,
+    // track metadata for contract defined storage,
+    /// track the clarity version of the contract,
 }
 
 pub struct LocalContext<'a> {
@@ -266,24 +266,18 @@ impl AssetMap {
             asset_map: HashMap::new(),
         }
     }
-
-    // This will get the next amount for a (principal, stx) entry in the stx table.
     fn get_next_stx_amount(&self, principal: &PrincipalData, amount: u128) -> Result<u128> {
         let current_amount = self.stx_map.get(principal).unwrap_or(&0);
         current_amount
             .checked_add(amount)
             .ok_or(RuntimeErrorType::ArithmeticOverflow.into())
     }
-
-    // This will get the next amount for a (principal, stx) entry in the burn table.
     fn get_next_stx_burn_amount(&self, principal: &PrincipalData, amount: u128) -> Result<u128> {
         let current_amount = self.burn_map.get(principal).unwrap_or(&0);
         current_amount
             .checked_add(amount)
             .ok_or(RuntimeErrorType::ArithmeticOverflow.into())
     }
-
-    // This will get the next amount for a (principal, asset) entry in the asset table.
     fn get_next_amount(
         &self,
         principal: &PrincipalData,
@@ -342,9 +336,6 @@ impl AssetMap {
 
         Ok(())
     }
-
-    // This will add any asset transfer data from other to self,
-    //   aborting _all_ changes in the event of an error, leaving self unchanged
     pub fn commit_other(&mut self, mut other: AssetMap) -> Result<()> {
         let mut to_add = Vec::new();
         let mut stx_to_add = Vec::with_capacity(other.stx_map.len());
@@ -463,6 +454,15 @@ impl AssetMap {
         let assets = self.asset_map.get(principal)?;
         assets.get(asset_identifier)
     }
+
+    // This will get the next amount for a (principal, stx) entry in the stx table.
+
+    // This will get the next amount for a (principal, stx) entry in the burn table.
+
+    // This will get the next amount for a (principal, asset) entry in the asset table.
+
+    // This will add any asset transfer data from other to self,
+    //   aborting _all_ changes in the event of an error, leaving self unchanged
 }
 
 impl fmt::Display for AssetMap {
