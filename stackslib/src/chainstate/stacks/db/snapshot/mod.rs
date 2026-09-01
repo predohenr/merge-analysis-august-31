@@ -24,8 +24,8 @@
 //!
 //! Detectable violations surface as `CorruptionError`s.
 
-mod burnchain;
 mod clarity;
+mod burnchain;
 pub(crate) mod common;
 pub(crate) mod fork_storage;
 mod index;
