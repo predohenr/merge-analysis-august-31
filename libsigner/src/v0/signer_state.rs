@@ -14,8 +14,8 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 use std::collections::HashMap;
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use std::hash::{Hash, Hasher};
-use std::time::SystemTime;
 
 use blockstack_lib::chainstate::stacks::StacksTransaction;
 use clarity::types::chainstate::StacksAddress;
@@ -23,17 +23,19 @@ use serde::{Deserialize, Serialize};
 use stacks_common::types::chainstate::{ConsensusHash, StacksBlockId};
 use stacks_common::util::hash::Hash160;
 
-use crate::v0::messages::{StateMachineUpdate, StateMachineUpdateMinerState};
+use crate::v0::messages::{
+    StateMachineUpdate, StateMachineUpdateContent, StateMachineUpdateMinerState,
+};
 
 /// A struct used to determine the current global state
 #[derive(Debug)]
 pub struct GlobalStateEvaluator {
     /// A mapping of signer addresses to their corresponding vote weight
     pub address_weights: HashMap<StacksAddress, u32>,
-    /// A mapping of signer addresses to their corresponding updates
     pub address_updates: HashMap<StacksAddress, StateMachineUpdate>,
-    /// The total weight of all signers
     pub total_weight: u32,
+    /// A mapping of signer addresses to their corresponding updates,
+    /// The total weight of all signers,
 }
 
 impl GlobalStateEvaluator {
@@ -244,16 +246,16 @@ impl Default for ReplayTransactionSet {
 pub struct SignerStateMachine {
     /// The tip burn block (i.e., the latest bitcoin block) seen by this signer
     pub burn_block: ConsensusHash,
-    /// The tip burn block height (i.e., the latest bitcoin block) seen by this signer
     pub burn_block_height: u64,
-    /// The signer's view of who the current miner should be (and their tenure building info)
     pub current_miner: MinerState,
-    /// The active signing protocol version
     pub active_signer_protocol_version: u64,
-    /// Transaction replay set
     pub tx_replay_set: ReplayTransactionSet,
-    /// The time when this state machine was last updated
     pub update_time: UpdateTime,
+    /// The tip burn block height (i.e., the latest bitcoin block) seen by this signer,
+    /// The signer's view of who the current miner should be (and their tenure building info),
+    /// The active signing protocol version,
+    /// Transaction replay set,
+    /// The time when this state machine was last updated,
 }
 
 /// A wrapped SystemTime to enforce equality regardless of the value
@@ -317,16 +319,16 @@ pub enum MinerState {
     ActiveMiner {
         /// The pubkeyhash of the current miner's signing key
         current_miner_pkh: Hash160,
-        /// The tenure ID of the current miner's active tenure
         tenure_id: ConsensusHash,
-        /// The tenure that the current miner is building on top of
         parent_tenure_id: ConsensusHash,
-        /// The last block of the parent tenure (which should be
-        ///  the block that the next tenure starts from)
         parent_tenure_last_block: StacksBlockId,
-        /// The height of the last block of the parent tenure (which should be
-        ///  the block that the next tenure starts from)
         parent_tenure_last_block_height: u64,
+        /// The tenure ID of the current miner's active tenure,
+        /// The tenure that the current miner is building on top of,
+        /// The last block of the parent tenure (which should be
+        ///  the block that the next tenure starts from),
+        /// The height of the last block of the parent tenure (which should be
+        ///  the block that the next tenure starts from),
     },
     /// This signer doesn't believe there's any valid miner
     NoValidMiner,
