@@ -806,9 +806,7 @@ impl StacksEpochId {
             | StacksEpochId::Epoch31
             | StacksEpochId::Epoch32
             | StacksEpochId::Epoch33
-            | StacksEpochId::Epoch34
-            | StacksEpochId::Epoch40 /* FIXME this is temporary during merge */
-            => true,
+            | StacksEpochId::Epoch34 => true,
             // Hello there, you who is creating Epoch 3.5, feel free to make this
             // false from that epoch on. I could've written `self <= Epoch34` here,
             // but I wanted to make sure we remember to document this change for

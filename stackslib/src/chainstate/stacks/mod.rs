@@ -411,10 +411,13 @@ pub use stacks_codec::transaction::{
     PoxConditionCode, SinglesigHashMode, SinglesigSpendingCondition, StacksMicroblockHeader,
     StacksTransaction, TenureChangeCause, TenureChangeError, TenureChangePayload,
     TokenTransferMemo, TransactionAnchorMode, TransactionAuth, TransactionAuthField,
-    TransactionAuthFieldID, TransactionAuthFlags, TransactionAuthVerificationMode,
-    TransactionContractCall, TransactionPayload, TransactionPayloadID, TransactionPostCondition,
-    TransactionPostConditionMode, TransactionPublicKeyEncoding, TransactionSmartContract,
-    TransactionSpendingCondition, TransactionVersion,
+    TransactionAuthFieldID, TransactionAuthFlags, TransactionAuthVerificationMode, TransactionContractCall,
+    TransactionPayload,
+    TransactionPayloadID, TransactionPostCondition,
+    TransactionPostConditionMode,
+    TransactionPublicKeyEncoding, TransactionSmartContract,
+    TransactionSpendingCondition,
+    TransactionVersion,
 };
 
 #[derive(Debug, Clone, PartialEq)]

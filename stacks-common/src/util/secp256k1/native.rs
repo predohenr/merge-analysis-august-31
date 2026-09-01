@@ -773,23 +773,6 @@ mod tests {
     }
 
     #[test]
-    fn test_decompress() {
-        let mut sk = Secp256k1PrivateKey::random();
-        sk.set_compress_public(true);
-        let pk = Secp256k1PublicKey::from_private(&sk);
-
-        assert_eq!(pk.to_bytes().len(), 33);
-
-        let decompressed_pk = secp256k1_decompress(pk.to_bytes().as_slice()).unwrap();
-        assert_eq!(decompressed_pk.len(), 65);
-
-        sk.set_compress_public(false);
-        let pk_uncompressed = Secp256k1PublicKey::from_private(&sk);
-
-        assert_eq!(pk_uncompressed.to_bytes(), decompressed_pk);
-    }
-
-    #[test]
     fn test_with_negated_s() {
         let priv_key = Secp256k1PrivateKey::from_hex(
             "7b48329a5126dad83fc583c309c2698ae2843acfb9a7023fb081d850386c6950",
@@ -834,5 +817,22 @@ mod tests {
             recovered_from_high_s, pub_key.key,
             "the recovered key should be identical to the original key"
         );
+    }
+
+    #[test]
+    fn test_decompress() {
+        let mut sk = Secp256k1PrivateKey::random();
+        sk.set_compress_public(true);
+        let pk = Secp256k1PublicKey::from_private(&sk);
+
+        assert_eq!(pk.to_bytes().len(), 33);
+
+        let decompressed_pk = secp256k1_decompress(pk.to_bytes().as_slice()).unwrap();
+        assert_eq!(decompressed_pk.len(), 65);
+
+        sk.set_compress_public(false);
+        let pk_uncompressed = Secp256k1PublicKey::from_private(&sk);
+
+        assert_eq!(pk_uncompressed.to_bytes(), decompressed_pk);
     }
 }
