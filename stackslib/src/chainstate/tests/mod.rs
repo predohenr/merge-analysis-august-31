@@ -14,8 +14,8 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 pub mod consensus;
 mod parse_tests;
-mod runtime_tests;
 mod runtime_analysis_tests;
+mod runtime_tests;
 mod static_analysis_tests;
 
 use std::fs;
@@ -75,6 +75,122 @@ use crate::util_lib::signed_structured_data::pox4::{
 };
 use crate::util_lib::strings::*;
 
+#[test]
+/// Tests that we can instantiate a chainstate from nothing and advance sequentially through every epoch
+fn advance_through_all_epochs() {
+    let privk = StacksPrivateKey::random();
+    let mut boot_plan = NakamotoBootPlan::new(function_name!())
+        .with_pox_constants(7, 1)
+        .with_private_key(privk.clone());
+    let first_burnchain_height = (boot_plan.pox_constants.pox_4_activation_height
+        + boot_plan.pox_constants.reward_cycle_length
+        + 1) as u64;
+
+    let epochs = TestChainstate::all_epochs(first_burnchain_height);
+    boot_plan = boot_plan.with_epochs(epochs);
+    let mut chainstate = boot_plan.to_chainstate(None, Some(first_burnchain_height));
+    let burn_block_height = chainstate.get_burn_block_height();
+    let current_epoch =
+        SortitionDB::get_stacks_epoch(chainstate.sortdb().conn(), burn_block_height)
+            .unwrap()
+            .unwrap()
+            .epoch_id;
+    assert_eq!(current_epoch, StacksEpochId::Epoch20);
+
+    // Make sure we can advance through every single epoch.
+    for target_epoch in [
+        StacksEpochId::Epoch2_05,
+        StacksEpochId::Epoch21,
+        StacksEpochId::Epoch22,
+        StacksEpochId::Epoch23,
+        StacksEpochId::Epoch24,
+        StacksEpochId::Epoch25,
+        StacksEpochId::Epoch30,
+        StacksEpochId::Epoch31,
+        StacksEpochId::Epoch32,
+        StacksEpochId::Epoch33,
+    ] {
+        chainstate.advance_to_epoch_boundary(&privk, target_epoch);
+        let burn_block_height = chainstate.get_burn_block_height();
+        let current_epoch =
+            SortitionDB::get_stacks_epoch(chainstate.sortdb().conn(), burn_block_height)
+                .unwrap()
+                .unwrap()
+                .epoch_id;
+        assert!(current_epoch < target_epoch);
+        let next_epoch =
+            SortitionDB::get_stacks_epoch(chainstate.sortdb().conn(), burn_block_height + 1)
+                .unwrap()
+                .unwrap()
+                .epoch_id;
+        assert_eq!(next_epoch, target_epoch);
+    }
+}
+
+#[test]
+/// Tests that we can instantiate a chainstate from nothing and
+/// bootstrap to nakamoto
+fn advance_to_nakamoto_bootstrapped() {
+    let privk = StacksPrivateKey::random();
+    let mut boot_plan = NakamotoBootPlan::new(function_name!())
+        .with_pox_constants(7, 1)
+        .with_private_key(privk.clone());
+    let epochs = TestChainstate::epoch_2_5_onwards(
+        (boot_plan.pox_constants.pox_4_activation_height
+            + boot_plan.pox_constants.reward_cycle_length
+            + 1) as u64,
+    );
+    boot_plan = boot_plan.with_epochs(epochs);
+    let mut chainstate = boot_plan.to_chainstate(None, None);
+    chainstate.advance_to_epoch_boundary(&privk, StacksEpochId::Epoch30);
+    let burn_block_height = chainstate.get_burn_block_height();
+    let current_epoch =
+        SortitionDB::get_stacks_epoch(chainstate.sortdb().conn(), burn_block_height)
+            .unwrap()
+            .unwrap()
+            .epoch_id;
+    assert_eq!(current_epoch, StacksEpochId::Epoch25);
+    let next_epoch =
+        SortitionDB::get_stacks_epoch(chainstate.sortdb().conn(), burn_block_height + 1)
+            .unwrap()
+            .unwrap()
+            .epoch_id;
+    assert_eq!(next_epoch, StacksEpochId::Epoch30);
+}
+
+#[test]
+/// Tests that we can instantiate a chainstate from nothing and
+/// bootstrap directly from nakamoto and across it
+fn advance_through_nakamoto_bootstrapped() {
+    let privk = StacksPrivateKey::random();
+    let mut boot_plan = NakamotoBootPlan::new(function_name!())
+        .with_pox_constants(7, 1)
+        .with_private_key(privk.clone());
+    let epochs = TestChainstate::epoch_2_5_onwards(
+        (boot_plan.pox_constants.pox_4_activation_height
+            + boot_plan.pox_constants.reward_cycle_length
+            + 1) as u64,
+    );
+    let activation_height = boot_plan.pox_constants.pox_4_activation_height;
+    boot_plan = boot_plan.with_epochs(epochs);
+    let mut chainstate = boot_plan.to_chainstate(None, Some(activation_height.into()));
+    // Make sure we can advance through every single epoch.
+    chainstate.advance_to_epoch_boundary(&privk, StacksEpochId::Epoch33);
+    let burn_block_height = chainstate.get_burn_block_height();
+    let current_epoch =
+        SortitionDB::get_stacks_epoch(chainstate.sortdb().conn(), burn_block_height)
+            .unwrap()
+            .unwrap()
+            .epoch_id;
+    assert_eq!(current_epoch, StacksEpochId::Epoch32);
+    let next_epoch =
+        SortitionDB::get_stacks_epoch(chainstate.sortdb().conn(), burn_block_height + 1)
+            .unwrap()
+            .unwrap()
+            .epoch_id;
+    assert_eq!(next_epoch, StacksEpochId::Epoch33);
+}
+
 // describes a chainstate's initial configuration
 #[derive(Debug, Clone)]
 pub struct TestChainstateConfig {
@@ -89,10 +205,10 @@ pub struct TestChainstateConfig {
     pub epochs: Option<EpochList>,
     pub test_stackers: Option<Vec<TestStacker>>,
     pub test_signers: Option<TestSigners>,
-    /// aggregate public key to use
-    /// (NOTE: will be used post-Nakamoto)
     pub aggregate_public_key: Option<Vec<u8>>,
     pub txindex: bool,
+    /// aggregate public key to use
+    /// (NOTE: will be used post-Nakamoto),
 }
 
 impl Default for TestChainstateConfig {
@@ -154,11 +270,11 @@ pub struct TestChainstate<'a> {
         BitcoinIndexer,
     >,
     pub nakamoto_parent_tenure_opt: Option<Vec<NakamotoBlock>>,
-    /// list of malleablized blocks produced when mining.
     pub malleablized_blocks: Vec<NakamotoBlock>,
     pub mine_malleablized_blocks: bool,
     pub test_path: String,
     pub chainstate_path: String,
+    /// list of malleablized blocks produced when mining.,
 }
 
 impl<'a> TestChainstate<'a> {
@@ -1852,120 +1968,4 @@ impl<'a> TestChainstate<'a> {
             },
         ])
     }
-}
-
-#[test]
-/// Tests that we can instantiate a chainstate from nothing and advance sequentially through every epoch
-fn advance_through_all_epochs() {
-    let privk = StacksPrivateKey::random();
-    let mut boot_plan = NakamotoBootPlan::new(function_name!())
-        .with_pox_constants(7, 1)
-        .with_private_key(privk.clone());
-    let first_burnchain_height = (boot_plan.pox_constants.pox_4_activation_height
-        + boot_plan.pox_constants.reward_cycle_length
-        + 1) as u64;
-
-    let epochs = TestChainstate::all_epochs(first_burnchain_height);
-    boot_plan = boot_plan.with_epochs(epochs);
-    let mut chainstate = boot_plan.to_chainstate(None, Some(first_burnchain_height));
-    let burn_block_height = chainstate.get_burn_block_height();
-    let current_epoch =
-        SortitionDB::get_stacks_epoch(chainstate.sortdb().conn(), burn_block_height)
-            .unwrap()
-            .unwrap()
-            .epoch_id;
-    assert_eq!(current_epoch, StacksEpochId::Epoch20);
-
-    // Make sure we can advance through every single epoch.
-    for target_epoch in [
-        StacksEpochId::Epoch2_05,
-        StacksEpochId::Epoch21,
-        StacksEpochId::Epoch22,
-        StacksEpochId::Epoch23,
-        StacksEpochId::Epoch24,
-        StacksEpochId::Epoch25,
-        StacksEpochId::Epoch30,
-        StacksEpochId::Epoch31,
-        StacksEpochId::Epoch32,
-        StacksEpochId::Epoch33,
-    ] {
-        chainstate.advance_to_epoch_boundary(&privk, target_epoch);
-        let burn_block_height = chainstate.get_burn_block_height();
-        let current_epoch =
-            SortitionDB::get_stacks_epoch(chainstate.sortdb().conn(), burn_block_height)
-                .unwrap()
-                .unwrap()
-                .epoch_id;
-        assert!(current_epoch < target_epoch);
-        let next_epoch =
-            SortitionDB::get_stacks_epoch(chainstate.sortdb().conn(), burn_block_height + 1)
-                .unwrap()
-                .unwrap()
-                .epoch_id;
-        assert_eq!(next_epoch, target_epoch);
-    }
-}
-
-#[test]
-/// Tests that we can instantiate a chainstate from nothing and
-/// bootstrap to nakamoto
-fn advance_to_nakamoto_bootstrapped() {
-    let privk = StacksPrivateKey::random();
-    let mut boot_plan = NakamotoBootPlan::new(function_name!())
-        .with_pox_constants(7, 1)
-        .with_private_key(privk.clone());
-    let epochs = TestChainstate::epoch_2_5_onwards(
-        (boot_plan.pox_constants.pox_4_activation_height
-            + boot_plan.pox_constants.reward_cycle_length
-            + 1) as u64,
-    );
-    boot_plan = boot_plan.with_epochs(epochs);
-    let mut chainstate = boot_plan.to_chainstate(None, None);
-    chainstate.advance_to_epoch_boundary(&privk, StacksEpochId::Epoch30);
-    let burn_block_height = chainstate.get_burn_block_height();
-    let current_epoch =
-        SortitionDB::get_stacks_epoch(chainstate.sortdb().conn(), burn_block_height)
-            .unwrap()
-            .unwrap()
-            .epoch_id;
-    assert_eq!(current_epoch, StacksEpochId::Epoch25);
-    let next_epoch =
-        SortitionDB::get_stacks_epoch(chainstate.sortdb().conn(), burn_block_height + 1)
-            .unwrap()
-            .unwrap()
-            .epoch_id;
-    assert_eq!(next_epoch, StacksEpochId::Epoch30);
-}
-
-#[test]
-/// Tests that we can instantiate a chainstate from nothing and
-/// bootstrap directly from nakamoto and across it
-fn advance_through_nakamoto_bootstrapped() {
-    let privk = StacksPrivateKey::random();
-    let mut boot_plan = NakamotoBootPlan::new(function_name!())
-        .with_pox_constants(7, 1)
-        .with_private_key(privk.clone());
-    let epochs = TestChainstate::epoch_2_5_onwards(
-        (boot_plan.pox_constants.pox_4_activation_height
-            + boot_plan.pox_constants.reward_cycle_length
-            + 1) as u64,
-    );
-    let activation_height = boot_plan.pox_constants.pox_4_activation_height;
-    boot_plan = boot_plan.with_epochs(epochs);
-    let mut chainstate = boot_plan.to_chainstate(None, Some(activation_height.into()));
-    // Make sure we can advance through every single epoch.
-    chainstate.advance_to_epoch_boundary(&privk, StacksEpochId::Epoch33);
-    let burn_block_height = chainstate.get_burn_block_height();
-    let current_epoch =
-        SortitionDB::get_stacks_epoch(chainstate.sortdb().conn(), burn_block_height)
-            .unwrap()
-            .unwrap()
-            .epoch_id;
-    assert_eq!(current_epoch, StacksEpochId::Epoch32);
-    let next_epoch =
-        SortitionDB::get_stacks_epoch(chainstate.sortdb().conn(), burn_block_height + 1)
-            .unwrap()
-            .unwrap()
-            .epoch_id;
-    assert_eq!(next_epoch, StacksEpochId::Epoch33);
 }
