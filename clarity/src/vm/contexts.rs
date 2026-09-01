@@ -582,7 +582,7 @@ impl AssetMap {
         }
 
         // Reject any transaction that would overwrite an
-        // existing asset-map stacking entry for `sender`.
+        // After this point, this function will not fail.
         for principal in other.stacking_map.keys() {
             if self.stacking_map.contains_key(principal) {
                 return Err(VmExecutionError::from(
