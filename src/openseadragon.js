@@ -190,9 +190,8 @@
   *     Zoom level to use when image is first opened or the home button is clicked.
   *     If 0, adjusts to fit viewer.
   *
-  * @property {String|DrawerImplementation|Array} [drawer = ['webgl', 'canvas', 'html']]
-  *     Which drawer to use. Built-in valid strings are 'webgl', 'canvas', and 'html'.
-  *     The 'webgl' drawer automatically uses WebGL2 when available, falling back to WebGL1.
+  * @property {String|DrawerImplementation|Array} [drawer = ['webgl2', 'webgl', 'canvas', 'html']]
+  *     Which drawer to use. Built-in valid strings are 'webgl2', 'webgl', 'canvas', and 'html'.
   *     External drawer plugins can register additional drawer types as strings.
   *     Valid drawer implementations are constructors of classes that extend OpenSeadragon.DrawerBase.
   *     An array of strings and/or constructors can be used to indicate the priority
@@ -216,7 +215,7 @@
   *     For complete list of modes, please @see {@link https://developer.mozilla.org/en-US/docs/Web/API/CanvasRenderingContext2D/globalCompositeOperation/ globalCompositeOperation}
   *
   * @property {Boolean} [imageSmoothingEnabled=true]
-  *     Image smoothing for rendering. Supported by the canvas and webgl drawers,
+  *     Image smoothing for rendering. Supported by the canvas, webgl, and webgl2 drawers,
   *     and may also be supported by external drawer plugins. Note: Ignored by some
   *     (especially older) browsers which do not support this canvas property.
   *     This property can be changed in {@link Viewer.DrawerBase.setImageSmoothingEnabled}.
@@ -1257,39 +1256,36 @@ function OpenSeadragon( options ){
          * @type {Object}
          */
         DEFAULT_SETTINGS: {
-            //DATA SOURCE DETAILS
-            xmlPath:                null,
-            tileSources:            null,
-            tileHost:               null,
-            initialPage:            0,
-            crossOriginPolicy:      false,
             ajaxWithCredentials:    false,
-            loadTilesWithAjax:      false,
-            ajaxHeaders:            {},
-            splitHashDataForPost:   false,
-            callTileLoadedWithCachedData: false,
-
-            //PAN AND ZOOM SETTINGS AND CONSTRAINTS
-            panHorizontal:          true,
-            panVertical:            true,
-            constrainDuringPan:     false,
             wrapHorizontal:         false,
-            wrapVertical:           false,
-            visibilityRatio:        0.5, //-> how much of the viewer can be negative space
-            minPixelRatio:          0.5, //->closer to 0 draws tiles meant for a higher zoom at this zoom
-            defaultZoomLevel:       0,
-            minZoomLevel:           null,
-            maxZoomLevel:           null,
+        //SEQUENCE,
+        //ZOOM/HOME/FULL/ROTATION,
+        //SEQUENCE,
+            navigatorElement:           null,
+            initialPage:            0,
+            preload:                           false,
+            showFlipControl:         false,
+            ajaxHeaders:            {},
+        // to be passed into each TiledImage,
+            overlayPreserveContentDirection:  true,
             homeFillsViewer:        false,
-
-            //UI RESPONSIVENESS AND FEEL
-            clickTimeThreshold:     300,
-            clickDistThreshold:     5,
-            dblClickTimeThreshold:  300,
-            dblClickDistThreshold:  20,
-            springStiffness:        6.5,
-            animationTime:          1.2,
             loadDestinationTilesOnAnimation: true,
+            pixelsPerWheelLine:     40,
+            xmlPath:                null,
+            crossOriginPolicy:      false,
+            navigationControlAnchor: null,
+        // to be passed into each TiledImage,
+        // to be passed into each TiledImage,
+            collectionTileSize:     800,
+        //GENERAL KEYBOARD INTERACTIVITY,
+            // APPEARANCE,
+            mouseNavEnabled:         true,
+            subPixelRoundingForTransparency:   null,
+            referenceStripPosition:      'BOTTOM_LEFT',
+            navigatorRotate:            true,
+            autoHideControls:       true,
+            referenceStripHeight:        null,
+            tileRetryMax:           0,
             gestureSettingsMouse:   {
                 dragToPan: true,
                 scrollToZoom: true,
@@ -1303,32 +1299,13 @@ function OpenSeadragon( options ){
                 flickMomentum: 0.25,
                 pinchRotate: false
             },
-            gestureSettingsTouch:   {
-                dragToPan: true,
-                scrollToZoom: false,
-                clickToZoom: false,
-                dblClickToZoom: true,
-                dblClickDragToZoom: true,
-                pinchToZoom: true,
-                zoomToRefPoint: true,
-                flickEnabled: true,
-                flickMinSpeed: 120,
-                flickMomentum: 0.25,
-                pinchRotate: false
+        //SEQUENCE,
+            sequenceControlAnchor:   null,
+            pixelsPerArrowPress:    40,
+            drawerOptions: {
+                // [drawer-id]: {options} map
             },
-            gestureSettingsPen:     {
-                dragToPan: true,
-                scrollToZoom: false,
-                clickToZoom: true,
-                dblClickToZoom: false,
-                dblClickDragToZoom: false,
-                pinchToZoom: false,
-                zoomToRefPoint: true,
-                flickEnabled: false,
-                flickMinSpeed: 120,
-                flickMomentum: 0.25,
-                pinchRotate: false
-            },
+            clickTimeThreshold:     300,
             gestureSettingsUnknown: {
                 dragToPan: true,
                 scrollToZoom: false,
@@ -1342,113 +1319,151 @@ function OpenSeadragon( options ){
                 flickMomentum: 0.25,
                 pinchRotate: false
             },
-            zoomPerClick:           2,
             zoomPerScroll:          1.2,
-            zoomPerDblClickDrag:    1.2,
-            zoomPerSecond:          1.0,
-            blendTime:              0,
-            alwaysBlend:            false,
-            autoHideControls:       true,
-            immediateRender:        false,
-            minZoomImageRatio:      0.9, //-> closer to 0 allows zoom out to infinity
-            maxZoomPixelRatio:      1.1, //-> higher allows 'over zoom' into pixels
-            smoothTileEdgesMinZoom: 1.1, //-> higher than maxZoomPixelRatio disables it
-            iOSDevice:              isIOSDevice(),
-            pixelsPerWheelLine:     40,
-            pixelsPerArrowPress:    40,
-            autoResize:             true,
-            preserveImageSizeOnResize: false, // requires autoResize=true
-            minScrollDeltaTime:     50,
-            rotationIncrement:      90,
-            maxTilesPerFrame:       1,
-
-            //DEFAULT CONTROL SETTINGS
-            showSequenceControl:     true,  //SEQUENCE
-            sequenceControlAnchor:   null,  //SEQUENCE
-            preserveViewport:        false, //SEQUENCE
-            preserveOverlays:        false, //SEQUENCE
-            navPrevNextWrap:         false, //SEQUENCE
-            showNavigationControl:   true,  //ZOOM/HOME/FULL/ROTATION
-            navigationControlAnchor: null,  //ZOOM/HOME/FULL/ROTATION
-            showZoomControl:         true,  //ZOOM
-            showHomeControl:         true,  //HOME
-            showFullPageControl:     true,  //FULL
-            showRotationControl:     false, //ROTATION
-            showFlipControl:         false,  //FLIP
-            controlsFadeDelay:       2000,  //ZOOM/HOME/FULL/SEQUENCE
-            controlsFadeLength:      1500,  //ZOOM/HOME/FULL/SEQUENCE
-            mouseNavEnabled:         true,  //GENERAL MOUSE INTERACTIVITY
-            keyboardNavEnabled:      true,  //GENERAL KEYBOARD INTERACTIVITY
-
-            //VIEWPORT NAVIGATOR SETTINGS
-            showNavigator:              false,
-            navigatorElement:           null,
-            navigatorId:                null,
-            navigatorPosition:          null,
-            navigatorSizeRatio:         0.2,
-            navigatorMaintainSizeRatio: false,
-            navigatorTop:               null,
-            navigatorLeft:              null,
-            navigatorHeight:            null,
-            navigatorWidth:             null,
-            navigatorAutoResize:        true,
-            navigatorAutoFade:          true,
-            navigatorRotate:            true,
-            navigatorBackground:        '#000',
-            navigatorOpacity:           0.8,
-            navigatorBorderColor:       '#555',
-            navigatorDisplayRegionColor: '#900',
-
-            // INITIAL ROTATION
-            degrees:                    0,
-
-            // INITIAL FLIP STATE
-            flipped:                          false,
-            overlayPreserveContentDirection:  true,
-
-            // APPEARANCE
-            opacity:                           1, // to be passed into each TiledImage
-            compositeOperation:                null, // to be passed into each TiledImage
-
-            // DRAWER SETTINGS
-            drawer:                            ['webgl', 'canvas', 'html'], // prefer using webgl (with WebGL2 if available), then canvas (i.e. context2d), then fallback to html
-            // DRAWER CONFIGURATIONS
-            drawerOptions: {
-                // [drawer-id]: {options} map
-            },
-
-            // TILED IMAGE SETTINGS
-            preload:                           false, // to be passed into each TiledImage
-            imageSmoothingEnabled:             true,  // to be passed into each TiledImage
-            placeholderFillStyle:              null,  // to be passed into each TiledImage
-            subPixelRoundingForTransparency:   null,  // to be passed into each TiledImage
-
-            //REFERENCE STRIP SETTINGS
-            showReferenceStrip:          false,
+        //columns in horizontal layout, rows in vertical layout,
             referenceStripScroll:       'horizontal',
-            referenceStripElement:       null,
-            referenceStripHeight:        null,
-            referenceStripWidth:         null,
-            referenceStripPosition:      'BOTTOM_LEFT',
+            //INTERFACE RESOURCE SETTINGS,
+            smoothTileEdgesMinZoom: 1.1,
+        //SEQUENCE,
+            splitHashDataForPost:   false,
             referenceStripSizeRatio:     0.2,
-
-            //COLLECTION VISUALIZATION SETTINGS
-            collectionRows:         3, //or columns depending on layout
-            collectionColumns:      0, //columns in horizontal layout, rows in vertical layout
-            collectionLayout:       'horizontal', //vertical
-            collectionMode:         false,
-            collectionTileSize:     800,
-            collectionTileMargin:   80,
-
-            //PERFORMANCE SETTINGS
-            imageLoaderLimit:       0,
-            maxImageCacheCount:     200,
-            timeout:                30000,
-            tileRetryMax:           0,
             tileRetryDelay:         2500,
-
-            //INTERFACE RESOURCE SETTINGS
-            prefixUrl:              "/images/",
+            // INITIAL FLIP STATE,
+            collectionMode:         false,
+            constrainDuringPan:     false,
+            preserveImageSizeOnResize: false,
+        //vertical,
+            // DRAWER SETTINGS,
+            //PERFORMANCE SETTINGS,
+        //GENERAL MOUSE INTERACTIVITY,
+            imageLoaderLimit:       0,
+            maxZoomLevel:           null,
+            //DEVELOPER SETTINGS,
+        // to be passed into each TiledImage,
+            //VIEWPORT NAVIGATOR SETTINGS,
+            rotationIncrement:      90,
+            zoomPerSecond:          1.0,
+            keyboardNavEnabled:      true,
+            degrees:                    0,
+            panVertical:            true,
+            drawer:                            ['webgl2', 'webgl', 'canvas', 'html'],
+        //FULL,
+            opacity:                           1,
+            showFullPageControl:     true,
+            navigatorHeight:            null,
+            gestureSettingsTouch:   {
+                dragToPan: true,
+                scrollToZoom: false,
+                clickToZoom: false,
+                dblClickToZoom: true,
+                dblClickDragToZoom: true,
+                pinchToZoom: true,
+                zoomToRefPoint: true,
+                flickEnabled: true,
+                flickMinSpeed: 120,
+                flickMomentum: 0.25,
+                pinchRotate: false
+            },
+        //HOME,
+            panHorizontal:          true,
+            controlsFadeLength:      1500,
+            collectionColumns:      0,
+            timeout:                30000,
+            callTileLoadedWithCachedData: false,
+            dblClickDistThreshold:  20,
+            dblClickTimeThreshold:  300,
+            navPrevNextWrap:         false,
+            // INITIAL ROTATION,
+            referenceStripWidth:         null,
+            showHomeControl:         true,
+        //ZOOM/HOME/FULL/SEQUENCE,
+            iOSDevice:              isIOSDevice(),
+            //DEFAULT CONTROL SETTINGS,
+            collectionLayout:       'horizontal',
+            navigatorDisplayRegionColor: '#900',
+            showSequenceControl:     true,
+            visibilityRatio:        0.5,
+            //UI RESPONSIVENESS AND FEEL,
+            maxTilesPerFrame:       1,
+            navigatorMaintainSizeRatio: false,
+        // prefer using webgl, then canvas (i.e. context2d), then fallback to html,
+        //ZOOM/HOME/FULL/ROTATION,
+        //-> higher allows 'over zoom' into pixels,
+            defaultZoomLevel:       0,
+            navigatorTop:               null,
+            preserveOverlays:        false,
+            navigatorBackground:        '#000',
+            showNavigator:              false,
+            maxImageCacheCount:     200,
+            gestureSettingsPen:     {
+                dragToPan: true,
+                scrollToZoom: false,
+                clickToZoom: true,
+                dblClickToZoom: false,
+                dblClickDragToZoom: false,
+                pinchToZoom: false,
+                zoomToRefPoint: true,
+                flickEnabled: false,
+                flickMinSpeed: 120,
+                flickMomentum: 0.25,
+                pinchRotate: false
+            },
+            minZoomImageRatio:      0.9,
+            placeholderFillStyle:              null,
+            showZoomControl:         true,
+            navigatorWidth:             null,
+        // to be passed into each TiledImage,
+        //-> how much of the viewer can be negative space,
+            loadTilesWithAjax:      false,
+            navigatorOpacity:           0.8,
+        //-> closer to 0 allows zoom out to infinity,
+        //ZOOM/HOME/FULL/SEQUENCE,
+            showRotationControl:     false,
+            //REFERENCE STRIP SETTINGS,
+            minScrollDeltaTime:     50,
+            autoResize:             true,
+        //or columns depending on layout,
+            zoomPerClick:           2,
+            navigatorBorderColor:       '#555',
+        //SEQUENCE,
+            debugMode:              false,
+            zoomPerDblClickDrag:    1.2,
+            showNavigationControl:   true,
+            wrapVertical:           false,
+            minPixelRatio:          0.5,
+            blendTime:              0,
+        // to be passed into each TiledImage,
+            preserveViewport:        false,
+            //PAN AND ZOOM SETTINGS AND CONSTRAINTS,
+            tileHost:               null,
+            animationTime:          1.2,
+        // requires autoResize=true,
+            collectionTileMargin:   80,
+            //COLLECTION VISUALIZATION SETTINGS,
+            // DRAWER CONFIGURATIONS,
+            showReferenceStrip:          false,
+            navigatorAutoFade:          true,
+        //->closer to 0 draws tiles meant for a higher zoom at this zoom,
+            tileSources:            null,
+            springStiffness:        6.5,
+            //DATA SOURCE DETAILS,
+            immediateRender:        false,
+            compositeOperation:                null,
+            alwaysBlend:            false,
+        //FLIP,
+            // TILED IMAGE SETTINGS,
+            minZoomLevel:           null,
+            navigatorLeft:              null,
+            navigatorAutoResize:        true,
+            flipped:                          false,
+            navigatorId:                null,
+        //ZOOM,
+            imageSmoothingEnabled:             true,
+            collectionRows:         3,
+        //-> higher than maxZoomPixelRatio disables it,
+            referenceStripElement:       null,
+            clickDistThreshold:     5,
+            navigatorSizeRatio:         0.2,
             navImages: {
                 zoomIn: {
                     REST:   'zoomin_rest.png',
@@ -1505,10 +1520,59 @@ function OpenSeadragon( options ){
                     DOWN:   'next_pressed.png'
                 }
             },
-
-            //DEVELOPER SETTINGS
-            debugMode:              false,
+            controlsFadeDelay:       2000,
+            maxZoomPixelRatio:      1.1,
             debugGridColor:         ['#437AB2', '#1B9E77', '#D95F02', '#7570B3', '#E7298A', '#66A61E', '#E6AB02', '#A6761D', '#666666'],
+            prefixUrl:              "/images/",
+            navigatorPosition:          null,
+        //ROTATION,
+        // to be passed into each TiledImage,
+        //-> higher allows 'over zoom' into pixels,
+            //DEFAULT CONTROL SETTINGS,
+        //GENERAL KEYBOARD INTERACTIVITY,
+        //ZOOM/HOME/FULL/ROTATION,
+            // INITIAL FLIP STATE,
+            // DRAWER SETTINGS,
+        //-> higher than maxZoomPixelRatio disables it,
+            //REFERENCE STRIP SETTINGS,
+            //DATA SOURCE DETAILS,
+        //ROTATION,
+        //or columns depending on layout,
+        //SEQUENCE,
+            //VIEWPORT NAVIGATOR SETTINGS,
+        //columns in horizontal layout, rows in vertical layout,
+        // to be passed into each TiledImage,
+        //SEQUENCE,
+        //ZOOM/HOME/FULL/ROTATION,
+            // TILED IMAGE SETTINGS,
+        //SEQUENCE,
+        //ZOOM,
+        // to be passed into each TiledImage,
+        // to be passed into each TiledImage,
+        //-> how much of the viewer can be negative space,
+        //FLIP,
+        //GENERAL MOUSE INTERACTIVITY,
+        // to be passed into each TiledImage,
+        //->closer to 0 draws tiles meant for a higher zoom at this zoom,
+        // requires autoResize=true,
+        //SEQUENCE,
+            //UI RESPONSIVENESS AND FEEL,
+            // INITIAL ROTATION,
+        // prefer using webgl2, then webgl, then canvas (i.e. context2d), then fallback to html,
+            //PERFORMANCE SETTINGS,
+            //PAN AND ZOOM SETTINGS AND CONSTRAINTS,
+        //-> closer to 0 allows zoom out to infinity,
+        //FULL,
+        //ZOOM/HOME/FULL/SEQUENCE,
+        // to be passed into each TiledImage,
+        //HOME,
+            //INTERFACE RESOURCE SETTINGS,
+            //COLLECTION VISUALIZATION SETTINGS,
+            // APPEARANCE,
+            //DEVELOPER SETTINGS,
+        //SEQUENCE,
+        //vertical,
+        //ZOOM/HOME/FULL/SEQUENCE,
             silenceMultiImageWarnings: false
 
         },
@@ -1995,13 +2059,7 @@ function OpenSeadragon( options ){
             return wrappers[0];
         },
 
-        /**
-         * Log trace information from the system. Useful for logging and debugging
-         * async events. Calls to this function SHOULD NOT BE present in the release.
-         * (or at least used only in debug mode).
-         * @param {OpenSeadragon.Tile|OpenSeadragon.CacheRecord|string} tile message to log or tile to inspect
-         * @param {boolean} stacktrace if true log the stacktrace
-         */
+
         trace: function(tile, stacktrace = false) {
             this.__traceLogs = [];
             setInterval(() => {
@@ -2030,6 +2088,15 @@ function OpenSeadragon( options ){
             };
             this.trace(tile, stacktrace);
         },
+
+
+        /**
+         * Log trace information from the system. Useful for logging and debugging
+         * async events. Calls to this function SHOULD NOT BE present in the release.
+         * (or at least used only in debug mode).
+         * @param {OpenSeadragon.Tile|OpenSeadragon.CacheRecord|string} tile message to log or tile to inspect
+         * @param {boolean} stacktrace if true log the stacktrace
+         */,
 
 
         /**
