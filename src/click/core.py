@@ -139,6 +139,40 @@ def iter_params_for_processing(
     return sorted(declaration_order, key=sort_key)
 
 
+def _check_iter(value: t.Any) -> cabc.Iterator[t.Any]:
+    """Check if the value is iterable but not a string. Raises a type
+    error, or return an iterator over the value.
+    """
+    if isinstance(value, str):
+        raise TypeError
+
+    return iter(value)
+
+
+def __getattr__(name: str) -> object:
+    import warnings
+
+    if name == "BaseCommand":
+        warnings.warn(
+            "'BaseCommand' is deprecated and will be removed in Click 9.0. Use"
+            " 'Command' instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return _BaseCommand
+
+    if name == "MultiCommand":
+        warnings.warn(
+            "'MultiCommand' is deprecated and will be removed in Click 9.0. Use"
+            " 'Group' instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return _MultiCommand
+
+    raise AttributeError(name)
+
+
 class ParameterSource(enum.Enum):
     """This is an :class:`~enum.Enum` that indicates the source of a
     parameter's value.
@@ -1971,16 +2005,6 @@ class CommandCollection(Group):
         return sorted(rv)
 
 
-def _check_iter(value: t.Any) -> cabc.Iterator[t.Any]:
-    """Check if the value is iterable but not a string. Raises a type
-    error, or return an iterator over the value.
-    """
-    if isinstance(value, str):
-        raise TypeError
-
-    return iter(value)
-
-
 class Parameter:
     r"""A parameter to a command comes in two versions: they are either
     :class:`Option`\s or :class:`Argument`\s.  Other subclasses are currently
@@ -3152,27 +3176,3 @@ class Argument(Parameter):
 
     def add_to_parser(self, parser: _OptionParser, ctx: Context) -> None:
         parser.add_argument(dest=self.name, nargs=self.nargs, obj=self)
-
-
-def __getattr__(name: str) -> object:
-    import warnings
-
-    if name == "BaseCommand":
-        warnings.warn(
-            "'BaseCommand' is deprecated and will be removed in Click 9.0. Use"
-            " 'Command' instead.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        return _BaseCommand
-
-    if name == "MultiCommand":
-        warnings.warn(
-            "'MultiCommand' is deprecated and will be removed in Click 9.0. Use"
-            " 'Group' instead.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        return _MultiCommand
-
-    raise AttributeError(name)
