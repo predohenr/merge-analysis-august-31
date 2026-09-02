@@ -56,14 +56,14 @@ type CapacityBuffer struct {
 	// Standard Kubernetes object metadata.
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
+	Spec CapacityBufferSpec `json:"spec" protobuf:"bytes,2,opt,name=spec"`
+	Status CapacityBufferStatus `json:"status,omitempty" protobuf:"bytes,3,opt,name=status"`
 
 	// Spec defines the desired characteristics of the buffer.
 	// +kubebuilder:validation:Required
-	Spec CapacityBufferSpec `json:"spec" protobuf:"bytes,2,opt,name=spec"`
 
 	// Status represents the current state of the buffer and its readiness for autoprovisioning.
 	// +optional
-	Status CapacityBufferStatus `json:"status,omitempty" protobuf:"bytes,3,opt,name=status"`
 }
 
 // LocalObjectRef contains the name of the object being referred to.
@@ -84,14 +84,14 @@ type ScalableRef struct {
 	// Empty string for the core API group
 	// +optional
 	APIGroup string `json:"apiGroup,omitempty" protobuf:"bytes,1,opt,name=apiGroup"`
+	Kind string `json:"kind" protobuf:"bytes,2,opt,name=kind"`
+	Name string `json:"name" protobuf:"bytes,3,opt,name=name"`
 	// Kind of the scalable object (e.g., "Deployment", "StatefulSet").
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinLength=1
-	Kind string `json:"kind" protobuf:"bytes,2,opt,name=kind"`
 	// Name of the scalable object.
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinLength=1
-	Name string `json:"name" protobuf:"bytes,3,opt,name=name"`
 }
 
 // ResourceList is a set of (resource name, quantity) pairs.
@@ -108,6 +108,11 @@ type CapacityBufferSpec struct {
 	// +kubebuilder:default="buffer.x-k8s.io/active-capacity"
 	// +optional
 	ProvisioningStrategy *string `json:"provisioningStrategy,omitempty" protobuf:"bytes,1,opt,name=provisioningStrategy"`
+	PodTemplateRef *LocalObjectRef `json:"podTemplateRef,omitempty" protobuf:"bytes,2,opt,name=podTemplateRef"`
+	ScalableRef *ScalableRef `json:"scalableRef,omitempty" protobuf:"bytes,3,opt,name=scalableRef"`
+	Replicas *int32 `json:"replicas,omitempty" protobuf:"varint,4,opt,name=replicas"`
+	Percentage *int32 `json:"percentage,omitempty" protobuf:"varint,5,opt,name=percentage"`
+	Limits *ResourceList `json:"limits,omitempty" protobuf:"bytes,6,opt,name=limits"`
 
 	// PodTemplateRef is a reference to a PodTemplate resource in the same namespace
 	// that declares the shape of a single chunk of the buffer. The pods created
@@ -115,7 +120,6 @@ type CapacityBufferSpec struct {
 	// Exactly one of `podTemplateRef`, `scalableRef` should be specified.
 	// +optional
 	// +kubebuilder:validation:Xor=podTemplateRef,scalableRef
-	PodTemplateRef *LocalObjectRef `json:"podTemplateRef,omitempty" protobuf:"bytes,2,opt,name=podTemplateRef"`
 
 	// ScalableRef is a reference to an object of a kind that has a scale subresource
 	// and specifies its label selector field. This allows the CapacityBuffer to
@@ -123,7 +127,6 @@ type CapacityBufferSpec struct {
 	// Exactly one of `podTemplateRef`, `scalableRef` should be specified.
 	// +optional
 	// +kubebuilder:validation:Xor=podTemplateRef,scalableRef
-	ScalableRef *ScalableRef `json:"scalableRef,omitempty" protobuf:"bytes,3,opt,name=scalableRef"`
 
 	// Replicas defines the desired number of buffer chunks to provision.
 	// If neither `replicas` nor `percentage` is set, as many chunks as fit within
@@ -132,7 +135,6 @@ type CapacityBufferSpec struct {
 	// +optional
 	// +kubebuilder:validation:Minimum=0
 	// +kubebuilder:validation:ExclusiveMinimum=false
-	Replicas *int32 `json:"replicas,omitempty" protobuf:"varint,4,opt,name=replicas"`
 
 	// Percentage defines the desired buffer capacity as a percentage of the
 	// `scalableRef`'s current replicas. This is only applicable if `scalableRef` is set.
@@ -141,14 +143,12 @@ type CapacityBufferSpec struct {
 	// +optional
 	// +kubebuilder:validation:Minimum=0
 	// +kubebuilder:validation:ExclusiveMinimum=false
-	Percentage *int32 `json:"percentage,omitempty" protobuf:"varint,5,opt,name=percentage"`
 
 	// Limits, if specified, will limit the number of chunks created for this buffer
 	// based on total resource requests (e.g., CPU, memory). If there are no other
 	// limitations for the number of chunks (i.e., `replicas` or `percentage` are not set),
 	// this will be used to create as many chunks as fit into these limits.
 	// +optional
-	Limits *ResourceList `json:"limits,omitempty" protobuf:"bytes,6,opt,name=limits"`
 }
 
 // CapacityBufferStatus defines the observed state of CapacityBuffer.
@@ -158,15 +158,17 @@ type CapacityBufferStatus struct {
 	// indicate an error, it provides details about the error state.
 	// +optional
 	PodTemplateRef *LocalObjectRef `json:"podTemplateRef,omitempty" protobuf:"bytes,1,opt,name=podTemplateRef"`
+	Replicas *int32 `json:"replicas,omitempty" protobuf:"varint,2,opt,name=replicas"`
+	PodTemplateGeneration *int64 `json:"podTemplateGeneration,omitempty" protobuf:"varint,3,opt,name=podTemplateGeneration"`
+	Conditions []metav1.Condition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type" protobuf:"bytes,4,rep,name=conditions"`
+	ProvisioningStrategy *string `json:"provisioningStrategy,omitempty" protobuf:"bytes,5,opt,name=provisioningStrategy"`
 
 	// Replicas is the actual number of buffer chunks currently provisioned.
 	// +optional
-	Replicas *int32 `json:"replicas,omitempty" protobuf:"varint,2,opt,name=replicas"`
 
 	// PodTemplateGeneration is the observed generation of the PodTemplate, used
 	// to determine if the status is up-to-date with the desired `spec.podTemplateRef`.
 	// +optional
-	PodTemplateGeneration *int64 `json:"podTemplateGeneration,omitempty" protobuf:"varint,3,opt,name=podTemplateGeneration"`
 
 	// Conditions provide a standard mechanism for reporting the buffer's state.
 	// The "Ready" condition indicates if the buffer is successfully provisioned
@@ -177,10 +179,8 @@ type CapacityBufferStatus struct {
 	// +patchStrategy=merge
 	// +listType=map
 	// +listMapKey=type
-	Conditions []metav1.Condition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type" protobuf:"bytes,4,rep,name=conditions"`
 	// ProvisioningStrategy defines how the buffer should be utilized.
 	// +optional
-	ProvisioningStrategy *string `json:"provisioningStrategy,omitempty" protobuf:"bytes,5,opt,name=provisioningStrategy"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
