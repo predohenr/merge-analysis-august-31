@@ -25,6 +25,29 @@ import (
 	"github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
+	k8sp "k8s.io/kubernetes/pkg/proxy"
+
+	"github.com/projectcalico/calico/felix/bpf"
+	"github.com/projectcalico/calico/felix/bpf/conntrack"
+	"github.com/projectcalico/calico/felix/bpf/maps"
+	"github.com/projectcalico/calico/felix/bpf/mock"
+	"github.com/projectcalico/calico/felix/bpf/nat"
+	proxy "github.com/projectcalico/calico/felix/bpf/proxy"
+	"github.com/projectcalico/calico/felix/bpf/routes"
+	"github.com/projectcalico/calico/felix/ip"
+)
+import (
+	"fmt"
+	"net"
+	"sync"
+	"time"
+
+	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/extensions/table"
+	. "github.com/onsi/gomega"
+	"github.com/sirupsen/logrus"
+	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 	k8sp "k8s.io/kubernetes/pkg/proxy"
 
@@ -41,6 +64,74 @@ import (
 func init() {
 	logrus.SetOutput(GinkgoWriter)
 	logrus.SetLevel(logrus.DebugLevel)
+}
+
+func newMockNATMap() *mockNATMap {
+	return &mockNATMap{
+		m: make(map[nat.FrontendKey]nat.FrontendValue),
+	}
+}
+
+func newMockNATBackendMap() *mockNATBackendMap {
+	return &mockNATBackendMap{
+		m: make(map[nat.BackendKey]nat.BackendValue),
+	}
+}
+
+func newMockMaglevMap() *mockMaglevMap {
+	return &mockMaglevMap{
+		m: make(map[nat.MaglevBackendKey]nat.BackendValue),
+	}
+}
+
+func newMockAffinityMap() *mockAffinityMap {
+	return &mockAffinityMap{
+		m: make(map[nat.AffinityKey]nat.AffinityValue),
+	}
+}
+
+func ctEntriesForSvc(ct maps.Map, proto v1.Protocol,
+	svcIP net.IP, svcPort uint16, ep k8sp.Endpoint, srcIP net.IP, srcPort uint16) {
+
+	p, err := proxy.ProtoV1ToInt(proto)
+	if err != nil {
+		p, _ = proxy.ProtoV1ToInt(v1.ProtocolTCP)
+	}
+
+	// REVIEWER TODO: looking for sign-off on this adaptation.
+	epPort := ep.Port()
+	Expect(epPort).NotTo(BeNumerically("<=", 0), "Test failed to parse EP port")
+
+	key := conntrack.NewKey(p, srcIP, srcPort, svcIP, svcPort)
+	revKey := conntrack.NewKey(p, srcIP, srcPort, net.ParseIP(ep.IP()), uint16(epPort))
+	val := conntrack.NewValueNATForward(0, 0, revKey)
+
+	err = ct.Update(key.AsBytes(), val.AsBytes())
+	Expect(err).NotTo(HaveOccurred(), "Test failed to populate ct map with FWD entry")
+
+	val = conntrack.NewValueNATReverse(0, 0, conntrack.Leg{}, conntrack.Leg{},
+		net.IPv4(0, 0, 0, 0), svcIP, svcPort)
+
+	err = ct.Update(revKey.AsBytes(), val.AsBytes())
+	Expect(err).NotTo(HaveOccurred(), "Test failed to populate ct map with REV")
+}
+
+func svc(ip string, port int) *svcBuilder {
+	return &svcBuilder{
+		ip:       net.ParseIP(ip),
+		port:     port,
+		protocol: v1.ProtocolTCP,
+	}
+}
+
+func ep(ip string, port int) *epBuilder {
+	return &epBuilder{
+		ip:   ip,
+		port: port,
+		opts: []proxy.EndpoiontInfoOpt{
+			proxy.EndpointInfoOptIsReady(true),
+		},
+	}
 }
 
 var (
@@ -1383,12 +1474,6 @@ func (m *mockNATMap) MapFD() maps.FD {
 	panic("implement me")
 }
 
-func newMockNATMap() *mockNATMap {
-	return &mockNATMap{
-		m: make(map[nat.FrontendKey]nat.FrontendValue),
-	}
-}
-
 func (m *mockNATMap) GetName() string {
 	return "nat"
 }
@@ -1466,20 +1551,8 @@ func (m *mockNATMap) Delete(k []byte) error {
 	return nil
 }
 
-type mockNATBackendMap struct {
-	mock.DummyMap
-	sync.Mutex
-	m map[nat.BackendKey]nat.BackendValue
-}
-
 func (m *mockNATBackendMap) MapFD() maps.FD {
 	panic("implement me")
-}
-
-func newMockNATBackendMap() *mockNATBackendMap {
-	return &mockNATBackendMap{
-		m: make(map[nat.BackendKey]nat.BackendValue),
-	}
 }
 
 func (m *mockNATBackendMap) GetName() string {
@@ -1559,20 +1632,8 @@ func (m *mockNATBackendMap) Delete(k []byte) error {
 	return nil
 }
 
-type mockMaglevMap struct {
-	mock.DummyMap
-	sync.Mutex
-	m map[nat.MaglevBackendKey]nat.BackendValue
-}
-
 func (m *mockMaglevMap) MapFD() maps.FD {
 	panic("implement me")
-}
-
-func newMockMaglevMap() *mockMaglevMap {
-	return &mockMaglevMap{
-		m: make(map[nat.MaglevBackendKey]nat.BackendValue),
-	}
 }
 
 func (m *mockMaglevMap) GetName() string {
@@ -1652,18 +1713,6 @@ func (m *mockMaglevMap) Delete(k []byte) error {
 	return nil
 }
 
-type mockAffinityMap struct {
-	mock.DummyMap
-	sync.Mutex
-	m map[nat.AffinityKey]nat.AffinityValue
-}
-
-func newMockAffinityMap() *mockAffinityMap {
-	return &mockAffinityMap{
-		m: make(map[nat.AffinityKey]nat.AffinityValue),
-	}
-}
-
 func (m *mockAffinityMap) GetName() string {
 	return "aff"
 }
@@ -1737,47 +1786,6 @@ func (m *mockAffinityMap) MapFD() maps.FD {
 	panic("implement me")
 }
 
-func ctEntriesForSvc(ct maps.Map, proto v1.Protocol,
-	svcIP net.IP, svcPort uint16, ep k8sp.Endpoint, srcIP net.IP, srcPort uint16) {
-
-	p, err := proxy.ProtoV1ToInt(proto)
-	if err != nil {
-		p, _ = proxy.ProtoV1ToInt(v1.ProtocolTCP)
-	}
-
-	// REVIEWER TODO: looking for sign-off on this adaptation.
-	epPort := ep.Port()
-	Expect(epPort).NotTo(BeNumerically("<=", 0), "Test failed to parse EP port")
-
-	key := conntrack.NewKey(p, srcIP, srcPort, svcIP, svcPort)
-	revKey := conntrack.NewKey(p, srcIP, srcPort, net.ParseIP(ep.IP()), uint16(epPort))
-	val := conntrack.NewValueNATForward(0, 0, revKey)
-
-	err = ct.Update(key.AsBytes(), val.AsBytes())
-	Expect(err).NotTo(HaveOccurred(), "Test failed to populate ct map with FWD entry")
-
-	val = conntrack.NewValueNATReverse(0, 0, conntrack.Leg{}, conntrack.Leg{},
-		net.IPv4(0, 0, 0, 0), svcIP, svcPort)
-
-	err = ct.Update(revKey.AsBytes(), val.AsBytes())
-	Expect(err).NotTo(HaveOccurred(), "Test failed to populate ct map with REV")
-}
-
-type svcBuilder struct {
-	ip       net.IP
-	port     int
-	protocol v1.Protocol
-	opts     []proxy.K8sServicePortOption
-}
-
-func svc(ip string, port int) *svcBuilder {
-	return &svcBuilder{
-		ip:       net.ParseIP(ip),
-		port:     port,
-		protocol: v1.ProtocolTCP,
-	}
-}
-
 func (s *svcBuilder) topology(mode string) *svcBuilder {
 	s.opts = append(s.opts, proxy.K8sSvcWithTopologyMode(mode))
 	return s
@@ -1790,22 +1798,6 @@ func (s *svcBuilder) build() k8sp.ServicePort {
 		s.protocol,
 		s.opts...,
 	)
-}
-
-type epBuilder struct {
-	ip   string
-	port int
-	opts []proxy.EndpoiontInfoOpt
-}
-
-func ep(ip string, port int) *epBuilder {
-	return &epBuilder{
-		ip:   ip,
-		port: port,
-		opts: []proxy.EndpoiontInfoOpt{
-			proxy.EndpointInfoOptIsReady(true),
-		},
-	}
 }
 
 func (e *epBuilder) nodes(names ...string) *epBuilder {
@@ -1828,4 +1820,35 @@ func (e *epBuilder) zones(zones ...string) *epBuilder {
 
 func (e *epBuilder) build() k8sp.Endpoint {
 	return proxy.NewEndpointInfo(e.ip, e.port, e.opts...)
+}
+
+type mockNATBackendMap struct {
+	mock.DummyMap
+	sync.Mutex
+	m map[nat.BackendKey]nat.BackendValue
+}
+
+type mockMaglevMap struct {
+	mock.DummyMap
+	sync.Mutex
+	m map[nat.MaglevBackendKey]nat.BackendValue
+}
+
+type mockAffinityMap struct {
+	mock.DummyMap
+	sync.Mutex
+	m map[nat.AffinityKey]nat.AffinityValue
+}
+
+type svcBuilder struct {
+	ip       net.IP
+	port     int
+	protocol v1.Protocol
+	opts     []proxy.K8sServicePortOption
+}
+
+type epBuilder struct {
+	ip   string
+	port int
+	opts []proxy.EndpoiontInfoOpt
 }
