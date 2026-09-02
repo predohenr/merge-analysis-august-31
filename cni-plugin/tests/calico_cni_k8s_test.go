@@ -160,6 +160,57 @@ func getKubernetesClient() *kubernetes.Clientset {
 	return clientset
 }
 
+func checkPodIPAnnotations(clientset *kubernetes.Clientset, ns, name, expectedIP, expectedIPs string) {
+	if os.Getenv("DATASTORE_TYPE") == "kubernetes" {
+		pod, err := clientset.CoreV1().Pods(testutils.K8S_TEST_NS).Get(context.Background(), name, metav1.GetOptions{})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(pod.Annotations["cni.projectcalico.org/podIP"]).To(Equal(expectedIP))
+		Expect(pod.Annotations["cni.projectcalico.org/podIPs"]).To(Equal(expectedIPs))
+	}
+}
+
+func checkInterfaceConfig(name, ipVersion string) error {
+	err := testutils.CheckSysctlValue(fmt.Sprintf("/proc/sys/net/ipv6/conf/%s/accept_ra", name), "0")
+	if err != nil {
+		return err
+	}
+
+	if ipVersion == "4" {
+		err = testutils.CheckSysctlValue(fmt.Sprintf("/proc/sys/net/ipv4/conf/%s/route_localnet", name), "1")
+		if err != nil {
+			return err
+		}
+
+		err = testutils.CheckSysctlValue(fmt.Sprintf("/proc/sys/net/ipv4/neigh/%s/proxy_delay", name), "0")
+		if err != nil {
+			return err
+		}
+
+		err = testutils.CheckSysctlValue(fmt.Sprintf("/proc/sys/net/ipv4/conf/%s/proxy_arp", name), "1")
+		if err != nil {
+			return err
+		}
+
+		err = testutils.CheckSysctlValue(fmt.Sprintf("/proc/sys/net/ipv4/conf/%s/forwarding", name), "1")
+		if err != nil {
+			return err
+		}
+	} else if ipVersion == "6" {
+		err = testutils.CheckSysctlValue(fmt.Sprintf("/proc/sys/net/ipv6/conf/%s/proxy_ndp", name), "1")
+		if err != nil {
+			return err
+		}
+
+		err = testutils.CheckSysctlValue(fmt.Sprintf("/proc/sys/net/ipv6/conf/%s/forwarding", name), "1")
+		if err != nil {
+			return err
+		}
+
+	}
+
+	return nil
+}
+
 var _ = Describe("Kubernetes CNI tests", func() {
 	ctx := context.Background()
 	calicoClient, err := client.NewFromEnv()
@@ -3397,54 +3448,3 @@ var _ = Describe("Kubernetes CNI tests", func() {
 		})
 	})
 })
-
-func checkPodIPAnnotations(clientset *kubernetes.Clientset, ns, name, expectedIP, expectedIPs string) {
-	if os.Getenv("DATASTORE_TYPE") == "kubernetes" {
-		pod, err := clientset.CoreV1().Pods(testutils.K8S_TEST_NS).Get(context.Background(), name, metav1.GetOptions{})
-		Expect(err).NotTo(HaveOccurred())
-		Expect(pod.Annotations["cni.projectcalico.org/podIP"]).To(Equal(expectedIP))
-		Expect(pod.Annotations["cni.projectcalico.org/podIPs"]).To(Equal(expectedIPs))
-	}
-}
-
-func checkInterfaceConfig(name, ipVersion string) error {
-	err := testutils.CheckSysctlValue(fmt.Sprintf("/proc/sys/net/ipv6/conf/%s/accept_ra", name), "0")
-	if err != nil {
-		return err
-	}
-
-	if ipVersion == "4" {
-		err = testutils.CheckSysctlValue(fmt.Sprintf("/proc/sys/net/ipv4/conf/%s/route_localnet", name), "1")
-		if err != nil {
-			return err
-		}
-
-		err = testutils.CheckSysctlValue(fmt.Sprintf("/proc/sys/net/ipv4/neigh/%s/proxy_delay", name), "0")
-		if err != nil {
-			return err
-		}
-
-		err = testutils.CheckSysctlValue(fmt.Sprintf("/proc/sys/net/ipv4/conf/%s/proxy_arp", name), "1")
-		if err != nil {
-			return err
-		}
-
-		err = testutils.CheckSysctlValue(fmt.Sprintf("/proc/sys/net/ipv4/conf/%s/forwarding", name), "1")
-		if err != nil {
-			return err
-		}
-	} else if ipVersion == "6" {
-		err = testutils.CheckSysctlValue(fmt.Sprintf("/proc/sys/net/ipv6/conf/%s/proxy_ndp", name), "1")
-		if err != nil {
-			return err
-		}
-
-		err = testutils.CheckSysctlValue(fmt.Sprintf("/proc/sys/net/ipv6/conf/%s/forwarding", name), "1")
-		if err != nil {
-			return err
-		}
-
-	}
-
-	return nil
-}
