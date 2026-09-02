@@ -104,6 +104,9 @@ def parse_raw_content(
         )
         url = _target_from_request_line(target, headers, scheme=scheme)
     except (IndexError, UnicodeError, ValueError) as e:
+        if isinstance(e, InvalidRawRequest):
+            raise
+
         logger.exception(e)
         raise InvalidRawRequest("The raw request is formatively invalid") from e
 
