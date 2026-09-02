@@ -270,6 +270,8 @@ if (typeof p5 !== "undefined") {
  *   fill('white');
  *   sphere(50);
  * }
+ * </code>
+ * </div>
  */
 
 /**
@@ -362,8 +364,6 @@ if (typeof p5 !== "undefined") {
  *   background(0);
  *   filter(animatedShader);
  * }
- * </code>
- * </div>
  */
 
 /**
