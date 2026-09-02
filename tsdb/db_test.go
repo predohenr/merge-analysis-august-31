@@ -4283,7 +4283,7 @@ func TestOOOWALWrite(t *testing.T) {
 		},
 		"custom buckets histogram": {
 			appendSample: func(app storage.Appender, l labels.Labels, mins int64) (storage.SeriesRef, error) {
-				seriesRef, err := app.AppendHistogram(0, l, minutes(mins), tsdbutil.GenerateTestCustomBucketsHistogram(mins), nil)
+				seriesRef, err := app.AppendHistogram(0, l, minutes(mins), tsdbutil.GenerateTestCustomBucketsHistogram(int(mins)), nil)
 				require.NoError(t, err)
 				return seriesRef, nil
 			},
@@ -4374,7 +4374,7 @@ func TestOOOWALWrite(t *testing.T) {
 		},
 		"custom buckets float histogram": {
 			appendSample: func(app storage.Appender, l labels.Labels, mins int64) (storage.SeriesRef, error) {
-				seriesRef, err := app.AppendHistogram(0, l, minutes(mins), nil, tsdbutil.GenerateTestCustomBucketsFloatHistogram(mins))
+				seriesRef, err := app.AppendHistogram(0, l, minutes(mins), nil, tsdbutil.GenerateTestCustomBucketsFloatHistogram(int(mins)))
 				require.NoError(t, err)
 				return seriesRef, nil
 			},

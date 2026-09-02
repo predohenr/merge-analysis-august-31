@@ -59,7 +59,7 @@ func GenerateTestHistogram(i int64) *histogram.Histogram {
 
 func GenerateTestCustomBucketsHistograms(n int) (r []*histogram.Histogram) {
 	for i := 0; i < n; i++ {
-		h := GenerateTestCustomBucketsHistogram(int64(i))
+		h := GenerateTestCustomBucketsHistogram(i)
 		if i > 0 {
 			h.CounterResetHint = histogram.NotCounterReset
 		}
@@ -130,7 +130,7 @@ func GenerateTestFloatHistogram(i int64) *histogram.FloatHistogram {
 
 func GenerateTestCustomBucketsFloatHistograms(n int) (r []*histogram.FloatHistogram) {
 	for i := 0; i < n; i++ {
-		h := GenerateTestCustomBucketsFloatHistogram(int64(i))
+		h := GenerateTestCustomBucketsFloatHistogram(i)
 		if i > 0 {
 			h.CounterResetHint = histogram.NotCounterReset
 		}

@@ -87,23 +87,23 @@ var sampleTypeScenarios = map[string]sampleTypeScenario{
 	customBucketsIntHistogram: {
 		sampleType: sampleMetricTypeHistogram,
 		appendFunc: func(appender storage.Appender, lbls labels.Labels, ts, value int64) (storage.SeriesRef, sample, error) {
-			s := sample{t: ts, h: tsdbutil.GenerateTestCustomBucketsHistogram(value)}
+			s := sample{t: ts, h: tsdbutil.GenerateTestCustomBucketsHistogram(int(value))}
 			ref, err := appender.AppendHistogram(0, lbls, ts, s.h, nil)
 			return ref, s, err
 		},
 		sampleFunc: func(ts, value int64) sample {
-			return sample{t: ts, h: tsdbutil.GenerateTestCustomBucketsHistogram(value)}
+			return sample{t: ts, h: tsdbutil.GenerateTestCustomBucketsHistogram(int(value))}
 		},
 	},
 	customBucketsFloatHistogram: {
 		sampleType: sampleMetricTypeHistogram,
 		appendFunc: func(appender storage.Appender, lbls labels.Labels, ts, value int64) (storage.SeriesRef, sample, error) {
-			s := sample{t: ts, fh: tsdbutil.GenerateTestCustomBucketsFloatHistogram(value)}
+			s := sample{t: ts, fh: tsdbutil.GenerateTestCustomBucketsFloatHistogram(int(value))}
 			ref, err := appender.AppendHistogram(0, lbls, ts, nil, s.fh)
 			return ref, s, err
 		},
 		sampleFunc: func(ts, value int64) sample {
-			return sample{t: ts, fh: tsdbutil.GenerateTestCustomBucketsFloatHistogram(value)}
+			return sample{t: ts, fh: tsdbutil.GenerateTestCustomBucketsFloatHistogram(int(value))}
 		},
 	},
 	gaugeIntHistogram: {
