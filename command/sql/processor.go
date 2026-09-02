@@ -26,6 +26,7 @@ func Process(stmts []*proto.Statement, rwrand, rwtime bool) error {
 			!containsReturning(lowered) {
 			continue
 		}
+
 		parsed, err := sql.NewParser(strings.NewReader(stmts[i].Sql)).ParseStatement()
 		if err != nil {
 			continue
