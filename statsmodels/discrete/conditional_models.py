@@ -657,7 +657,6 @@ class ConditionalMNLogit(_ConditionalModel):
         return grad.flatten()
 
 
-
 class ConditionalResultsWrapper(lm.RegressionResultsWrapper):
     pass
 
