@@ -576,6 +576,36 @@ def _rc_context_raw(snapshot):
         rc._update_raw(orig)
 
 
+def _make_getset_interval(method_name, lim_name, attr_name):
+    """
+    Helper to generate ``get_{data,view}_interval`` and
+    ``set_{data,view}_interval`` implementations.
+    """
+
+    def getter(self):
+        # docstring inherited.
+        return getattr(getattr(self.axes, lim_name), attr_name)
+
+    def setter(self, vmin, vmax, ignore=False):
+        # docstring inherited.
+        if ignore:
+            setattr(getattr(self.axes, lim_name), attr_name, (vmin, vmax))
+        else:
+            oldmin, oldmax = getter(self)
+            if oldmin < oldmax:
+                setter(self, min(vmin, vmax, oldmin), max(vmin, vmax, oldmax),
+                       ignore=True)
+            else:
+                setter(self, max(vmin, vmax, oldmin), min(vmin, vmax, oldmax),
+                       ignore=True)
+        self.stale = True
+
+    getter.__name__ = f"get_{method_name}_interval"
+    setter.__name__ = f"set_{method_name}_interval"
+
+    return getter, setter
+
+
 class _LazyTickList:
     """
     A descriptor for lazy instantiation of tick lists.
@@ -2496,36 +2526,6 @@ class Axis(martist.Artist):
         raise NotImplementedError()
 
 
-def _make_getset_interval(method_name, lim_name, attr_name):
-    """
-    Helper to generate ``get_{data,view}_interval`` and
-    ``set_{data,view}_interval`` implementations.
-    """
-
-    def getter(self):
-        # docstring inherited.
-        return getattr(getattr(self.axes, lim_name), attr_name)
-
-    def setter(self, vmin, vmax, ignore=False):
-        # docstring inherited.
-        if ignore:
-            setattr(getattr(self.axes, lim_name), attr_name, (vmin, vmax))
-        else:
-            oldmin, oldmax = getter(self)
-            if oldmin < oldmax:
-                setter(self, min(vmin, vmax, oldmin), max(vmin, vmax, oldmax),
-                       ignore=True)
-            else:
-                setter(self, max(vmin, vmax, oldmin), min(vmin, vmax, oldmax),
-                       ignore=True)
-        self.stale = True
-
-    getter.__name__ = f"get_{method_name}_interval"
-    setter.__name__ = f"set_{method_name}_interval"
-
-    return getter, setter
-
-
 class XAxis(Axis):
     __name__ = 'xaxis'
     axis_name = 'x'  #: Read-only name identifying the axis.
@@ -2716,11 +2716,6 @@ class XAxis(Axis):
                 "default": "default", "unknown": "unknown"}[
                     self._get_ticks_position()]
 
-    get_view_interval, set_view_interval = _make_getset_interval(
-        "view", "viewLim", "intervalx")
-    get_data_interval, set_data_interval = _make_getset_interval(
-        "data", "dataLim", "intervalx")
-
     def get_minpos(self):
         return self.axes.dataLim.minposx
 
@@ -2748,6 +2743,11 @@ class XAxis(Axis):
             return int(np.floor(length / size))
         else:
             return 2**31 - 1
+
+    get_view_interval, set_view_interval = _make_getset_interval(
+        "view", "viewLim", "intervalx")
+    get_data_interval, set_data_interval = _make_getset_interval(
+        "data", "dataLim", "intervalx")
 
 
 class YAxis(Axis):
@@ -2946,11 +2946,6 @@ class YAxis(Axis):
                 "default": "default", "unknown": "unknown"}[
                     self._get_ticks_position()]
 
-    get_view_interval, set_view_interval = _make_getset_interval(
-        "view", "viewLim", "intervaly")
-    get_data_interval, set_data_interval = _make_getset_interval(
-        "data", "dataLim", "intervaly")
-
     def get_minpos(self):
         return self.axes.dataLim.minposy
 
@@ -2977,3 +2972,8 @@ class YAxis(Axis):
             return int(np.floor(length / size))
         else:
             return 2**31 - 1
+
+    get_view_interval, set_view_interval = _make_getset_interval(
+        "view", "viewLim", "intervaly")
+    get_data_interval, set_data_interval = _make_getset_interval(
+        "data", "dataLim", "intervaly")
