@@ -221,6 +221,173 @@ def recursive_property(strategy: "SearchStrategy", name: str, default: object) -
     return getattr(strategy, cache_key)
 
 
+def _is_hashable(value: object) -> tuple[bool, Optional[int]]:
+    # hashing can be expensive; return the hash value if we compute it, so that
+    # callers don't have to recompute.
+    try:
+        return (True, hash(value))
+    except TypeError:
+        return (False, None)
+
+
+def is_hashable(value: object) -> bool:
+    return _is_hashable(value)[0]
+
+
+@overload
+def one_of(
+    __args: Sequence[SearchStrategy[Ex]],
+) -> SearchStrategy[Ex]:  # pragma: no cover
+    ...
+
+
+@overload
+def one_of(__a1: SearchStrategy[Ex]) -> SearchStrategy[Ex]:  # pragma: no cover
+    ...
+
+
+@overload
+def one_of(
+    __a1: SearchStrategy[Ex], __a2: SearchStrategy[T]
+) -> SearchStrategy[Union[Ex, T]]:  # pragma: no cover
+    ...
+
+
+@overload
+def one_of(
+    __a1: SearchStrategy[Ex], __a2: SearchStrategy[T], __a3: SearchStrategy[T3]
+) -> SearchStrategy[Union[Ex, T, T3]]:  # pragma: no cover
+    ...
+
+
+@overload
+def one_of(
+    __a1: SearchStrategy[Ex],
+    __a2: SearchStrategy[T],
+    __a3: SearchStrategy[T3],
+    __a4: SearchStrategy[T4],
+) -> SearchStrategy[Union[Ex, T, T3, T4]]:  # pragma: no cover
+    ...
+
+
+@overload
+def one_of(
+    __a1: SearchStrategy[Ex],
+    __a2: SearchStrategy[T],
+    __a3: SearchStrategy[T3],
+    __a4: SearchStrategy[T4],
+    __a5: SearchStrategy[T5],
+) -> SearchStrategy[Union[Ex, T, T3, T4, T5]]:  # pragma: no cover
+    ...
+
+
+@overload
+def one_of(*args: SearchStrategy[Any]) -> SearchStrategy[Any]:  # pragma: no cover
+    ...
+
+
+@defines_strategy(never_lazy=True)
+def one_of(
+    *args: Union[Sequence[SearchStrategy[Any]], SearchStrategy[Any]]
+) -> SearchStrategy[Any]:
+    # Mypy workaround alert:  Any is too loose above; the return parameter
+    # should be the union of the input parameters.  Unfortunately, Mypy <=0.600
+    # raises errors due to incompatible inputs instead.  See #1270 for links.
+    # v0.610 doesn't error; it gets inference wrong for 2+ arguments instead.
+    """Return a strategy which generates values from any of the argument
+    strategies.
+
+    This may be called with one iterable argument instead of multiple
+    strategy arguments, in which case ``one_of(x)`` and ``one_of(*x)`` are
+    equivalent.
+
+    Examples from this strategy will generally shrink to ones that come from
+    strategies earlier in the list, then shrink according to behaviour of the
+    strategy that produced them. In order to get good shrinking behaviour,
+    try to put simpler strategies first. e.g. ``one_of(none(), text())`` is
+    better than ``one_of(text(), none())``.
+
+    This is especially important when using recursive strategies. e.g.
+    ``x = st.deferred(lambda: st.none() | st.tuples(x, x))`` will shrink well,
+    but ``x = st.deferred(lambda: st.tuples(x, x) | st.none())`` will shrink
+    very badly indeed.
+    """
+    if len(args) == 1 and not isinstance(args[0], SearchStrategy):
+        try:
+            args = tuple(args[0])
+        except TypeError:
+            pass
+    if len(args) == 1 and isinstance(args[0], SearchStrategy):
+        # This special-case means that we can one_of over lists of any size
+        # without incurring any performance overhead when there is only one
+        # strategy, and keeps our reprs simple.
+        return args[0]
+    if args and not any(isinstance(a, SearchStrategy) for a in args):
+        # And this special case is to give a more-specific error message if it
+        # seems that the user has confused `one_of()` for  `sampled_from()`;
+        # the remaining validation is left to OneOfStrategy.  See PR #2627.
+        raise InvalidArgument(
+            f"Did you mean st.sampled_from({list(args)!r})?  st.one_of() is used "
+            "to combine strategies, but all of the arguments were of other types."
+        )
+    # we've handled the case where args is a one-element sequence [(s1, s2, ...)]
+    # above, so we can assume it's an actual sequence of strategies.
+    args = cast(Sequence[SearchStrategy], args)
+    return OneOfStrategy(args)
+
+
+@lru_cache
+def _list_strategy_type() -> Any:
+    from hypothesis.strategies._internal.collections import ListStrategy
+
+    return ListStrategy
+
+
+def _collection_ish_functions() -> Sequence[Any]:
+    funcs = [sorted]
+    if np := sys.modules.get("numpy"):
+        # c.f. https://numpy.org/doc/stable/reference/routines.array-creation.html
+        # Probably only `np.array` and `np.asarray` will be used in practice,
+        # but why should that stop us when we've already gone this far?
+        funcs += [
+            np.empty_like,
+            np.eye,
+            np.identity,
+            np.ones_like,
+            np.zeros_like,
+            np.array,
+            np.asarray,
+            np.asanyarray,
+            np.ascontiguousarray,
+            np.asmatrix,
+            np.copy,
+            np.rec.array,
+            np.rec.fromarrays,
+            np.rec.fromrecords,
+            np.diag,
+            # bonus undocumented functions from tab-completion:
+            np.asarray_chkfinite,
+            np.asfortranarray,
+        ]
+
+    return funcs
+
+
+@check_function
+def check_strategy(arg: object, name: str = "") -> None:
+    assert isinstance(name, str)
+    if not isinstance(arg, SearchStrategy):
+        hint = ""
+        if isinstance(arg, (list, tuple)):
+            hint = ", such as st.sampled_from({}),".format(name or "...")
+        if name:
+            name += "="
+        raise InvalidArgument(
+            f"Expected a SearchStrategy{hint} but got {name}{arg!r} "
+            f"(type={type(arg).__name__})"
+        )
+
+
 class SearchStrategy(Generic[Ex]):
     """A ``SearchStrategy`` tells Hypothesis how to generate that kind of input.
 
@@ -534,19 +701,6 @@ class SearchStrategy(Generic[Ex]):
 
     def do_draw(self, data: ConjectureData) -> Ex:
         raise NotImplementedError(f"{type(self).__name__}.do_draw")
-
-
-def _is_hashable(value: object) -> tuple[bool, Optional[int]]:
-    # hashing can be expensive; return the hash value if we compute it, so that
-    # callers don't have to recompute.
-    try:
-        return (True, hash(value))
-    except TypeError:
-        return (False, None)
-
-
-def is_hashable(value: object) -> bool:
-    return _is_hashable(value)[0]
 
 
 class SampledFromStrategy(SearchStrategy[Ex]):
@@ -870,108 +1024,6 @@ class OneOfStrategy(SearchStrategy[Ex]):
         )
 
 
-@overload
-def one_of(
-    __args: Sequence[SearchStrategy[Ex]],
-) -> SearchStrategy[Ex]:  # pragma: no cover
-    ...
-
-
-@overload
-def one_of(__a1: SearchStrategy[Ex]) -> SearchStrategy[Ex]:  # pragma: no cover
-    ...
-
-
-@overload
-def one_of(
-    __a1: SearchStrategy[Ex], __a2: SearchStrategy[T]
-) -> SearchStrategy[Union[Ex, T]]:  # pragma: no cover
-    ...
-
-
-@overload
-def one_of(
-    __a1: SearchStrategy[Ex], __a2: SearchStrategy[T], __a3: SearchStrategy[T3]
-) -> SearchStrategy[Union[Ex, T, T3]]:  # pragma: no cover
-    ...
-
-
-@overload
-def one_of(
-    __a1: SearchStrategy[Ex],
-    __a2: SearchStrategy[T],
-    __a3: SearchStrategy[T3],
-    __a4: SearchStrategy[T4],
-) -> SearchStrategy[Union[Ex, T, T3, T4]]:  # pragma: no cover
-    ...
-
-
-@overload
-def one_of(
-    __a1: SearchStrategy[Ex],
-    __a2: SearchStrategy[T],
-    __a3: SearchStrategy[T3],
-    __a4: SearchStrategy[T4],
-    __a5: SearchStrategy[T5],
-) -> SearchStrategy[Union[Ex, T, T3, T4, T5]]:  # pragma: no cover
-    ...
-
-
-@overload
-def one_of(*args: SearchStrategy[Any]) -> SearchStrategy[Any]:  # pragma: no cover
-    ...
-
-
-@defines_strategy(never_lazy=True)
-def one_of(
-    *args: Union[Sequence[SearchStrategy[Any]], SearchStrategy[Any]]
-) -> SearchStrategy[Any]:
-    # Mypy workaround alert:  Any is too loose above; the return parameter
-    # should be the union of the input parameters.  Unfortunately, Mypy <=0.600
-    # raises errors due to incompatible inputs instead.  See #1270 for links.
-    # v0.610 doesn't error; it gets inference wrong for 2+ arguments instead.
-    """Return a strategy which generates values from any of the argument
-    strategies.
-
-    This may be called with one iterable argument instead of multiple
-    strategy arguments, in which case ``one_of(x)`` and ``one_of(*x)`` are
-    equivalent.
-
-    Examples from this strategy will generally shrink to ones that come from
-    strategies earlier in the list, then shrink according to behaviour of the
-    strategy that produced them. In order to get good shrinking behaviour,
-    try to put simpler strategies first. e.g. ``one_of(none(), text())`` is
-    better than ``one_of(text(), none())``.
-
-    This is especially important when using recursive strategies. e.g.
-    ``x = st.deferred(lambda: st.none() | st.tuples(x, x))`` will shrink well,
-    but ``x = st.deferred(lambda: st.tuples(x, x) | st.none())`` will shrink
-    very badly indeed.
-    """
-    if len(args) == 1 and not isinstance(args[0], SearchStrategy):
-        try:
-            args = tuple(args[0])
-        except TypeError:
-            pass
-    if len(args) == 1 and isinstance(args[0], SearchStrategy):
-        # This special-case means that we can one_of over lists of any size
-        # without incurring any performance overhead when there is only one
-        # strategy, and keeps our reprs simple.
-        return args[0]
-    if args and not any(isinstance(a, SearchStrategy) for a in args):
-        # And this special case is to give a more-specific error message if it
-        # seems that the user has confused `one_of()` for  `sampled_from()`;
-        # the remaining validation is left to OneOfStrategy.  See PR #2627.
-        raise InvalidArgument(
-            f"Did you mean st.sampled_from({list(args)!r})?  st.one_of() is used "
-            "to combine strategies, but all of the arguments were of other types."
-        )
-    # we've handled the case where args is a one-element sequence [(s1, s2, ...)]
-    # above, so we can assume it's an actual sequence of strategies.
-    args = cast(Sequence[SearchStrategy], args)
-    return OneOfStrategy(args)
-
-
 class MappedStrategy(SearchStrategy[MappedTo], Generic[MappedFrom, MappedTo]):
     """A strategy which is defined purely by conversion to and from another
     strategy.
@@ -1050,43 +1102,6 @@ class MappedStrategy(SearchStrategy[MappedTo], Generic[MappedFrom, MappedTo]):
         # Apply a new outer filter even though we rewrote the inner strategy,
         # because some collections can change the list length (dict, set, etc).
         return FilteredStrategy(type(self)(new, self.pack), conditions=(condition,))
-
-
-@lru_cache
-def _list_strategy_type() -> Any:
-    from hypothesis.strategies._internal.collections import ListStrategy
-
-    return ListStrategy
-
-
-def _collection_ish_functions() -> Sequence[Any]:
-    funcs = [sorted]
-    if np := sys.modules.get("numpy"):
-        # c.f. https://numpy.org/doc/stable/reference/routines.array-creation.html
-        # Probably only `np.array` and `np.asarray` will be used in practice,
-        # but why should that stop us when we've already gone this far?
-        funcs += [
-            np.empty_like,
-            np.eye,
-            np.identity,
-            np.ones_like,
-            np.zeros_like,
-            np.array,
-            np.asarray,
-            np.asanyarray,
-            np.ascontiguousarray,
-            np.asmatrix,
-            np.copy,
-            np.rec.array,
-            np.rec.fromarrays,
-            np.rec.fromrecords,
-            np.diag,
-            # bonus undocumented functions from tab-completion:
-            np.asarray_chkfinite,
-            np.asfortranarray,
-        ]
-
-    return funcs
 
 
 filter_not_satisfied = UniqueIdentifier("filter not satisfied")
@@ -1214,18 +1229,3 @@ class FilteredStrategy(SearchStrategy[Ex]):
             FilteredStrategy(strategy=strategy, conditions=self.flat_conditions)
             for strategy in self.filtered_strategy.branches
         ]
-
-
-@check_function
-def check_strategy(arg: object, name: str = "") -> None:
-    assert isinstance(name, str)
-    if not isinstance(arg, SearchStrategy):
-        hint = ""
-        if isinstance(arg, (list, tuple)):
-            hint = ", such as st.sampled_from({}),".format(name or "...")
-        if name:
-            name += "="
-        raise InvalidArgument(
-            f"Expected a SearchStrategy{hint} but got {name}{arg!r} "
-            f"(type={type(arg).__name__})"
-        )
