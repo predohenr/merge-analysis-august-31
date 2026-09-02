@@ -1,27 +1,26 @@
 """Routines related to PyPI, indexes"""
 
 from __future__ import annotations
-
-import datetime
-import enum
-import functools
-import itertools
-import logging
-import re
 from collections.abc import Iterable
+import functools
+from pip._vendor.packaging.version import InvalidVersion, Version, _BaseVersion
+from pip._vendor.packaging.tags import Tag
+from pip._vendor.packaging.version import parse as parse_version
+import re
 from dataclasses import dataclass
+from pip._vendor.packaging.utils import NormalizedName, canonicalize_name
+import logging
 from typing import (
     TYPE_CHECKING,
     Optional,
     Union,
 )
-
 from pip._vendor.packaging import specifiers
-from pip._vendor.packaging.tags import Tag
-from pip._vendor.packaging.utils import NormalizedName, canonicalize_name
-from pip._vendor.packaging.version import InvalidVersion, Version, _BaseVersion
-from pip._vendor.packaging.version import parse as parse_version
-
+import itertools
+import enum
+from pip._internal.metadata import select_backend
+import datetime
+from pip._vendor.packaging.version import InvalidVersion, _BaseVersion
 from pip._internal.exceptions import (
     BestVersionAlreadyInstalled,
     DistributionNotFound,
@@ -30,7 +29,6 @@ from pip._internal.exceptions import (
     UnsupportedWheel,
 )
 from pip._internal.index.collector import IndexContent, LinkCollector, parse_links
-from pip._internal.metadata import select_backend
 from pip._internal.models.candidate import InstallationCandidate
 from pip._internal.models.format_control import FormatControl
 from pip._internal.models.link import Link
@@ -104,6 +102,124 @@ def _check_link_requires_python(
             )
 
     return True
+
+
+def filter_unallowed_hashes(
+    candidates: list[InstallationCandidate],
+    hashes: Hashes | None,
+    project_name: str,
+) -> list[InstallationCandidate]:
+    """
+    Filter out candidates whose hashes aren't allowed, and return a new
+    list of candidates.
+
+    If at least one candidate has an allowed hash, then all candidates with
+    either an allowed hash or no hash specified are returned.  Otherwise,
+    the given candidates are returned.
+
+    Including the candidates with no hash specified when there is a match
+    allows a warning to be logged if there is a more preferred candidate
+    with no hash specified.  Returning all candidates in the case of no
+    matches lets pip report the hash of the candidate that would otherwise
+    have been installed (e.g. permitting the user to more easily update
+    their requirements file with the desired hash).
+    """
+    if not hashes:
+        logger.debug(
+            "Given no hashes to check %s links for project %r: "
+            "discarding no candidates",
+            len(candidates),
+            project_name,
+        )
+        # Make sure we're not returning back the given value.
+        return list(candidates)
+
+    matches_or_no_digest = []
+    # Collect the non-matches for logging purposes.
+    non_matches = []
+    match_count = 0
+    for candidate in candidates:
+        link = candidate.link
+        if not link.has_hash:
+            pass
+        elif link.is_hash_allowed(hashes=hashes):
+            match_count += 1
+        else:
+            non_matches.append(candidate)
+            continue
+
+        matches_or_no_digest.append(candidate)
+
+    if match_count:
+        filtered = matches_or_no_digest
+    else:
+        # Make sure we're not returning back the given value.
+        filtered = list(candidates)
+
+    if len(filtered) == len(candidates):
+        discard_message = "discarding no candidates"
+    else:
+        discard_message = "discarding {} non-matches:\n  {}".format(
+            len(non_matches),
+            "\n  ".join(str(candidate.link) for candidate in non_matches),
+        )
+
+    logger.debug(
+        "Checked %s links for project %r against %s hashes "
+        "(%s matches, %s no digest): %s",
+        len(candidates),
+        project_name,
+        hashes.digest_count,
+        match_count,
+        len(matches_or_no_digest) - match_count,
+        discard_message,
+    )
+
+    return filtered
+
+
+def _find_name_version_sep(fragment: str, canonical_name: str) -> int:
+    """Find the separator's index based on the package's canonical name.
+
+    :param fragment: A <package>+<version> filename "fragment" (stem) or
+        egg fragment.
+    :param canonical_name: The package's canonical name.
+
+    This function is needed since the canonicalized name does not necessarily
+    have the same length as the egg info's name part. An example::
+
+    >>> fragment = 'foo__bar-1.0'
+    >>> canonical_name = 'foo-bar'
+    >>> _find_name_version_sep(fragment, canonical_name)
+    8
+    """
+    # Project name and version must be separated by one single dash. Find all
+    # occurrences of dashes; if the string in front of it matches the canonical
+    # name, this is the one separating the name and version parts.
+    for i, c in enumerate(fragment):
+        if c != "-":
+            continue
+        if canonicalize_name(fragment[:i]) == canonical_name:
+            return i
+    raise ValueError(f"{fragment} does not match {canonical_name}")
+
+
+def _extract_version_from_fragment(fragment: str, canonical_name: str) -> str | None:
+    """Parse the version string from a <package>+<version> filename
+    "fragment" (stem) or egg fragment.
+
+    :param fragment: The string to parse. E.g. foo-2.1
+    :param canonical_name: The canonicalized name of the package this
+        belongs to.
+    """
+    try:
+        version_start = _find_name_version_sep(fragment, canonical_name) + 1
+    except ValueError:
+        return None
+    version = fragment[version_start:]
+    if not version:
+        return None
+    return version
 
 
 class LinkType(enum.Enum):
@@ -299,80 +415,6 @@ class LinkEvaluator:
         logger.debug("Found link %s, version: %s", link, version)
 
         return (LinkType.candidate, version)
-
-
-def filter_unallowed_hashes(
-    candidates: list[InstallationCandidate],
-    hashes: Hashes | None,
-    project_name: str,
-) -> list[InstallationCandidate]:
-    """
-    Filter out candidates whose hashes aren't allowed, and return a new
-    list of candidates.
-
-    If at least one candidate has an allowed hash, then all candidates with
-    either an allowed hash or no hash specified are returned.  Otherwise,
-    the given candidates are returned.
-
-    Including the candidates with no hash specified when there is a match
-    allows a warning to be logged if there is a more preferred candidate
-    with no hash specified.  Returning all candidates in the case of no
-    matches lets pip report the hash of the candidate that would otherwise
-    have been installed (e.g. permitting the user to more easily update
-    their requirements file with the desired hash).
-    """
-    if not hashes:
-        logger.debug(
-            "Given no hashes to check %s links for project %r: "
-            "discarding no candidates",
-            len(candidates),
-            project_name,
-        )
-        # Make sure we're not returning back the given value.
-        return list(candidates)
-
-    matches_or_no_digest = []
-    # Collect the non-matches for logging purposes.
-    non_matches = []
-    match_count = 0
-    for candidate in candidates:
-        link = candidate.link
-        if not link.has_hash:
-            pass
-        elif link.is_hash_allowed(hashes=hashes):
-            match_count += 1
-        else:
-            non_matches.append(candidate)
-            continue
-
-        matches_or_no_digest.append(candidate)
-
-    if match_count:
-        filtered = matches_or_no_digest
-    else:
-        # Make sure we're not returning back the given value.
-        filtered = list(candidates)
-
-    if len(filtered) == len(candidates):
-        discard_message = "discarding no candidates"
-    else:
-        discard_message = "discarding {} non-matches:\n  {}".format(
-            len(non_matches),
-            "\n  ".join(str(candidate.link) for candidate in non_matches),
-        )
-
-    logger.debug(
-        "Checked %s links for project %r against %s hashes "
-        "(%s matches, %s no digest): %s",
-        len(candidates),
-        project_name,
-        hashes.digest_count,
-        match_count,
-        len(matches_or_no_digest) - match_count,
-        discard_message,
-    )
-
-    return filtered
 
 
 @dataclass
@@ -1066,47 +1108,3 @@ class PackageFinder:
             _format_versions(best_candidate_result.applicable_candidates),
         )
         raise BestVersionAlreadyInstalled
-
-
-def _find_name_version_sep(fragment: str, canonical_name: str) -> int:
-    """Find the separator's index based on the package's canonical name.
-
-    :param fragment: A <package>+<version> filename "fragment" (stem) or
-        egg fragment.
-    :param canonical_name: The package's canonical name.
-
-    This function is needed since the canonicalized name does not necessarily
-    have the same length as the egg info's name part. An example::
-
-    >>> fragment = 'foo__bar-1.0'
-    >>> canonical_name = 'foo-bar'
-    >>> _find_name_version_sep(fragment, canonical_name)
-    8
-    """
-    # Project name and version must be separated by one single dash. Find all
-    # occurrences of dashes; if the string in front of it matches the canonical
-    # name, this is the one separating the name and version parts.
-    for i, c in enumerate(fragment):
-        if c != "-":
-            continue
-        if canonicalize_name(fragment[:i]) == canonical_name:
-            return i
-    raise ValueError(f"{fragment} does not match {canonical_name}")
-
-
-def _extract_version_from_fragment(fragment: str, canonical_name: str) -> str | None:
-    """Parse the version string from a <package>+<version> filename
-    "fragment" (stem) or egg fragment.
-
-    :param fragment: The string to parse. E.g. foo-2.1
-    :param canonical_name: The canonicalized name of the package this
-        belongs to.
-    """
-    try:
-        version_start = _find_name_version_sep(fragment, canonical_name) + 1
-    except ValueError:
-        return None
-    version = fragment[version_start:]
-    if not version:
-        return None
-    return version
