@@ -23,8 +23,8 @@ import os.path
 import platform
 import re
 import subprocess
-from abc import ABC, abstractmethod
 from enum import Enum
+from abc import ABC, abstractmethod
 from contextlib import suppress
 from itertools import chain
 from typing import TYPE_CHECKING, Any, ClassVar
