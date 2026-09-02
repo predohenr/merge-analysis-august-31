@@ -148,7 +148,7 @@ func TestUninstallRelease_Cascade(t *testing.T) {
 		  "password": "password"
 		}
 	}`
-	unAction.cfg.Releases.Create(rel)
+	require.NoError(t, unAction.cfg.Releases.Create(rel))
 
 	// Create dummy resources with Mapping but no Client - this skips ownership verification
 	// (nil Client is treated as owned) and goes directly to delete
