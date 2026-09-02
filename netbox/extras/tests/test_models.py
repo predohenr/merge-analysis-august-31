@@ -19,6 +19,14 @@ from extras.models import (
     ConfigContextProfile,
     ConfigTemplate,
     EventRule,
+    ImageAttachment,
+    Tag,
+    TaggedItem,
+)
+from extras.models import (
+    ConfigContext,
+    ConfigContextProfile,
+    ConfigTemplate,
     ExportTemplate,
     ImageAttachment,
     Tag,
@@ -905,6 +913,60 @@ class ConfigTemplateTest(TestCase):
             self.assertEqual(autosync_records.count(), 0, "AutoSyncRecord should be deleted after detaching")
 
 
+class EventRuleTest(TestCase):
+
+    def test_action_data_clean_accepts_dict(self):
+        """
+        clean() should accept a JSON object (or null) as action_data.
+        """
+        for value in ({'key': 'value'}, None):
+            rule = EventRule(name='test', event_types=[OBJECT_CREATED], action_data=value)
+            rule.clean()
+
+    def test_action_data_clean_rejects_non_dict(self):
+        """
+        clean() should reject action_data that is valid JSON but not an object (#21989).
+        """
+        for value in ('test', 42, [1, 2, 3], True):
+            rule = EventRule(name='test', event_types=[OBJECT_CREATED], action_data=value)
+            with self.assertRaises(ValidationError) as cm:
+                rule.clean()
+            self.assertIn('action_data', cm.exception.message_dict)
+
+
+class ExportTemplateContextTest(TestCase):
+    """
+    Tests for ExportTemplate.get_context() including public model population.
+    """
+
+    def test_get_context_includes_public_models(self):
+        et = ExportTemplate(name='test', template_code='test')
+        ctx = et.get_context()
+
+        self.assertIs(ctx['dcim']['Site'], Site)
+        self.assertIs(ctx['dcim']['Device'], Device)
+
+    def test_get_context_includes_queryset(self):
+        et = ExportTemplate(name='test', template_code='test')
+        qs = Site.objects.all()
+        ctx = et.get_context(queryset=qs)
+
+        self.assertIs(ctx['queryset'], qs)
+
+    def test_get_context_applies_extra_context(self):
+        et = ExportTemplate(name='test', template_code='test')
+        ctx = et.get_context(context={'custom_key': 'custom_value'})
+
+        self.assertEqual(ctx['custom_key'], 'custom_value')
+        self.assertIs(ctx['dcim']['Site'], Site)
+
+    def test_config_template_get_context_includes_public_models(self):
+        ct = ConfigTemplate(name='test', template_code='test')
+        ctx = ct.get_context()
+
+        self.assertIs(ctx['dcim']['Site'], Site)
+
+
 class ConfigTemplateDebugTest(TestCase):
     """
     Tests for the ConfigTemplate debug field and its effect on template rendering error output.
@@ -951,57 +1013,3 @@ class ConfigTemplateDebugTest(TestCase):
         from utilities.jinja2 import render_jinja2
         with self.assertRaises(TemplateSyntaxError):
             render_jinja2("{% debug %}", {}, debug=False)
-
-
-class ExportTemplateContextTest(TestCase):
-    """
-    Tests for ExportTemplate.get_context() including public model population.
-    """
-
-    def test_get_context_includes_public_models(self):
-        et = ExportTemplate(name='test', template_code='test')
-        ctx = et.get_context()
-
-        self.assertIs(ctx['dcim']['Site'], Site)
-        self.assertIs(ctx['dcim']['Device'], Device)
-
-    def test_get_context_includes_queryset(self):
-        et = ExportTemplate(name='test', template_code='test')
-        qs = Site.objects.all()
-        ctx = et.get_context(queryset=qs)
-
-        self.assertIs(ctx['queryset'], qs)
-
-    def test_get_context_applies_extra_context(self):
-        et = ExportTemplate(name='test', template_code='test')
-        ctx = et.get_context(context={'custom_key': 'custom_value'})
-
-        self.assertEqual(ctx['custom_key'], 'custom_value')
-        self.assertIs(ctx['dcim']['Site'], Site)
-
-    def test_config_template_get_context_includes_public_models(self):
-        ct = ConfigTemplate(name='test', template_code='test')
-        ctx = ct.get_context()
-
-        self.assertIs(ctx['dcim']['Site'], Site)
-
-
-class EventRuleTest(TestCase):
-
-    def test_action_data_clean_accepts_dict(self):
-        """
-        clean() should accept a JSON object (or null) as action_data.
-        """
-        for value in ({'key': 'value'}, None):
-            rule = EventRule(name='test', event_types=[OBJECT_CREATED], action_data=value)
-            rule.clean()
-
-    def test_action_data_clean_rejects_non_dict(self):
-        """
-        clean() should reject action_data that is valid JSON but not an object (#21989).
-        """
-        for value in ('test', 42, [1, 2, 3], True):
-            rule = EventRule(name='test', event_types=[OBJECT_CREATED], action_data=value)
-            with self.assertRaises(ValidationError) as cm:
-                rule.clean()
-            self.assertIn('action_data', cm.exception.message_dict)
