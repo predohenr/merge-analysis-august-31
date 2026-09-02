@@ -529,8 +529,6 @@ class User(JsonDeserializable, Dictionaryable, JsonSerializable):
         if json_string is None: return None
         obj = cls.check_json(json_string, dict_copy=False)
         return cls(**obj)
-
-    # noinspection PyShadowingBuiltins
     def __init__(self, id, is_bot, first_name, last_name=None, username=None, language_code=None,
                  can_join_groups=None, can_read_all_group_messages=None, supports_inline_queries=None, 
                  is_premium=None, added_to_attachment_menu=None, can_connect_to_business=None, 
@@ -582,6 +580,8 @@ class User(JsonDeserializable, Dictionaryable, JsonSerializable):
                 'allows_users_to_create_topics': self.allows_users_to_create_topics,
                 'can_manage_bots': self.can_manage_bots
                 }
+
+    # noinspection PyShadowingBuiltins
 
 
 # noinspection PyShadowingBuiltins
@@ -13760,4 +13760,3 @@ class KeyboardButtonRequestManagedBot(JsonSerializable):
         if self.suggested_username:
             data['suggested_username'] = self.suggested_username
         return data
-    
