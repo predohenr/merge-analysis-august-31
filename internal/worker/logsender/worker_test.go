@@ -270,7 +270,7 @@ func (s *workerSuite) TestLogSinkUnavailableDrainsBufferedLogs(c *tc.C) {
 	defer workertest.CleanKill(c, w)
 
 	for i := range 5 {
-		err := bufferedLogger.Write(c.Context(), loggo.Entry{
+		bufferedLogger.Write(loggo.Entry{
 			Level:     loggo.INFO,
 			Module:    "test",
 			Filename:  "test.go",
@@ -278,7 +278,6 @@ func (s *workerSuite) TestLogSinkUnavailableDrainsBufferedLogs(c *tc.C) {
 			Timestamp: time.Now(),
 			Message:   fmt.Sprintf("message%d", i),
 		})
-		c.Assert(err, tc.ErrorIsNil)
 	}
 
 	logsendertest.ExpectLogStats(c, bufferedLogger, logsender.LogStats{

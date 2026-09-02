@@ -92,7 +92,7 @@ func (s *exportWatcherSuite) TestWatchMigrationPhase(c *tc.C) {
 
 	migrationUUID := s.insertExport(c)
 
-	s.AssertChangeStreamIdle(c, "before watcher start")
+	s.AssertChangeStreamIdle(c)
 	w, err := svc.WatchMigrationPhase(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -138,7 +138,7 @@ func (s *exportWatcherSuite) TestWatchMinionReports(c *tc.C) {
 	// already exist.
 	migrationUUID := s.insertExport(c)
 
-	s.AssertChangeStreamIdle(c, "before watcher start")
+	s.AssertChangeStreamIdle(c)
 	w, err := svc.WatchMinionReports(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
