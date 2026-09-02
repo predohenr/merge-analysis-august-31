@@ -16,8 +16,8 @@ from typing import (
     NamedTuple,
 )
 
-from pip._internal.exceptions import InvalidEggFragment
 from pip._internal.utils.datetime import parse_iso_datetime
+from pip._internal.exceptions import InvalidEggFragment
 from pip._internal.utils.filetypes import WHEEL_EXTENSION
 from pip._internal.utils.hashes import Hashes
 from pip._internal.utils.misc import (
@@ -137,10 +137,6 @@ def _clean_file_url_path(part: str) -> str:
     return ret
 
 
-# percent-encoded:                   /
-_reserved_chars_re = re.compile("(@|%2F)", re.IGNORECASE)
-
-
 def _clean_url_path(path: str, is_local_path: bool) -> str:
     """
     Clean the path portion of a URL.
@@ -191,6 +187,41 @@ def _absolute_link_url(base_url: str, url: str) -> str:
         return url
     else:
         return urllib.parse.urljoin(base_url, url)
+
+
+def _clean_link(link: Link) -> _CleanResult:
+    parsed = link._parsed_url
+    netloc = parsed.netloc.rsplit("@", 1)[-1]
+    # According to RFC 8089, an empty host in file: means localhost.
+    if parsed.scheme == "file" and not netloc:
+        netloc = "localhost"
+    fragment = urllib.parse.parse_qs(parsed.fragment)
+    if "egg" in fragment:
+        logger.debug("Ignoring egg= fragment in %s", link)
+    try:
+        # If there are multiple subdirectory values, use the first one.
+        # This matches the behavior of Link.subdirectory_fragment.
+        subdirectory = fragment["subdirectory"][0]
+    except (IndexError, KeyError):
+        subdirectory = ""
+    # If there are multiple hash values under the same algorithm, use the
+    # first one. This matches the behavior of Link.hash_value.
+    hashes = {k: fragment[k][0] for k in _SUPPORTED_HASHES if k in fragment}
+    return _CleanResult(
+        parsed=parsed._replace(netloc=netloc, query="", fragment=""),
+        query=urllib.parse.parse_qs(parsed.query),
+        subdirectory=subdirectory,
+        hashes=hashes,
+    )
+
+
+@functools.cache
+def links_equivalent(link1: Link, link2: Link) -> bool:
+    return _clean_link(link1) == _clean_link(link2)
+
+
+# percent-encoded:                   /
+_reserved_chars_re = re.compile("(@|%2F)", re.IGNORECASE)
 
 
 @functools.total_ordering
@@ -467,13 +498,6 @@ class Link:
         scheme, netloc, path, query, fragment = self._parsed_url
         return urllib.parse.urlunsplit((scheme, netloc, path, query, ""))
 
-    _egg_fragment_re = re.compile(r"[#&]egg=([^&]*)")
-
-    # Per PEP 508.
-    _project_name_re = re.compile(
-        r"^([A-Z0-9]|[A-Z0-9][A-Z0-9._-]*[A-Z0-9])$", re.IGNORECASE
-    )
-
     def _egg_fragment(self) -> str | None:
         match = self._egg_fragment_re.search(self._url)
         if not match:
@@ -486,8 +510,6 @@ class Link:
             raise InvalidEggFragment(self, project_name)
 
         return project_name
-
-    _subdirectory_fragment_re = re.compile(r"[#&]subdirectory=([^&]*)")
 
     @property
     def subdirectory_fragment(self) -> str | None:
@@ -553,6 +575,15 @@ class Link:
             return False
         return any(hashes.is_hash_allowed(k, v) for k, v in self._hashes.items())
 
+    _egg_fragment_re = re.compile(r"[#&]egg=([^&]*)")
+
+    # Per PEP 508.
+    _project_name_re = re.compile(
+        r"^([A-Z0-9]|[A-Z0-9][A-Z0-9._-]*[A-Z0-9])$", re.IGNORECASE
+    )
+
+    _subdirectory_fragment_re = re.compile(r"[#&]subdirectory=([^&]*)")
+
 
 class _CleanResult(NamedTuple):
     """Convert link for equivalency check.
@@ -584,34 +615,3 @@ class _CleanResult(NamedTuple):
     query: dict[str, list[str]]
     subdirectory: str
     hashes: dict[str, str]
-
-
-def _clean_link(link: Link) -> _CleanResult:
-    parsed = link._parsed_url
-    netloc = parsed.netloc.rsplit("@", 1)[-1]
-    # According to RFC 8089, an empty host in file: means localhost.
-    if parsed.scheme == "file" and not netloc:
-        netloc = "localhost"
-    fragment = urllib.parse.parse_qs(parsed.fragment)
-    if "egg" in fragment:
-        logger.debug("Ignoring egg= fragment in %s", link)
-    try:
-        # If there are multiple subdirectory values, use the first one.
-        # This matches the behavior of Link.subdirectory_fragment.
-        subdirectory = fragment["subdirectory"][0]
-    except (IndexError, KeyError):
-        subdirectory = ""
-    # If there are multiple hash values under the same algorithm, use the
-    # first one. This matches the behavior of Link.hash_value.
-    hashes = {k: fragment[k][0] for k in _SUPPORTED_HASHES if k in fragment}
-    return _CleanResult(
-        parsed=parsed._replace(netloc=netloc, query="", fragment=""),
-        query=urllib.parse.parse_qs(parsed.query),
-        subdirectory=subdirectory,
-        hashes=hashes,
-    )
-
-
-@functools.cache
-def links_equivalent(link1: Link, link2: Link) -> bool:
-    return _clean_link(link1) == _clean_link(link2)
