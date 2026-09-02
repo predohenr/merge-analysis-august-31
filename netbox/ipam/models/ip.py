@@ -1,7 +1,7 @@
 import netaddr
 from django.contrib.contenttypes.fields import GenericForeignKey
-from django.contrib.contenttypes.models import ContentType
 from django.contrib.postgres.indexes import GistIndex
+from django.contrib.contenttypes.models import ContentType
 from django.core.exceptions import ValidationError
 from django.db import models
 from django.db.models import F
@@ -363,7 +363,6 @@ class Prefix(ContactsMixin, GetAvailablePrefixesMixin, CachedScopeMixin, Primary
         """
         if self.prefix is not None:
             self.prefix.prefixlen = value
-    prefix_length = property(fset=_set_prefix_length)
 
     def get_status_color(self):
         return PrefixStatusChoices.colors.get(self.status)
@@ -492,6 +491,7 @@ class Prefix(ContactsMixin, GetAvailablePrefixesMixin, CachedScopeMixin, Primary
             utilization = float(child_ips.size) / prefix_size * 100
 
         return min(utilization, 100)
+    prefix_length = property(fset=_set_prefix_length)
 
 
 class IPRange(ContactsMixin, PrimaryModel):
@@ -670,7 +670,6 @@ class IPRange(ContactsMixin, PrimaryModel):
         """
         self.start_address.prefixlen = value
         self.end_address.prefixlen = value
-    prefix_length = property(fset=_set_prefix_length)
 
     def get_status_color(self):
         return IPRangeStatusChoices.colors.get(self.status)
@@ -722,6 +721,7 @@ class IPRange(ContactsMixin, PrimaryModel):
         ]).size
 
         return min(float(child_count) / self.size * 100, 100)
+    prefix_length = property(fset=_set_prefix_length)
 
 
 class IPAddress(ContactsMixin, PrimaryModel):
@@ -1001,10 +1001,10 @@ class IPAddress(ContactsMixin, PrimaryModel):
         """
         if self.address is not None:
             self.address.prefixlen = value
-    mask_length = property(fset=_set_mask_length)
 
     def get_status_color(self):
         return IPAddressStatusChoices.colors.get(self.status)
 
     def get_role_color(self):
         return IPAddressRoleChoices.colors.get(self.role)
+    mask_length = property(fset=_set_mask_length)
