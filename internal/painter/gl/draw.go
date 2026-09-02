@@ -7,6 +7,14 @@ import (
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/internal"
+	paint "fyne.io/fyne/v2/internal/painter"
+)
+import (
+	"image/color"
+	"math"
+
+	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/internal/cache"
 	paint "fyne.io/fyne/v2/internal/painter"
 )
@@ -624,8 +632,6 @@ func (p *painter) lineCoords(pos, pos1, pos2 fyne.Position, lineWidth, feather f
 		x1, y1, -normalX, -normalY,
 	}, halfWidth, featherWidth
 }
-
-// rectCoords calculates the openGL coordinate space of a rectangle
 func (p *painter) rectCoords(size fyne.Size, pos fyne.Position, frame fyne.Size,
 	fill canvas.ImageFill, aspect float32, pad float32,
 ) ([]float32, [4]float32) {
@@ -668,28 +674,6 @@ func (p *painter) rectCoords(size fyne.Size, pos fyne.Position, frame fyne.Size,
 		x2, y2, 0, insets[2], insets[3], // top right
 		x2, y1, 0, insets[2], insets[1], // bottom right
 	}, insets
-}
-
-func rectInnerCoords(size fyne.Size, pos fyne.Position, fill canvas.ImageFill, aspect float32) (fyne.Size, fyne.Position) {
-	if fill == canvas.ImageFillContain || fill == canvas.ImageFillOriginal {
-		// change pos and size accordingly
-
-		viewAspect := size.Width / size.Height
-
-		newWidth, newHeight := size.Width, size.Height
-		widthPad, heightPad := float32(0), float32(0)
-		if viewAspect > aspect {
-			newWidth = size.Height * aspect
-			widthPad = (size.Width - newWidth) / 2
-		} else if viewAspect < aspect {
-			newHeight = size.Width / aspect
-			heightPad = (size.Height - newHeight) / 2
-		}
-
-		return fyne.NewSize(newWidth, newHeight), fyne.NewPos(pos.X+widthPad, pos.Y+heightPad)
-	}
-
-	return size, pos
 }
 
 func (p *painter) vecRectCoords(pos fyne.Position, rect fyne.CanvasObject, frame fyne.Size, aspect float32) ([4]float32, []float32) {
@@ -748,6 +732,43 @@ func (p *painter) vecSquareCoords(pos fyne.Position, rect fyne.CanvasObject, fra
 	return p.vecRectCoordsWithPad(pos, rect, frame, 0, 0)
 }
 
+func (p *painter) scaleFrameSize(frame fyne.Size) (float32, float32) {
+	frameWidthScaled := roundToPixel(frame.Width*p.pixScale, 1.0)
+	frameHeightScaled := roundToPixel(frame.Height*p.pixScale, 1.0)
+	return frameWidthScaled, frameHeightScaled
+}
+func (p *painter) scaleRectCoords(x1, x2, y1, y2 float32) (float32, float32, float32, float32) {
+	x1Scaled := roundToPixel(x1*p.pixScale, 1.0)
+	x2Scaled := roundToPixel(x2*p.pixScale, 1.0)
+	y1Scaled := roundToPixel(y1*p.pixScale, 1.0)
+	y2Scaled := roundToPixel(y2*p.pixScale, 1.0)
+	return x1Scaled, x2Scaled, y1Scaled, y2Scaled
+}
+
+// rectCoords calculates the openGL coordinate space of a rectangle
+
+func rectInnerCoords(size fyne.Size, pos fyne.Position, fill canvas.ImageFill, aspect float32) (fyne.Size, fyne.Position) {
+	if fill == canvas.ImageFillContain || fill == canvas.ImageFillOriginal {
+		// change pos and size accordingly
+
+		viewAspect := size.Width / size.Height
+
+		newWidth, newHeight := size.Width, size.Height
+		widthPad, heightPad := float32(0), float32(0)
+		if viewAspect > aspect {
+			newWidth = size.Height * aspect
+			widthPad = (size.Width - newWidth) / 2
+		} else if viewAspect < aspect {
+			newHeight = size.Width / aspect
+			heightPad = (size.Height - newHeight) / 2
+		}
+
+		return fyne.NewSize(newWidth, newHeight), fyne.NewPos(pos.X+widthPad, pos.Y+heightPad)
+	}
+
+	return size, pos
+}
+
 func roundToPixel(v float32, pixScale float32) float32 {
 	if pixScale == 1.0 {
 		return float32(math.Round(float64(v)))
@@ -767,8 +788,6 @@ func roundToPixelCoords(size fyne.Size, pos fyne.Position, pixScale float32) (fy
 
 	return size, pos
 }
-
-// Returns FragmentColor(red,green,blue,alpha) from fyne.Color
 func getFragmentColor(col color.Color) (float32, float32, float32, float32) {
 	if col == nil {
 		return 0, 0, 0, 0
@@ -779,21 +798,6 @@ func getFragmentColor(col color.Color) (float32, float32, float32, float32) {
 	}
 	alpha := float32(a)
 	return float32(r) / alpha, float32(g) / alpha, float32(b) / alpha, alpha / 0xffff
-}
-
-func (p *painter) scaleFrameSize(frame fyne.Size) (float32, float32) {
-	frameWidthScaled := roundToPixel(frame.Width*p.pixScale, 1.0)
-	frameHeightScaled := roundToPixel(frame.Height*p.pixScale, 1.0)
-	return frameWidthScaled, frameHeightScaled
-}
-
-// Returns scaled RectCoords(x1,x2,y1,y2) in same order
-func (p *painter) scaleRectCoords(x1, x2, y1, y2 float32) (float32, float32, float32, float32) {
-	x1Scaled := roundToPixel(x1*p.pixScale, 1.0)
-	x2Scaled := roundToPixel(x2*p.pixScale, 1.0)
-	y1Scaled := roundToPixel(y1*p.pixScale, 1.0)
-	y2Scaled := roundToPixel(y2*p.pixScale, 1.0)
-	return x1Scaled, x2Scaled, y1Scaled, y2Scaled
 }
 
 func createKernel(radius float32) []float32 {
@@ -811,3 +815,7 @@ func createKernel(radius float32) []float32 {
 
 	return values
 }
+
+// Returns FragmentColor(red,green,blue,alpha) from fyne.Color
+
+// Returns scaled RectCoords(x1,x2,y1,y2) in same order
