@@ -41,6 +41,87 @@ def _len_dataset(dataset: Optional[Dataset]) -> int:
     return len(loader)
 
 
+def randomly_split_into_two_datasets(
+    dataset: Dataset, length_of_first: int, random_seed: Optional[int] = None
+) -> tuple[Subset, Subset]:
+    """Shuffles a dataset and splits into two subsets.
+
+    The length of the first is specified and the remaining samples go into the second subset.
+    """
+    import random
+
+    indices = list(range(_len_dataset(dataset)))
+    if random_seed is None:
+        random.shuffle(indices)
+    else:
+        random_generator = random.Random(random_seed)
+        random_generator.shuffle(indices)
+
+    first_dataset = indices[:length_of_first]
+    second_dataset = indices[length_of_first:]
+    first_dataset.sort()
+    second_dataset.sort()
+
+    return Subset(dataset, first_dataset), Subset(dataset, second_dataset)
+
+
+def get_spans_from_bio(
+    bioes_tags: list[str], bioes_scores: Optional[list[float]] = None
+) -> list[tuple[list[int], float, str]]:
+    # add a dummy "O" to close final prediction
+    bioes_tags.append("O")
+    # return complex list
+    found_spans = []
+    # internal variables
+    current_tag_weights: dict[str, float] = {}
+    previous_tag = "O-"
+    current_span: list[int] = []
+    current_span_scores: list[float] = []
+    for idx, bioes_tag in enumerate(bioes_tags):
+        # non-set tags are OUT tags
+        if bioes_tag == "" or bioes_tag == "O" or bioes_tag == "_":
+            bioes_tag = "O-"
+
+        # anything that is not OUT is IN
+        in_span = bioes_tag != "O-"
+
+        # does this prediction start a new span?
+        starts_new_span = False
+
+        if bioes_tag[:2] in {"B-", "S-"} or (
+            in_span and previous_tag[2:] != bioes_tag[2:] and (bioes_tag[:2] == "I-" or previous_tag[2:] == "S-")
+        ):
+            # B- and S- always start new spans
+            # if the predicted class changes, I- starts a new span
+            # if the predicted class changes and S- was previous tag, start a new span
+            starts_new_span = True
+
+        # if an existing span is ended (either by reaching O or starting a new span)
+        if (starts_new_span or not in_span) and len(current_span) > 0:
+            # determine score and value
+            span_score = sum(current_span_scores) / len(current_span_scores)
+            span_value = max(current_tag_weights.keys(), key=current_tag_weights.__getitem__)
+
+            # append to result list
+            found_spans.append((current_span, span_score, span_value))
+
+            # reset for-loop variables for new span
+            current_span = []
+            current_span_scores = []
+            current_tag_weights = {}
+
+        if in_span:
+            current_span.append(idx)
+            current_span_scores.append(bioes_scores[idx] if bioes_scores else 1.0)
+            weight = 1.1 if starts_new_span else 1.0
+            current_tag_weights[bioes_tag[2:]] = current_tag_weights.setdefault(bioes_tag[2:], 0.0) + weight
+
+        # remember previous tag
+        previous_tag = bioes_tag
+
+    return found_spans
+
+
 class BoundingBox(NamedTuple):
     left: str
     top: int
@@ -1302,7 +1383,6 @@ class Sentence(DataPoint):
 
         # delete labels at object itself first
         super().remove_labels(typename)
-
     def _is_tokenized(self) -> bool:
         return self._tokens is not None
 
@@ -2120,84 +2200,3 @@ class ConcatFlairDataset(Dataset):
     @property
     def cummulative_sizes(self) -> list[int]:
         return self.cumulative_sizes
-
-
-def randomly_split_into_two_datasets(
-    dataset: Dataset, length_of_first: int, random_seed: Optional[int] = None
-) -> tuple[Subset, Subset]:
-    """Shuffles a dataset and splits into two subsets.
-
-    The length of the first is specified and the remaining samples go into the second subset.
-    """
-    import random
-
-    indices = list(range(_len_dataset(dataset)))
-    if random_seed is None:
-        random.shuffle(indices)
-    else:
-        random_generator = random.Random(random_seed)
-        random_generator.shuffle(indices)
-
-    first_dataset = indices[:length_of_first]
-    second_dataset = indices[length_of_first:]
-    first_dataset.sort()
-    second_dataset.sort()
-
-    return Subset(dataset, first_dataset), Subset(dataset, second_dataset)
-
-
-def get_spans_from_bio(
-    bioes_tags: list[str], bioes_scores: Optional[list[float]] = None
-) -> list[tuple[list[int], float, str]]:
-    # add a dummy "O" to close final prediction
-    bioes_tags.append("O")
-    # return complex list
-    found_spans = []
-    # internal variables
-    current_tag_weights: dict[str, float] = {}
-    previous_tag = "O-"
-    current_span: list[int] = []
-    current_span_scores: list[float] = []
-    for idx, bioes_tag in enumerate(bioes_tags):
-        # non-set tags are OUT tags
-        if bioes_tag == "" or bioes_tag == "O" or bioes_tag == "_":
-            bioes_tag = "O-"
-
-        # anything that is not OUT is IN
-        in_span = bioes_tag != "O-"
-
-        # does this prediction start a new span?
-        starts_new_span = False
-
-        if bioes_tag[:2] in {"B-", "S-"} or (
-            in_span and previous_tag[2:] != bioes_tag[2:] and (bioes_tag[:2] == "I-" or previous_tag[2:] == "S-")
-        ):
-            # B- and S- always start new spans
-            # if the predicted class changes, I- starts a new span
-            # if the predicted class changes and S- was previous tag, start a new span
-            starts_new_span = True
-
-        # if an existing span is ended (either by reaching O or starting a new span)
-        if (starts_new_span or not in_span) and len(current_span) > 0:
-            # determine score and value
-            span_score = sum(current_span_scores) / len(current_span_scores)
-            span_value = max(current_tag_weights.keys(), key=current_tag_weights.__getitem__)
-
-            # append to result list
-            found_spans.append((current_span, span_score, span_value))
-
-            # reset for-loop variables for new span
-            current_span = []
-            current_span_scores = []
-            current_tag_weights = {}
-
-        if in_span:
-            current_span.append(idx)
-            current_span_scores.append(bioes_scores[idx] if bioes_scores else 1.0)
-            weight = 1.1 if starts_new_span else 1.0
-            current_tag_weights[bioes_tag[2:]] = current_tag_weights.setdefault(bioes_tag[2:], 0.0) + weight
-
-        # remember previous tag
-        previous_tag = bioes_tag
-
-    return found_spans
