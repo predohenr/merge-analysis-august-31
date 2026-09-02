@@ -174,7 +174,7 @@ func renderCodeBlock(source []byte, n ast.Node) []RichTextSegment {
 	if data[len(data)-1] == '\n' {
 		data = data[:len(data)-1]
 	}
-	return []RichTextSegment{&CodeBlockSegment{Text: string(data)}}
+	return []RichTextSegment{&CodeBlockSegment{Text: string(data), quotingLevel: quotingDepth}}
 }
 
 func tableAlignment(a ast2.Alignment) fyne.TextAlign {
