@@ -6,8 +6,8 @@ from sympy.simplify.simplify import simplify
 from sympy.physics.mechanics import (dynamicsymbols, ReferenceFrame, Point,
                                      RigidBody, KanesMethod, inertia, Particle,
                                      dot, find_dynamicsymbols)
-from sympy.testing.pytest import raises, warns_deprecated_sympy, slow
-
+from sympy.testing.pytest import raises, slow
+from sympy.testing.pytest import raises, warns_deprecated_sympy
 
 def test_invalid_coordinates():
     # Simple pendulum, but use symbols instead of dynamicsymbols
