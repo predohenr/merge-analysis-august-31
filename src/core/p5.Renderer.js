@@ -71,14 +71,14 @@ class Renderer {
     this._isMainCanvas = isMainCanvas;
     this.pixels = [];
 
-    const defaultRatio = typeof window !== 'undefined' ?
-      Math.ceil(window.devicePixelRatio) :
-      1;
     if (isMainCanvas) {
-      this._pixelDensity = defaultRatio;
+      this._pixelDensity = typeof window !== 'undefined' ?
+        Math.ceil(window.devicePixelRatio) :
+        1;
     } else {
+      
       const parentDensity = pInst._pInst?._renderer?._pixelDensity;
-      this._pixelDensity = parentDensity || defaultRatio;
+      this._pixelDensity = parentDensity || Math.ceil(window.devicePixelRatio) || 1;
     }
 
     this.width = w;
