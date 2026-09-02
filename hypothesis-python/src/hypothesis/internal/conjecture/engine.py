@@ -169,6 +169,17 @@ def _get_provider(backend: str) -> Union[type, PrimitiveProvider]:
         )
 
 
+def truncate_nodes_to_size(nodes: Sequence[IRNode], size: int) -> tuple[IRNode, ...]:
+    s = 0
+    i = 0
+    for node in nodes:
+        s += ir_size([node.value])
+        if s > size:
+            break
+        i += 1
+    return tuple(nodes[:i])
+
+
 class CallStats(TypedDict):
     status: str
     runtime: float
@@ -197,17 +208,6 @@ StatisticsDict = TypedDict(
         "nodeid": NotRequired[str],
     },
 )
-
-
-def truncate_nodes_to_size(nodes: Sequence[IRNode], size: int) -> tuple[IRNode, ...]:
-    s = 0
-    i = 0
-    for node in nodes:
-        s += ir_size([node.value])
-        if s > size:
-            break
-        i += 1
-    return tuple(nodes[:i])
 
 
 class ConjectureRunner:
