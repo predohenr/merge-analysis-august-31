@@ -594,12 +594,6 @@ class PDFDocumentLoadingTask {
   get promise() {
     return this._capability.promise;
   }
-
-  /**
-   * Abort all network requests and destroy the worker.
-   * @returns {Promise<void>} A promise that is resolved when destruction is
-   *   completed.
-   */
   async destroy() {
     this.destroyed = true;
 
@@ -619,6 +613,15 @@ class PDFDocumentLoadingTask {
     this._worker?.destroy();
     this._worker = null;
   }
+  async getData() {
+    return this._transport.getData();
+  }
+
+  /**
+   * Abort all network requests and destroy the worker.
+   * @returns {Promise<void>} A promise that is resolved when destruction is
+   *   completed.
+   */
 
   /**
    * Attempt to fetch the raw data of the PDF document, when e.g.
@@ -626,9 +629,6 @@ class PDFDocumentLoadingTask {
    *  - An `onPassword` callback is delaying initialization.
    * @returns {Promise<Uint8Array>}
    */
-  async getData() {
-    return this._transport.getData();
-  }
 }
 
 /**
@@ -676,41 +676,20 @@ class PDFDataRangeTransport {
       });
     }
   }
-
-  /**
-   * @param {function} listener
-   */
   addRangeListener(listener) {
     this.#rangeListeners.push(listener);
   }
-
-  /**
-   * @param {function} listener
-   */
   addProgressiveReadListener(listener) {
     this.#progressiveReadListeners.push(listener);
   }
-
-  /**
-   * @param {function} listener
-   */
   addProgressiveDoneListener(listener) {
     this.#progressiveDoneListeners.push(listener);
   }
-
-  /**
-   * @param {number} begin
-   * @param {Uint8Array|null} chunk
-   */
   onDataRange(begin, chunk) {
     for (const listener of this.#rangeListeners) {
       listener(begin, chunk);
     }
   }
-
-  /**
-   * @param {Uint8Array|null} chunk
-   */
   onDataProgressiveRead(chunk) {
     this.#capability.promise.then(() => {
       for (const listener of this.#progressiveReadListeners) {
@@ -730,16 +709,37 @@ class PDFDataRangeTransport {
   transportReady() {
     this.#capability.resolve();
   }
-
-  /**
-   * @param {number} begin
-   * @param {number} end
-   */
   requestDataRange(begin, end) {
     unreachable("Abstract method PDFDataRangeTransport.requestDataRange");
   }
 
   abort() {}
+
+  /**
+   * @param {function} listener
+   */
+
+  /**
+   * @param {function} listener
+   */
+
+  /**
+   * @param {function} listener
+   */
+
+  /**
+   * @param {number} begin
+   * @param {Uint8Array|null} chunk
+   */
+
+  /**
+   * @param {Uint8Array|null} chunk
+   */
+
+  /**
+   * @param {number} begin
+   * @param {number} end
+   */
 }
 
 /**
@@ -766,41 +766,143 @@ class PDFDocumentProxy {
       });
     }
   }
-
-  /**
-   * @type {PagesMapper} The pages mapper instance.
-   */
   get pagesMapper() {
     return this._transport.pagesMapper;
   }
+  get annotationStorage() {
+    return this._transport.annotationStorage;
+  }
+  get canvasFactory() {
+    return this._transport.canvasFactory;
+  }
+  get filterFactory() {
+    return this._transport.filterFactory;
+  }
+  get numPages() {
+    return this._pdfInfo.numPages;
+  }
+  get fingerprints() {
+    return this._pdfInfo.fingerprints;
+  }
+  get isPureXfa() {
+    return shadow(this, "isPureXfa", !!this._transport._htmlForXfa);
+  }
+  get allXfaHtml() {
+    return this._transport._htmlForXfa;
+  }
+  getPage(pageNumber) {
+    return this._transport.getPage(pageNumber);
+  }
+  getPageIndex(ref) {
+    return this._transport.getPageIndex(ref);
+  }
+  getDestinations() {
+    return this._transport.getDestinations();
+  }
+  getDestination(id) {
+    return this._transport.getDestination(id);
+  }
+  getPageLabels() {
+    return this._transport.getPageLabels();
+  }
+  getPageLayout() {
+    return this._transport.getPageLayout();
+  }
+  getPageMode() {
+    return this._transport.getPageMode();
+  }
+  getViewerPreferences() {
+    return this._transport.getViewerPreferences();
+  }
+  getOpenAction() {
+    return this._transport.getOpenAction();
+  }
+  getAttachments() {
+    return this._transport.getAttachments();
+  }
+  getAnnotationsByType(types, pageIndexesToSkip) {
+    return this._transport.getAnnotationsByType(types, pageIndexesToSkip);
+  }
+  getJSActions() {
+    return this._transport.getDocJSActions();
+  }
+  getOutline() {
+    return this._transport.getOutline();
+  }
+  getOptionalContentConfig({ intent = "display" } = {}) {
+    const { renderingIntent } = this._transport.getRenderingIntent(intent);
+
+    return this._transport.getOptionalContentConfig(renderingIntent);
+  }
+  getPermissions() {
+    return this._transport.getPermissions();
+  }
+  getMetadata() {
+    return this._transport.getMetadata();
+  }
+  getMarkInfo() {
+    return this._transport.getMarkInfo();
+  }
+  getData() {
+    return this._transport.getData();
+  }
+  saveDocument() {
+    return this._transport.saveDocument();
+  }
+  extractPages(pageInfos) {
+    return this._transport.extractPages(pageInfos);
+  }
+  getDownloadInfo() {
+    return this._transport.downloadInfoCapability.promise;
+  }
+
+  getRawData(data) {
+    return this._transport.getRawData(data);
+  }
+  cleanup(keepLoadedFonts = false) {
+    return this._transport.startCleanup(keepLoadedFonts || this.isPureXfa);
+  }
+  destroy() {
+    return this.loadingTask.destroy();
+  }
+  cachedPageNumber(ref) {
+    return this._transport.cachedPageNumber(ref);
+  }
+  get loadingParams() {
+    return this._transport.loadingParams;
+  }
+  get loadingTask() {
+    return this._transport.loadingTask;
+  }
+  getFieldObjects() {
+    return this._transport.getFieldObjects();
+  }
+  hasJSActions() {
+    return this._transport.hasJSActions();
+  }
+  getCalculationOrderIds() {
+    return this._transport.getCalculationOrderIds();
+  }
+
+  /**
+ * @type {PagesMapper} The pages mapper instance.
+ */
 
   /**
    * @type {AnnotationStorage} Storage for annotation data in forms.
    */
-  get annotationStorage() {
-    return this._transport.annotationStorage;
-  }
 
   /**
    * @type {Object} The canvas factory instance.
    */
-  get canvasFactory() {
-    return this._transport.canvasFactory;
-  }
 
   /**
    * @type {Object} The filter factory instance.
    */
-  get filterFactory() {
-    return this._transport.filterFactory;
-  }
 
   /**
    * @type {number} Total number of pages in the PDF file.
    */
-  get numPages() {
-    return this._pdfInfo.numPages;
-  }
 
   /**
    * @type {Array<string | null>} A (not guaranteed to be) unique ID to identify
@@ -808,16 +910,10 @@ class PDFDocumentProxy {
    *   NOTE: The first element will always be defined for all PDF documents,
    *   whereas the second element is only defined for *modified* PDF documents.
    */
-  get fingerprints() {
-    return this._pdfInfo.fingerprints;
-  }
 
   /**
    * @type {boolean} True if only XFA form.
    */
-  get isPureXfa() {
-    return shadow(this, "isPureXfa", !!this._transport._htmlForXfa);
-  }
 
   /**
    * NOTE: This is (mostly) intended to support printing of XFA forms.
@@ -825,27 +921,18 @@ class PDFDocumentProxy {
    * @type {Object | null} An object representing a HTML tree structure
    *   to render the XFA, or `null` when no XFA form exists.
    */
-  get allXfaHtml() {
-    return this._transport._htmlForXfa;
-  }
 
   /**
    * @param {number} pageNumber - The page number to get. The first page is 1.
    * @returns {Promise<PDFPageProxy>} A promise that is resolved with
    *   a {@link PDFPageProxy} object.
    */
-  getPage(pageNumber) {
-    return this._transport.getPage(pageNumber);
-  }
 
   /**
    * @param {RefProxy} ref - The page reference.
    * @returns {Promise<number>} A promise that is resolved with the page index,
    *   starting from zero, that is associated with the reference.
    */
-  getPageIndex(ref) {
-    return this._transport.getPageIndex(ref);
-  }
 
   /**
    * @returns {Promise<Object<string, Array<any>>>} A promise that is resolved
@@ -853,9 +940,6 @@ class PDFDocumentProxy {
    *
    * This can be slow for large documents. Use `getDestination` instead.
    */
-  getDestinations() {
-    return this._transport.getDestinations();
-  }
 
   /**
    * @param {string} id - The named destination to get.
@@ -863,60 +947,39 @@ class PDFDocumentProxy {
    *   information of the given named destination, or `null` when the named
    *   destination is not present in the PDF file.
    */
-  getDestination(id) {
-    return this._transport.getDestination(id);
-  }
 
   /**
    * @returns {Promise<Array<string> | null>} A promise that is resolved with
    *   an {Array} containing the page labels that correspond to the page
    *   indexes, or `null` when no page labels are present in the PDF file.
    */
-  getPageLabels() {
-    return this._transport.getPageLabels();
-  }
 
   /**
    * @returns {Promise<string>} A promise that is resolved with a {string}
    *   containing the page layout name.
    */
-  getPageLayout() {
-    return this._transport.getPageLayout();
-  }
 
   /**
    * @returns {Promise<string>} A promise that is resolved with a {string}
    *   containing the page mode name.
    */
-  getPageMode() {
-    return this._transport.getPageMode();
-  }
 
   /**
    * @returns {Promise<Object | null>} A promise that is resolved with an
    *   {Object} containing the viewer preferences, or `null` when no viewer
    *   preferences are present in the PDF file.
    */
-  getViewerPreferences() {
-    return this._transport.getViewerPreferences();
-  }
 
   /**
    * @returns {Promise<any | null>} A promise that is resolved with an {Array}
    *   containing the destination, or `null` when no open action is present
    *   in the PDF.
    */
-  getOpenAction() {
-    return this._transport.getOpenAction();
-  }
 
   /**
    * @returns {Promise<any>} A promise that is resolved with a lookup table
    *   for mapping named attachments to their content.
    */
-  getAttachments() {
-    return this._transport.getAttachments();
-  }
 
   /**
    * @param {Set<number>} types - The annotation types to retrieve.
@@ -924,9 +987,6 @@ class PDFDocumentProxy {
    * @returns {Promise<Array<Object>>} A promise that is resolved with a list of
    *   annotations data.
    */
-  getAnnotationsByType(types, pageIndexesToSkip) {
-    return this._transport.getAnnotationsByType(types, pageIndexesToSkip);
-  }
 
   /**
    * @returns {Promise<Object | null>} A promise that is resolved with
@@ -935,9 +995,6 @@ class PDFDocumentProxy {
    *     - from A or AA entries in the catalog dictionary.
    *   , or `null` if no JavaScript exists.
    */
-  getJSActions() {
-    return this._transport.getDocJSActions();
-  }
 
   /**
    * @typedef {Object} OutlineNode
@@ -958,9 +1015,6 @@ class PDFDocumentProxy {
    * @returns {Promise<Array<OutlineNode>>} A promise that is resolved with an
    *   {Array} that is a tree outline (if it has one) of the PDF file.
    */
-  getOutline() {
-    return this._transport.getOutline();
-  }
 
   /**
    * @typedef {Object} GetOptionalContentConfigParameters
@@ -979,20 +1033,12 @@ class PDFDocumentProxy {
    *   an {@link OptionalContentConfig} that contains all the optional content
    *   groups (assuming that the document has any).
    */
-  getOptionalContentConfig({ intent = "display" } = {}) {
-    const { renderingIntent } = this._transport.getRenderingIntent(intent);
-
-    return this._transport.getOptionalContentConfig(renderingIntent);
-  }
 
   /**
    * @returns {Promise<Array<number> | null>} A promise that is resolved with
    *   an {Array} that contains the permission flags for the PDF document, or
    *   `null` when no permissions are present in the PDF file.
    */
-  getPermissions() {
-    return this._transport.getPermissions();
-  }
 
   /**
    * @returns {Promise<{ info: Object, metadata: Metadata }>} A promise that is
@@ -1001,9 +1047,6 @@ class PDFDocumentProxy {
    *   dictionary and similarly `metadata` is a {Metadata} object with
    *   information from the metadata section of the PDF.
    */
-  getMetadata() {
-    return this._transport.getMetadata();
-  }
 
   /**
    * @typedef {Object} MarkInfo
@@ -1018,25 +1061,16 @@ class PDFDocumentProxy {
    *   a {MarkInfo} object that contains the MarkInfo flags for the PDF
    *   document, or `null` when no MarkInfo values are present in the PDF file.
    */
-  getMarkInfo() {
-    return this._transport.getMarkInfo();
-  }
 
   /**
    * @returns {Promise<Uint8Array>} A promise that is resolved with a
    *   {Uint8Array} containing the raw data of the PDF document.
    */
-  getData() {
-    return this._transport.getData();
-  }
 
   /**
    * @returns {Promise<Uint8Array>} A promise that is resolved with a
    *   {Uint8Array} containing the full data of the saved document.
    */
-  saveDocument() {
-    return this._transport.saveDocument();
-  }
 
   /**
    * @typedef {Object} PageInfo
@@ -1052,22 +1086,12 @@ class PDFDocumentProxy {
    * @returns {Promise<Uint8Array>} A promise that is resolved with a
    *   {Uint8Array} containing the full data of the saved document.
    */
-  extractPages(pageInfos) {
-    return this._transport.extractPages(pageInfos);
-  }
 
   /**
    * @returns {Promise<{ length: number }>} A promise that is resolved when the
    *   document's data is loaded. It is resolved with an {Object} that contains
    *   the `length` property that indicates size of the PDF data in bytes.
    */
-  getDownloadInfo() {
-    return this._transport.downloadInfoCapability.promise;
-  }
-
-  getRawData(data) {
-    return this._transport.getRawData(data);
-  }
 
   /**
    * Cleans up resources allocated by the document on both the main and worker
@@ -1081,65 +1105,41 @@ class PDFDocumentProxy {
    *   option unless absolutely necessary. The default value is `false`.
    * @returns {Promise} A promise that is resolved when clean-up has finished.
    */
-  cleanup(keepLoadedFonts = false) {
-    return this._transport.startCleanup(keepLoadedFonts || this.isPureXfa);
-  }
 
   /**
    * Destroys the current document instance and terminates the worker.
    */
-  destroy() {
-    return this.loadingTask.destroy();
-  }
 
   /**
    * @param {RefProxy} ref - The page reference.
    * @returns {number | null} The page number, if it's cached.
    */
-  cachedPageNumber(ref) {
-    return this._transport.cachedPageNumber(ref);
-  }
 
   /**
    * @type {DocumentInitParameters} A subset of the current
    *   {DocumentInitParameters}, which are needed in the viewer.
    */
-  get loadingParams() {
-    return this._transport.loadingParams;
-  }
 
   /**
    * @type {PDFDocumentLoadingTask} The loadingTask for the current document.
    */
-  get loadingTask() {
-    return this._transport.loadingTask;
-  }
 
   /**
    * @returns {Promise<Object<string, Array<Object>> | null>} A promise that is
    *   resolved with an {Object} containing /AcroForm field data for the JS
    *   sandbox, or `null` when no field data is present in the PDF file.
    */
-  getFieldObjects() {
-    return this._transport.getFieldObjects();
-  }
 
   /**
    * @returns {Promise<boolean>} A promise that is resolved with `true`
    *   if some /AcroForm fields have JavaScript actions.
    */
-  hasJSActions() {
-    return this._transport.hasJSActions();
-  }
 
   /**
    * @returns {Promise<Array<string> | null>} A promise that is resolved with an
    *   {Array<string>} containing IDs of annotations that have a calculation
    *   action, or `null` when no such annotations are present in the PDF file.
    */
-  getCalculationOrderIds() {
-    return this._transport.getCalculationOrderIds();
-  }
 }
 
 /**
@@ -2135,11 +2135,6 @@ class PDFWorker {
       });
     }
   }
-
-  /**
-   * Promise for worker initialization completion.
-   * @type {Promise<void>}
-   */
   get promise() {
     return this.#capability.promise;
   }
@@ -2151,19 +2146,9 @@ class PDFWorker {
       verbosity: this.verbosity,
     });
   }
-
-  /**
-   * The current `workerPort`, when it exists.
-   * @type {Worker}
-   */
   get port() {
     return this.#port;
   }
-
-  /**
-   * The current MessageHandler-instance.
-   * @type {MessageHandler}
-   */
   get messageHandler() {
     return this.#messageHandler;
   }
@@ -2312,10 +2297,6 @@ class PDFWorker {
         );
       });
   }
-
-  /**
-   * Destroys the worker instance.
-   */
   destroy() {
     this.destroyed = true;
 
@@ -2329,11 +2310,6 @@ class PDFWorker {
     this.#messageHandler?.destroy();
     this.#messageHandler = null;
   }
-
-  /**
-   * @param {PDFWorkerParameters} params - The worker initialization parameters.
-   * @returns {PDFWorker}
-   */
   static create(params) {
     const cachedPort = this.#workerPorts.get(params?.port);
     if (cachedPort) {
@@ -2347,11 +2323,6 @@ class PDFWorker {
     }
     return new PDFWorker(params);
   }
-
-  /**
-   * The current `workerSrc`, when it exists.
-   * @type {string}
-   */
   static get workerSrc() {
     if (GlobalWorkerOptions.workerSrc) {
       return GlobalWorkerOptions.workerSrc;
@@ -2366,8 +2337,6 @@ class PDFWorker {
       return null;
     }
   }
-
-  // Loads worker code into the main-thread.
   static get _setupFakeWorkerGlobal() {
     const loader = async () => {
       if (this.#mainThreadWorkerMessageHandler) {
@@ -2383,6 +2352,37 @@ class PDFWorker {
 
     return shadow(this, "_setupFakeWorkerGlobal", loader());
   }
+
+  /**
+   * Promise for worker initialization completion.
+   * @type {Promise<void>}
+   */
+
+  /**
+   * The current `workerPort`, when it exists.
+   * @type {Worker}
+   */
+
+  /**
+   * The current MessageHandler-instance.
+   * @type {MessageHandler}
+   */
+
+  /**
+   * Destroys the worker instance.
+   */
+
+  /**
+   * @param {PDFWorkerParameters} params - The worker initialization parameters.
+   * @returns {PDFWorker}
+   */
+
+  /**
+   * The current `workerSrc`, when it exists.
+   * @type {string}
+   */
+
+  // Loads worker code into the main-thread.
 }
 
 /**
@@ -3253,30 +3253,12 @@ class RenderTask {
       });
     }
   }
-
-  /**
-   * Promise for rendering task completion.
-   * @type {Promise<void>}
-   */
   get promise() {
     return this._internalRenderTask.capability.promise;
   }
-
-  /**
-   * Cancels the rendering task. If the task is currently rendering it will
-   * not be cancelled until graphics pauses with a timeout. The promise that
-   * this object extends will be rejected when cancelled.
-   *
-   * @param {number} [extraDelay]
-   */
   cancel(extraDelay = 0) {
     this._internalRenderTask.cancel(/* error = */ null, extraDelay);
   }
-
-  /**
-   * Whether form fields are rendered separately from the main operatorList.
-   * @type {boolean}
-   */
   get separateAnnots() {
     const { separateAnnots } = this._internalRenderTask.operatorList;
     if (!separateAnnots) {
@@ -3288,6 +3270,24 @@ class RenderTask {
       (separateAnnots.canvas && annotationCanvasMap?.size > 0)
     );
   }
+
+  /**
+   * Promise for rendering task completion.
+   * @type {Promise<void>}
+   */
+
+  /**
+   * Cancels the rendering task. If the task is currently rendering it will
+   * not be cancelled until graphics pauses with a timeout. The promise that
+   * this object extends will be rejected when cancelled.
+   *
+   * @param {number} [extraDelay]
+   */
+
+  /**
+   * Whether form fields are rendered separately from the main operatorList.
+   * @type {boolean}
+   */
 }
 
 /**
