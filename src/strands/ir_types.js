@@ -132,7 +132,7 @@ export const OpCode = {
     FUNCTION_CALL: 200,
     CONSTRUCTOR: 201,
     TERNARY: 202,
-    ARRAY_ASSIGNMENT: 203,
+    ARRAY_ASSIGNMENT: 202,
   },
   ControlFlow: {
     RETURN: 300,
