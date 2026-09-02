@@ -38,6 +38,26 @@ import (
 	"mosn.io/mosn/pkg/types"
 	"mosn.io/mosn/pkg/variable"
 )
+import (
+	"context"
+	"math/rand"
+	"net"
+	goHttp "net/http"
+	"reflect"
+	"strconv"
+	"testing"
+	"time"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/valyala/fasthttp"
+	"mosn.io/api"
+	v2 "mosn.io/mosn/pkg/config/v2"
+	"mosn.io/mosn/pkg/protocol"
+	"mosn.io/mosn/pkg/protocol/http"
+	"mosn.io/mosn/pkg/protocol/http2"
+	"mosn.io/mosn/pkg/types"
+	"mosn.io/mosn/pkg/variable"
+)
 
 func TestNilMetadataMatchCriteria(t *testing.T) {
 	defaultRule := &RouteRuleImplBase{
@@ -740,8 +760,6 @@ func TestHashPolicy(t *testing.T) {
 	hash = sourceIPHp.GenerateHash(ctx)
 	assert.Equalf(t, uint64(2130706433), hash, "source ip hash not match")
 }
-
-// TestDefaultHashPolicy tests use sourceIPHashPolicy as default hash policy
 func TestDefaultHashPolicy(t *testing.T) {
 	routerMock1 := &v2.Router{}
 	routerMock1.Route = v2.RouteAction{
@@ -755,3 +773,5 @@ func TestDefaultHashPolicy(t *testing.T) {
 	assert.NoErrorf(t, err, "err should be nil, but get %+v", err)
 	assert.IsTypef(t, rb.policy.HashPolicy(), &sourceIPHashPolicyImpl{}, "")
 }
+
+// TestDefaultHashPolicy tests use sourceIPHashPolicy as default hash policy
