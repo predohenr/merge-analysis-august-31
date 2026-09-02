@@ -51,8 +51,6 @@ class HasDescriptionCode:
             self.code = code
         super().__init__(*arg, **kw)
 
-    _what_are_we = "error"
-
     def _code_str(self) -> str:
         if not self.code:
             return ""
@@ -67,6 +65,8 @@ class HasDescriptionCode:
         if self.code:
             message = "%s %s" % (message, self._code_str())
         return message
+
+    _what_are_we = "error"
 
 
 class SQLAlchemyError(HasDescriptionCode, Exception):
