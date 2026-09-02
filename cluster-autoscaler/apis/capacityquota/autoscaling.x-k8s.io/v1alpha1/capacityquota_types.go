@@ -68,18 +68,18 @@ type ResourceList map[ResourceName]resource.Quantity
 // More info: https://github.com/kubernetes/autoscaler/blob/master/cluster-autoscaler/proposals/granular-resource-limits.md
 type CapacityQuota struct {
 	metav1.TypeMeta `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty,omitzero"`
+	Spec CapacityQuotaSpec `json:"spec"`
+	Status CapacityQuotaStatus `json:"status,omitempty,omitzero"`
 
 	// metadata is a standard object metadata
 	// +optional
-	metav1.ObjectMeta `json:"metadata,omitempty,omitzero"`
 
 	// spec defines the desired state of CapacityQuota
 	// +required
-	Spec CapacityQuotaSpec `json:"spec"`
 
 	// status defines the observed state of CapacityQuota
 	// +optional
-	Status CapacityQuotaStatus `json:"status,omitempty,omitzero"`
 }
 
 // CapacityQuotaSpec defines the desired state of CapacityQuota
@@ -88,10 +88,10 @@ type CapacityQuotaSpec struct {
 	// Empty or nil selector matches all nodes.
 	// +optional
 	Selector *metav1.LabelSelector `json:"selector,omitempty"`
+	Limits CapacityQuotaLimits `json:"limits"`
 
 	// Limits define quota limits.
 	// +required
-	Limits CapacityQuotaLimits `json:"limits"`
 }
 
 // CapacityQuotaLimits define quota limits.
@@ -123,6 +123,7 @@ type CapacityQuotaStatus struct {
 	// Used shows the current usage of the quota.
 	// +optional
 	Used *CapacityQuotaUsage `json:"used,omitempty"`
+	Conditions []metav1.Condition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type"`
 
 	// Conditions provide a standard mechanism for reporting the quota's state.
 	// CapacityQuota will be enforced only if it has a Valid=True condition.
@@ -131,7 +132,6 @@ type CapacityQuotaStatus struct {
 	// +patchStrategy=merge
 	// +patchMergeKey=type
 	// +optional
-	Conditions []metav1.Condition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type"`
 }
 
 // CapacityQuotaUsage shows the current usage of the quota.
