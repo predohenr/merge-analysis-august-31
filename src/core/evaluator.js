@@ -244,11 +244,6 @@ class PartialEvaluator {
     this._regionalImageCache = new RegionalImageCache();
     this._fetchBuiltInCMapBound = this.fetchBuiltInCMap.bind(this);
   }
-
-  /**
-   * Since Functions are only cached (locally) by reference, we can share one
-   * `PDFFunctionFactory` instance within this `PartialEvaluator` instance.
-   */
   get _pdfFunctionFactory() {
     const pdfFunctionFactory = new PDFFunctionFactory({
       xref: this.xref,
@@ -3621,11 +3616,6 @@ class PartialEvaluator {
     }
     return properties;
   }
-
-  /**
-   * @returns {Array}
-   * @private
-   */
   _simpleFontToUnicode(properties, forceGlyphs = false) {
     assert(!properties.composite, "Must be a simple font.");
 
@@ -3731,13 +3721,6 @@ class PartialEvaluator {
     }
     return toUnicode;
   }
-
-  /**
-   * Builds a char code to unicode map based on section 9.10 of the spec.
-   * @param {Object} properties Font properties object.
-   * @returns {Promise} A Promise that is resolved with a
-   *   {ToUnicodeMap|IdentityToUnicodeMap} object.
-   */
   async buildToUnicode(properties) {
     properties.hasIncludedToUnicodeMap = properties.toUnicode?.length > 0;
 
@@ -4587,6 +4570,23 @@ class PartialEvaluator {
 
     return shadow(this, "fallbackFontDict", dict);
   }
+
+  /**
+   * Since Functions are only cached (locally) by reference, we can share one
+   * `PDFFunctionFactory` instance within this `PartialEvaluator` instance.
+   */
+
+  /**
+   * @returns {Array}
+   * @private
+   */
+
+  /**
+   * Builds a char code to unicode map based on section 9.10 of the spec.
+   * @param {Object} properties Font properties object.
+   * @returns {Promise} A Promise that is resolved with a
+   *   {ToUnicodeMap|IdentityToUnicodeMap} object.
+   */
 }
 
 class TranslatedFont {
@@ -5070,8 +5070,6 @@ class EvaluatorPreprocessor {
     );
   }
 
-  static MAX_INVALID_PATH_OPS = 10;
-
   constructor(stream, xref, stateManager = new StateManager()) {
     // TODO(mduan): pass array of knownCommands rather than this.opMap
     // dictionary
@@ -5088,28 +5086,6 @@ class EvaluatorPreprocessor {
   get savedStatesDepth() {
     return this.stateManager.stateStack.length;
   }
-
-  // |operation| is an object with two fields:
-  //
-  // - |fn| is an out param.
-  //
-  // - |args| is an inout param. On entry, it should have one of two values.
-  //
-  //   - An empty array. This indicates that the caller is providing the
-  //     array in which the args will be stored in. The caller should use
-  //     this value if it can reuse a single array for each call to read().
-  //
-  //   - |null|. This indicates that the caller needs this function to create
-  //     the array in which any args are stored in. If there are zero args,
-  //     this function will leave |operation.args| as |null| (thus avoiding
-  //     allocations that would occur if we used an empty array to represent
-  //     zero arguments). Otherwise, it will replace |null| with a new array
-  //     containing the arguments. The caller should use this value if it
-  //     cannot reuse an array for each call to read().
-  //
-  // These two modes are present because this function is very hot and so
-  // avoiding allocations where possible is worthwhile.
-  //
   read(operation) {
     let args = operation.args;
     while (true) {
@@ -5218,6 +5194,30 @@ class EvaluatorPreprocessor {
         break;
     }
   }
+
+  static MAX_INVALID_PATH_OPS = 10;
+
+  // |operation| is an object with two fields:
+  //
+  // - |fn| is an out param.
+  //
+  // - |args| is an inout param. On entry, it should have one of two values.
+  //
+  //   - An empty array. This indicates that the caller is providing the
+  //     array in which the args will be stored in. The caller should use
+  //     this value if it can reuse a single array for each call to read().
+  //
+  //   - |null|. This indicates that the caller needs this function to create
+  //     the array in which any args are stored in. If there are zero args,
+  //     this function will leave |operation.args| as |null| (thus avoiding
+  //     allocations that would occur if we used an empty array to represent
+  //     zero arguments). Otherwise, it will replace |null| with a new array
+  //     containing the arguments. The caller should use this value if it
+  //     cannot reuse an array for each call to read().
+  //
+  // These two modes are present because this function is very hot and so
+  // avoiding allocations where possible is worthwhile.
+  //
 }
 
 export { EvaluatorPreprocessor, PartialEvaluator };
