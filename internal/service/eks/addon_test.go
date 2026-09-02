@@ -404,21 +404,21 @@ func TestAccEKSAddon_tags(t *testing.T) {
 func TestAccEKSAddon_namespace(t *testing.T) {
 	ctx := acctest.Context(t)
 	var addon types.Addon
-	rName := acctest.RandomWithPrefix(t, acctest.ResourcePrefix)
+	rName := sdkacctest.RandomWithPrefix(acctest.ResourcePrefix)
 	resourceName := "aws_eks_addon.test"
 	addonName := "vpc-cni"
 	namespace := "my-namespace"
 
-	acctest.ParallelTest(ctx, t, resource.TestCase{
+	resource.ParallelTest(t, resource.TestCase{
 		PreCheck:                 func() { acctest.PreCheck(ctx, t); testAccPreCheck(ctx, t); testAccPreCheckAddon(ctx, t) },
 		ErrorCheck:               acctest.ErrorCheck(t, names.EKSServiceID),
 		ProtoV5ProviderFactories: acctest.ProtoV5ProviderFactories,
-		CheckDestroy:             testAccCheckAddonDestroy(ctx, t),
+		CheckDestroy:             testAccCheckAddonDestroy(ctx),
 		Steps: []resource.TestStep{
 			{
 				Config: testAccAddonConfig_namespace(rName, addonName, namespace),
 				Check: resource.ComposeTestCheckFunc(
-					testAccCheckAddonExists(ctx, t, resourceName, &addon),
+					testAccCheckAddonExists(ctx, resourceName, &addon),
 					resource.TestCheckResourceAttr(resourceName, names.AttrNamespace, namespace),
 				),
 			},
