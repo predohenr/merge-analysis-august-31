@@ -52,20 +52,26 @@ class _TreeNode:
     is_running: bool = False
     choices_fingerprint: tuple[int, float, float] | None = None
 
-    def expand(self, param_name: str | None, choices: Iterable[float]) -> None:
+    def expand(self, param_name: str | None, choices: list[float]) -> None:
         # If the node is unexpanded, expand it.
         # Otherwise, check if the node is compatible with the given search space.
         choices_fingerprint = (
-            (len(search_space), search_space[0], search_space[-1]) if search_space else (0, 0, 0)
+            (len(choices), search_space[0], search_space[-1]) if search_space else (0, 0, 0)
         )
         if self.children is None:
             # Expand the node
             self.param_name = param_name
+            # TODO(nabenabe): We can lazily instantiate _TreeNode, and this is cleaner.
             self.children = {value: _TreeNode() for value in choices}
+            self.choices_fingerprint = choices_fingerprint
         else:
             if self.param_name != param_name:
                 raise ValueError(f"param_name mismatch: {self.param_name} != {param_name}")
-            if self.children.keys() != set(choices):
+            if choices_fingerprint != self.choices_fingerprint:
+                # NOTE(nabenabe): search space and children are sorted, and each distribution has
+                # a uniform interval (FloatDistribution raises error for log=True and finite step),
+                # so the first and last elements and length check are equivalent to
+                # ``children.keys() != set(search_space)``.
                 raise ValueError(
                     f"search_space mismatch: {set(self.children.keys())} != {set(choices)}"
                 )
@@ -77,7 +83,7 @@ class _TreeNode:
         self.expand(None, [])
 
     def add_path(
-        self, trial_path: Iterable[tuple[str, Iterable[float], float]]
+        self, trial_path: Iterable[tuple[str, list[float], float]]
     ) -> _TreeNode | None:
         # Add a path (i.e. a list of suggested parameters in one trial) to the tree.
         current_node = self
