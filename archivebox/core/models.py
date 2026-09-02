@@ -232,10 +232,6 @@ class SnapshotQuerySet(models.QuerySet):
                 raise SystemExit(2)
         return self.all() & qsearch
 
-    # =========================================================================
-    # Export Methods
-    # =========================================================================
-
     def to_json(self, with_headers: bool = False) -> str:
         """Generate JSON index from snapshots"""
         import sys
@@ -301,6 +297,10 @@ class SnapshotQuerySet(models.QuerySet):
             'FOOTER_INFO': SERVER_CONFIG.FOOTER_INFO,
         })
 
+    # =========================================================================
+    # Export Methods
+    # =========================================================================
+
 
 class SnapshotManager(models.Manager.from_queryset(SnapshotQuerySet)):
     """Manager for Snapshot model - uses SnapshotQuerySet for chainable methods"""
@@ -317,10 +317,6 @@ class SnapshotManager(models.Manager.from_queryset(SnapshotQuerySet)):
         # Views/templates can add .prefetch_related('tags', 'archiveresult_set') where needed
         return super().get_queryset()
 
-    # =========================================================================
-    # Import Methods
-    # =========================================================================
-
     def remove(self, atomic: bool = False) -> tuple:
         """Remove snapshots from the database"""
         from django.db import transaction
@@ -328,6 +324,10 @@ class SnapshotManager(models.Manager.from_queryset(SnapshotQuerySet)):
             with transaction.atomic():
                 return self.delete()
         return self.delete()
+
+    # =========================================================================
+    # Import Methods
+    # =========================================================================
 
 
 class Snapshot(ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHealthStats, ModelWithStateMachine):
