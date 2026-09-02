@@ -29,21 +29,21 @@ const issueBase = "https://github.com/kubernetes/minikube/issues"
 type Kind struct {
 	// ID is an unique and stable string describing a reason
 	ID string
-	// ExitCode to be used (defaults to 1)
 	ExitCode int
-	// Style is what emoji prefix to use for this reason
 	Style style.Enum
+	Advice string
+	URL string
+	Issues []int
+	NewIssueLink bool
+	NoMatch bool
+	// ExitCode to be used (defaults to 1)
+	// Style is what emoji prefix to use for this reason
 
 	// Advice is actionable text that the user should follow
-	Advice string
 	// URL is a reference URL for more information
-	URL string
 	// Issues are a list of related issues to this issue
-	Issues []int
 	// Show the new issue link
-	NewIssueLink bool
 	// Do not attempt to match this reason to a specific known issue
-	NoMatch bool
 }
 
 // IssueURLs returns URLs for issues
@@ -360,9 +360,10 @@ var (
 		ID:       "GUEST_MOUNT_COULD_NOT_CONNECT",
 		ExitCode: ExGuestError,
 		Advice: translate.T(`If the host has a firewall:
+		
 		1. Allow inbound port 22 to minikube from the host
-  	2. Allow an inbound port of your choosing from minikube to the host
-		3. Specify "--port=<your_inbound_port_number>" for "minikube mount"`),
+  		2. Allow an inbound port of your choosing from minikube to the host
+		2. Specify "--port=<your_inbound_port_number>" for "minikube mount"`),
 	}
 	// minkube failed to update a mount
 	GuestMountConflict = Kind{ID: "GUEST_MOUNT_CONFLICT", ExitCode: ExGuestConflict}
