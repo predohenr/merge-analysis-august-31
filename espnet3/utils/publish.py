@@ -559,9 +559,7 @@ def _bundle_runtime_config(config: DictConfig, recipe_root: Path | None) -> Dict
     return bundle_cfg
 
 
-def _write_embedded_configs(
-    system, out_dir: Path, recipe_root: Path | None
-) -> Dict[str, str]:
+def _write_embedded_configs(system, out_dir: Path, recipe_root: Path | None) -> Dict[str, str]:
     """Write in-memory configs into ``conf/`` when recipe files are unavailable."""
     from espnet3.utils.config_utils import (
         load_and_merge_config,
@@ -606,9 +604,7 @@ def _resolve_pack_task(system, pack_cfg: DictConfig) -> str:
     task = getattr(espnet2_cfg, "task", None)
     if task:
         return str(task)
-    training_task = str(
-        getattr(getattr(system, "training_config", None), "task", "") or ""
-    )
+    training_task = str(getattr(getattr(system, "training_config", None), "task", "") or "")
     if ".asr." in training_task or training_task.endswith(".ASRTask"):
         return "asr"
     return ""
@@ -681,7 +677,9 @@ def _copy_recipe_assets(
     return {
         "recipe_root": recipe_root,
         "yaml_files": yaml_files,
-        "extra_fields": {"user_code_paths": user_code_paths} if user_code_paths else {},
+        "extra_fields": {"user_code_paths": user_code_paths}
+        if user_code_paths
+        else {},
     }
 
 
@@ -717,9 +715,7 @@ def _copy_artifact_entries(
         src = Path(raw_path)
         if not src.exists():
             raise RuntimeError(f"pack_model.files entry does not exist: {src}")
-        dst = _artifact_dest(
-            src=src, out_dir=out_dir, recipe_root=recipe_root, key=str(key)
-        )
+        dst = _artifact_dest(src=src, out_dir=out_dir, recipe_root=recipe_root, key=str(key))
         _copy_path(src=src, dst=dst)
         copied_files[str(key)] = dst.relative_to(out_dir).as_posix()
 
@@ -727,9 +723,7 @@ def _copy_artifact_entries(
         src = Path(raw_path)
         if not src.exists():
             raise RuntimeError(f"pack_model.yaml_files entry does not exist: {src}")
-        dst = _artifact_dest(
-            src=src, out_dir=out_dir, recipe_root=recipe_root, key=str(key)
-        )
+        dst = _artifact_dest(src=src, out_dir=out_dir, recipe_root=recipe_root, key=str(key))
         _copy_path(src=src, dst=dst)
         copied_yaml_files[str(key)] = dst.relative_to(out_dir).as_posix()
 
@@ -1208,7 +1202,9 @@ def upload_model(system) -> None:
         )
 
     exp_dir = (
-        Path(system.training_config.exp_dir) if system.training_config else Path.cwd()
+        Path(system.training_config.exp_dir)
+        if system.training_config
+        else Path.cwd()
     )
     pack_cfg = getattr(publication_cfg, "pack_model", None) or OmegaConf.create({})
     pack_dir = Path(getattr(pack_cfg, "out_dir", exp_dir / "model_pack"))
