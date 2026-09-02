@@ -1465,6 +1465,52 @@ def _is_native_for_emulated(
     return hasattr(typ, "adapt_emulated_to_native")
 
 
+@overload
+def to_instance(
+    typeobj: Union[Type[_TE], _TE], *arg: Any, **kw: Any
+) -> _TE: ...
+
+
+@overload
+def to_instance(typeobj: None, *arg: Any, **kw: Any) -> TypeEngine[None]: ...
+
+
+def to_instance(
+    typeobj: Union[Type[_TE], _TE, None], *arg: Any, **kw: Any
+) -> Union[_TE, TypeEngine[None]]:
+    if typeobj is None:
+        return NULLTYPE
+
+    if callable(typeobj):
+        return typeobj(*arg, **kw)
+    else:
+        return typeobj
+
+
+def adapt_type(
+    typeobj: _TypeEngineArgument[Any],
+    colspecs: Mapping[Type[Any], Type[TypeEngine[Any]]],
+) -> TypeEngine[Any]:
+    typeobj = to_instance(typeobj)
+    for t in typeobj.__class__.__mro__[0:-1]:
+        try:
+            impltype = colspecs[t]
+            break
+        except KeyError:
+            pass
+    else:
+        # couldn't adapt - so just return the type itself
+        # (it may be a user-defined type)
+        return typeobj
+    # if we adapted the given generic type to a database-specific type,
+    # but it turns out the originally given "generic" type
+    # is actually a subclass of our resulting type, then we were already
+    # given a more specific type than that required; so use that.
+    if issubclass(typeobj.__class__, impltype):
+        return typeobj
+    return typeobj.adapt(impltype)
+
+
 class NativeForEmulated(TypeEngineMixin):
     """Indicates DB-native types supported by an :class:`.Emulated` type."""
 
@@ -1695,51 +1741,6 @@ class TypeDecorator(SchemaEventTarget, ExternalType, TypeEngine[_T]):
             )
 
         self.impl = to_instance(self.__class__.impl, *args, **kwargs)
-
-    coerce_to_is_types: Sequence[Type[Any]] = (type(None),)
-    """Specify those Python types which should be coerced at the expression
-    level to "IS <constant>" when compared using ``==`` (and same for
-    ``IS NOT`` in conjunction with ``!=``).
-
-    For most SQLAlchemy types, this includes ``NoneType``, as well as
-    ``bool``.
-
-    :class:`.TypeDecorator` modifies this list to only include ``NoneType``,
-    as typedecorator implementations that deal with boolean types are common.
-
-    Custom :class:`.TypeDecorator` classes can override this attribute to
-    return an empty tuple, in which case no values will be coerced to
-    constants.
-
-    """
-
-    class Comparator(TypeEngine.Comparator[_CT]):
-        """A :class:`.TypeEngine.Comparator` that is specific to
-        :class:`.TypeDecorator`.
-
-        User-defined :class:`.TypeDecorator` classes should not typically
-        need to modify this.
-
-
-        """
-
-        __slots__ = ()
-
-        def operate(
-            self, op: OperatorType, *other: Any, **kwargs: Any
-        ) -> ColumnElement[_CT]:
-            if TYPE_CHECKING:
-                assert isinstance(self.expr.type, TypeDecorator)
-            kwargs["_python_is_types"] = self.expr.type.coerce_to_is_types
-            return super().operate(op, *other, **kwargs)
-
-        def reverse_operate(
-            self, op: OperatorType, other: Any, **kwargs: Any
-        ) -> ColumnElement[_CT]:
-            if TYPE_CHECKING:
-                assert isinstance(self.expr.type, TypeDecorator)
-            kwargs["_python_is_types"] = self.expr.type.coerce_to_is_types
-            return super().reverse_operate(op, other, **kwargs)
 
     @staticmethod
     def _reduce_td_comparator(
@@ -2286,14 +2287,59 @@ class TypeDecorator(SchemaEventTarget, ExternalType, TypeEngine[_T]):
 
         """
         return self.impl_instance.compare_values(x, y)
-
-    # mypy property bug
     @property
     def sort_key_function(self) -> Optional[Callable[[Any], Any]]:  # type: ignore # noqa: E501
         return self.impl_instance.sort_key_function
 
     def __repr__(self) -> str:
         return util.generic_repr(self, to_inspect=self.impl_instance)
+
+    coerce_to_is_types: Sequence[Type[Any]] = (type(None),)
+    """Specify those Python types which should be coerced at the expression
+    level to "IS <constant>" when compared using ``==`` (and same for
+    ``IS NOT`` in conjunction with ``!=``).
+
+    For most SQLAlchemy types, this includes ``NoneType``, as well as
+    ``bool``.
+
+    :class:`.TypeDecorator` modifies this list to only include ``NoneType``,
+    as typedecorator implementations that deal with boolean types are common.
+
+    Custom :class:`.TypeDecorator` classes can override this attribute to
+    return an empty tuple, in which case no values will be coerced to
+    constants.
+
+    """
+
+    class Comparator(TypeEngine.Comparator[_CT]):
+        """A :class:`.TypeEngine.Comparator` that is specific to
+        :class:`.TypeDecorator`.
+
+        User-defined :class:`.TypeDecorator` classes should not typically
+        need to modify this.
+
+
+        """
+
+        __slots__ = ()
+
+        def operate(
+            self, op: OperatorType, *other: Any, **kwargs: Any
+        ) -> ColumnElement[_CT]:
+            if TYPE_CHECKING:
+                assert isinstance(self.expr.type, TypeDecorator)
+            kwargs["_python_is_types"] = self.expr.type.coerce_to_is_types
+            return super().operate(op, *other, **kwargs)
+
+        def reverse_operate(
+            self, op: OperatorType, other: Any, **kwargs: Any
+        ) -> ColumnElement[_CT]:
+            if TYPE_CHECKING:
+                assert isinstance(self.expr.type, TypeDecorator)
+            kwargs["_python_is_types"] = self.expr.type.coerce_to_is_types
+            return super().reverse_operate(op, other, **kwargs)
+
+    # mypy property bug
 
 
 class Variant(TypeDecorator[_T]):
@@ -2307,49 +2353,3 @@ class Variant(TypeDecorator[_T]):
             "Variant is no longer used in SQLAlchemy; this is a "
             "placeholder symbol for backwards compatibility."
         )
-
-
-@overload
-def to_instance(
-    typeobj: Union[Type[_TE], _TE], *arg: Any, **kw: Any
-) -> _TE: ...
-
-
-@overload
-def to_instance(typeobj: None, *arg: Any, **kw: Any) -> TypeEngine[None]: ...
-
-
-def to_instance(
-    typeobj: Union[Type[_TE], _TE, None], *arg: Any, **kw: Any
-) -> Union[_TE, TypeEngine[None]]:
-    if typeobj is None:
-        return NULLTYPE
-
-    if callable(typeobj):
-        return typeobj(*arg, **kw)
-    else:
-        return typeobj
-
-
-def adapt_type(
-    typeobj: _TypeEngineArgument[Any],
-    colspecs: Mapping[Type[Any], Type[TypeEngine[Any]]],
-) -> TypeEngine[Any]:
-    typeobj = to_instance(typeobj)
-    for t in typeobj.__class__.__mro__[0:-1]:
-        try:
-            impltype = colspecs[t]
-            break
-        except KeyError:
-            pass
-    else:
-        # couldn't adapt - so just return the type itself
-        # (it may be a user-defined type)
-        return typeobj
-    # if we adapted the given generic type to a database-specific type,
-    # but it turns out the originally given "generic" type
-    # is actually a subclass of our resulting type, then we were already
-    # given a more specific type than that required; so use that.
-    if issubclass(typeobj.__class__, impltype):
-        return typeobj
-    return typeobj.adapt(impltype)

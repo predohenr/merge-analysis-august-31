@@ -673,8 +673,6 @@ class _ConnectionRecord(ConnectionPoolEntry):
             self.__connect()
         self.finalize_callback = deque()
 
-    dbapi_connection: Optional[DBAPIConnection]
-
     @property
     def driver_connection(self) -> Optional[Any]:  # type: ignore[override]  # mypy#4125  # noqa: E501
         if self.dbapi_connection is None:
@@ -692,8 +690,6 @@ class _ConnectionRecord(ConnectionPoolEntry):
     )
     def connection(self) -> Optional[DBAPIConnection]:
         return self.dbapi_connection
-
-    _soft_invalidate_time: float = 0
 
     @util.ro_memoized_property
     def info(self) -> _InfoType:
@@ -911,6 +907,10 @@ class _ConnectionRecord(ConnectionPoolEntry):
             pool.dispatch.connect.for_modify(
                 pool.dispatch
             )._exec_w_sync_on_first_run(self.dbapi_connection, self)
+
+    dbapi_connection: Optional[DBAPIConnection]
+
+    _soft_invalidate_time: float = 0
 
 
 def _finalize_fairy(
@@ -1234,8 +1234,6 @@ class _ConnectionFairy(PoolProxiedConnection):
         self._connection_record = connection_record
         self._echo = echo
 
-    _connection_record: Optional[_ConnectionRecord]
-
     @property
     def driver_connection(self) -> Optional[Any]:  # type: ignore[override]  # mypy#4125  # noqa: E501
         if self._connection_record is None:
@@ -1512,3 +1510,5 @@ class _ConnectionFairy(PoolProxiedConnection):
         self._counter -= 1
         if self._counter == 0:
             self._checkin(transaction_was_reset=transaction_reset)
+
+    _connection_record: Optional[_ConnectionRecord]
