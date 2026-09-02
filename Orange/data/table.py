@@ -48,6 +48,220 @@ def get_sample_datasets_dir():
     return os.path.realpath(dataset_dir)
 
 
+def _idcache_save(cachedict, keys, value):
+    cachedict[tuple(map(id, keys))] = \
+        value, [weakref.ref(k) for k in keys]
+
+
+def _idcache_restore(cachedict, keys):
+    shared, weakrefs = cachedict.get(tuple(map(id, keys)), (None, []))
+    for r in weakrefs:
+        if r() is None:
+            return None
+    return shared
+
+
+def _compute_column(func, *args, **kwargs):
+    col = func(*args, **kwargs)
+    if isinstance(col, np.ndarray) and col.ndim != 1:
+        err = f"{type(col)} must return a column, not {col.ndim}d array"
+        if col.ndim == 2:
+            warnings.warn(err)
+            col = col.reshape(-1)
+        else:
+            raise ValueError(err)
+    return col
+
+
+def _dereferenced(array):
+    # CSR and CSC matrices are constructed so that array.data is a
+    # view to a base, which prevents unlocking them. Therefore, if
+    # sparse matrix doesn't own its data, but its base array is
+    # referenced only by this matrix, we copy it. This doesn't
+    # increase memory use, but allows unlocking.
+    if sp.issparse(array) \
+            and array.data.base is not None \
+            and sys.getrefcount(array.data.base) == 2:  # 2 = 1 real + 1 for arg
+        array.data = array.data.copy()
+    return array
+
+
+def _check_arrays(*arrays, dtype=None, shape_1=None):
+    checked = []
+    if not len(arrays):
+        return checked
+
+    def ninstances(array):
+        if hasattr(array, "shape"):
+            return array.shape[0]
+        else:
+            return len(array) if array is not None else 0
+
+    if shape_1 is None:
+        shape_1 = ninstances(arrays[0])
+
+    for array in arrays:
+        if array is None:
+            checked.append(array)
+            continue
+
+        if ninstances(array) != shape_1:
+            raise ValueError("Leading dimension mismatch (%d != %d)"
+                             % (ninstances(array), shape_1))
+
+        if sp.issparse(array):
+            if not (sp.isspmatrix_csr(array) or sp.isspmatrix_csc(array)):
+                array = array.tocsr()
+            array.data = np.asarray(array.data)
+            array = _dereferenced(array)
+            has_inf = _check_inf(array.data)
+        else:
+            if dtype is not None:
+                array = np.asarray(array, dtype=dtype)
+            else:
+                array = np.asarray(array)
+            has_inf = _check_inf(array)
+
+        if has_inf:
+            array[np.isinf(array)] = np.nan
+            warnings.warn("Array contains infinity.", RuntimeWarning)
+        checked.append(array)
+
+    return checked
+
+
+def _check_inf(array):
+    return array.dtype.char in np.typecodes['AllFloat'] and \
+           np.isinf(array.data).any()
+
+
+def _subarray(arr, rows, cols):
+    rows = _optimize_indices(rows, arr.shape[0])
+    if arr.ndim == 1:
+        return arr[rows]
+    cols = _optimize_indices(cols, arr.shape[1])
+    if isinstance(rows, slice) or isinstance(cols, slice):
+        return arr[rows, cols]
+    else:
+        # rows and columns are independent selectors,
+        # so they need to be reshaped to produce an open mesh
+        return arr[np.ix_(rows, cols)]
+
+
+def _optimize_indices(indices, size):
+    """
+    Convert boolean indices to integer indices and convert these to a slice
+    if possible.
+
+    A slice is created from only from indices with positive steps and
+    valid starts and ends (so that invalid ranges will still raise an
+    exception. An IndexError is raised if boolean indices do not conform
+    to input size.
+
+    Allows numpy to reuse the data array, because it defaults to copying
+    if given indices.
+
+    Parameters
+    ----------
+    indices : 1D sequence, slice or Ellipsis
+    size : int
+    """
+    if isinstance(indices, slice):
+        return indices
+
+    if indices is ...:
+        return slice(None, None, 1)
+
+    # a very common case for column selection
+    if len(indices) == 1 and not isinstance(indices[0], bool):
+        if indices[0] >= 0:
+            return slice(indices[0], indices[0] + 1, 1)
+        else:
+            return slice(indices[0], indices[0] - 1, -1)
+
+    if len(indices) >= 1:
+        indices = np.asarray(indices)
+        if indices.dtype == bool:
+            if len(indices) == size:
+                indices = np.nonzero(indices)[0]
+            else:
+                # raise an exception that numpy would if boolean indices were used
+                raise IndexError("boolean indices did not match dimension")
+
+    if len(indices) >= 1:  # conversion from boolean indices could result in an empty array
+        begin = indices[0]
+        end = indices[-1]
+        steps = np.diff(indices) if len(indices) > 1 else np.array([1])
+        step = steps[0]
+
+        # continuous ranges with constant step and valid start and stop index can be slices
+        if np.all(steps == step) and step > 0 and begin >= 0 and end < size:
+            return slice(begin, end + step, step)
+
+    return indices
+
+
+def _selection_length(indices, maxlen):
+    """ Return the selection length.
+    Args:
+        indices: 1D sequence, slice or Ellipsis
+        maxlen: maximum length of the sequence
+    """
+    if indices is ...:
+        return maxlen
+    elif isinstance(indices, slice):
+        return len(range(*indices.indices(maxlen)))
+    else:
+        return len(indices)
+
+
+def _select_from_selection(source_indices, selection_indices, maxlen):
+    """
+    Create efficient selection indices from a previous selection.
+    Try to keep slices as slices.
+    Args:
+        source_indices: 1D sequence, slice or Ellipsis
+        selection_indices: slice
+        maxlen: maximum length of the sequence
+    """
+    if source_indices is ...:
+        return selection_indices
+    elif isinstance(source_indices, slice):
+        assert isinstance(selection_indices, slice)
+        r = range(*source_indices.indices(maxlen))[selection_indices]
+        assert min(list(r)) >= 0
+        # .indices always returns valid non-negative integers
+        # when the reversed order is used r.stop can be negative, for example,
+        # range(1, -1, -1)), which is [1, 0], but this negative indexing
+        # is problematic with slices
+        stop = r.stop
+        if stop < 0:
+            stop = None
+        return slice(r.start, stop, r.step)
+    else:
+        return source_indices[selection_indices]
+
+
+def assure_domain_conversion_sparsity(target, source):
+    """
+    Assure that the table obeys the domain conversion's suggestions about sparsity.
+
+    Args:
+        target (Table): the target table.
+        source (Table): the source table.
+
+    Returns:
+        Table: with fixed sparsity. The sparsity is set as it is recommended by domain conversion
+            for transformation from source to the target domain.
+    """
+    conversion = DomainConversion(source.domain, target.domain)
+    match_density = [assure_array_dense, assure_array_sparse]
+    target.X = match_density[conversion.sparse_X](target.X)
+    target.Y = match_density[conversion.sparse_Y](target.Y)
+    target.metas = match_density[conversion.sparse_metas](target.metas)
+    return target
+
+
 dataset_dirs = ['', get_sample_datasets_dir()]
 
 
@@ -62,19 +276,6 @@ class _ThreadLocal(threading.local):
 
 
 _thread_local = _ThreadLocal()
-
-
-def _idcache_save(cachedict, keys, value):
-    cachedict[tuple(map(id, keys))] = \
-        value, [weakref.ref(k) for k in keys]
-
-
-def _idcache_restore(cachedict, keys):
-    shared, weakrefs = cachedict.get(tuple(map(id, keys)), (None, []))
-    for r in weakrefs:
-        if r() is None:
-            return None
-    return shared
 
 
 class DomainTransformationError(Exception):
@@ -205,18 +406,6 @@ class Columns:
     def __init__(self, domain):
         for v in chain(domain.variables, domain.metas):
             setattr(self, v.name.replace(" ", "_"), v)
-
-
-def _compute_column(func, *args, **kwargs):
-    col = func(*args, **kwargs)
-    if isinstance(col, np.ndarray) and col.ndim != 1:
-        err = f"{type(col)} must return a column, not {col.ndim}d array"
-        if col.ndim == 2:
-            warnings.warn(err)
-            col = col.reshape(-1)
-        else:
-            raise ValueError(err)
-    return col
 
 
 class _ArrayConversion:
@@ -2423,195 +2612,6 @@ class Table(Sequence, Storage):
         groups.
         """
         return Orange.data.aggregate.OrangeTableGroupBy(self, columns)
-
-
-def _dereferenced(array):
-    # CSR and CSC matrices are constructed so that array.data is a
-    # view to a base, which prevents unlocking them. Therefore, if
-    # sparse matrix doesn't own its data, but its base array is
-    # referenced only by this matrix, we copy it. This doesn't
-    # increase memory use, but allows unlocking.
-    if sp.issparse(array) \
-            and array.data.base is not None \
-            and sys.getrefcount(array.data.base) == 2:  # 2 = 1 real + 1 for arg
-        array.data = array.data.copy()
-    return array
-
-
-def _check_arrays(*arrays, dtype=None, shape_1=None):
-    checked = []
-    if not len(arrays):
-        return checked
-
-    def ninstances(array):
-        if hasattr(array, "shape"):
-            return array.shape[0]
-        else:
-            return len(array) if array is not None else 0
-
-    if shape_1 is None:
-        shape_1 = ninstances(arrays[0])
-
-    for array in arrays:
-        if array is None:
-            checked.append(array)
-            continue
-
-        if ninstances(array) != shape_1:
-            raise ValueError("Leading dimension mismatch (%d != %d)"
-                             % (ninstances(array), shape_1))
-
-        if sp.issparse(array):
-            if not (sp.isspmatrix_csr(array) or sp.isspmatrix_csc(array)):
-                array = array.tocsr()
-            array.data = np.asarray(array.data)
-            array = _dereferenced(array)
-            has_inf = _check_inf(array.data)
-        else:
-            if dtype is not None:
-                array = np.asarray(array, dtype=dtype)
-            else:
-                array = np.asarray(array)
-            has_inf = _check_inf(array)
-
-        if has_inf:
-            array[np.isinf(array)] = np.nan
-            warnings.warn("Array contains infinity.", RuntimeWarning)
-        checked.append(array)
-
-    return checked
-
-
-def _check_inf(array):
-    return array.dtype.char in np.typecodes['AllFloat'] and \
-           np.isinf(array.data).any()
-
-
-def _subarray(arr, rows, cols):
-    rows = _optimize_indices(rows, arr.shape[0])
-    if arr.ndim == 1:
-        return arr[rows]
-    cols = _optimize_indices(cols, arr.shape[1])
-    if isinstance(rows, slice) or isinstance(cols, slice):
-        return arr[rows, cols]
-    else:
-        # rows and columns are independent selectors,
-        # so they need to be reshaped to produce an open mesh
-        return arr[np.ix_(rows, cols)]
-
-
-def _optimize_indices(indices, size):
-    """
-    Convert boolean indices to integer indices and convert these to a slice
-    if possible.
-
-    A slice is created from only from indices with positive steps and
-    valid starts and ends (so that invalid ranges will still raise an
-    exception. An IndexError is raised if boolean indices do not conform
-    to input size.
-
-    Allows numpy to reuse the data array, because it defaults to copying
-    if given indices.
-
-    Parameters
-    ----------
-    indices : 1D sequence, slice or Ellipsis
-    size : int
-    """
-    if isinstance(indices, slice):
-        return indices
-
-    if indices is ...:
-        return slice(None, None, 1)
-
-    # a very common case for column selection
-    if len(indices) == 1 and not isinstance(indices[0], bool):
-        if indices[0] >= 0:
-            return slice(indices[0], indices[0] + 1, 1)
-        else:
-            return slice(indices[0], indices[0] - 1, -1)
-
-    if len(indices) >= 1:
-        indices = np.asarray(indices)
-        if indices.dtype == bool:
-            if len(indices) == size:
-                indices = np.nonzero(indices)[0]
-            else:
-                # raise an exception that numpy would if boolean indices were used
-                raise IndexError("boolean indices did not match dimension")
-
-    if len(indices) >= 1:  # conversion from boolean indices could result in an empty array
-        begin = indices[0]
-        end = indices[-1]
-        steps = np.diff(indices) if len(indices) > 1 else np.array([1])
-        step = steps[0]
-
-        # continuous ranges with constant step and valid start and stop index can be slices
-        if np.all(steps == step) and step > 0 and begin >= 0 and end < size:
-            return slice(begin, end + step, step)
-
-    return indices
-
-
-def _selection_length(indices, maxlen):
-    """ Return the selection length.
-    Args:
-        indices: 1D sequence, slice or Ellipsis
-        maxlen: maximum length of the sequence
-    """
-    if indices is ...:
-        return maxlen
-    elif isinstance(indices, slice):
-        return len(range(*indices.indices(maxlen)))
-    else:
-        return len(indices)
-
-
-def _select_from_selection(source_indices, selection_indices, maxlen):
-    """
-    Create efficient selection indices from a previous selection.
-    Try to keep slices as slices.
-    Args:
-        source_indices: 1D sequence, slice or Ellipsis
-        selection_indices: slice
-        maxlen: maximum length of the sequence
-    """
-    if source_indices is ...:
-        return selection_indices
-    elif isinstance(source_indices, slice):
-        assert isinstance(selection_indices, slice)
-        r = range(*source_indices.indices(maxlen))[selection_indices]
-        assert min(list(r)) >= 0
-        # .indices always returns valid non-negative integers
-        # when the reversed order is used r.stop can be negative, for example,
-        # range(1, -1, -1)), which is [1, 0], but this negative indexing
-        # is problematic with slices
-        stop = r.stop
-        if stop < 0:
-            stop = None
-        return slice(r.start, stop, r.step)
-    else:
-        return source_indices[selection_indices]
-
-
-def assure_domain_conversion_sparsity(target, source):
-    """
-    Assure that the table obeys the domain conversion's suggestions about sparsity.
-
-    Args:
-        target (Table): the target table.
-        source (Table): the source table.
-
-    Returns:
-        Table: with fixed sparsity. The sparsity is set as it is recommended by domain conversion
-            for transformation from source to the target domain.
-    """
-    conversion = DomainConversion(source.domain, target.domain)
-    match_density = [assure_array_dense, assure_array_sparse]
-    target.X = match_density[conversion.sparse_X](target.X)
-    target.Y = match_density[conversion.sparse_Y](target.Y)
-    target.metas = match_density[conversion.sparse_metas](target.metas)
-    return target
 
 
 class Role:
