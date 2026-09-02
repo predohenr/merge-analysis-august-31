@@ -3044,7 +3044,8 @@ class _ABW:
 _abw_state = threading.local()
 
 
-@xp_capabilities(cpu_only=True, skip_backends=[('dask.array', 'no rankdata')])
+@xp_capabilities(skip_backends=[('dask.array', 'no rankdata')],
+                 jax_jit=False, cpu_only=True)  # p-value is Cython
 @_axis_nan_policy_factory(AnsariResult, n_samples=2)
 def ansari(x, y, alternative='two-sided', *, axis=0, method='auto'):
     """Perform the Ansari-Bradley test for equal scale parameters.
