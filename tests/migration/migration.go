@@ -3211,8 +3211,6 @@ func getVirtqemudPid(pod *k8sv1.Pod) (string, error) {
 	return strings.TrimSuffix(stdout, "\n"), nil
 
 }
-
-// runCommandOnVmiTargetPod runs specified command on the target virt-launcher pod of a migration
 func runCommandOnVmiTargetPod(vmi *v1.VirtualMachineInstance, command []string) (string, error) {
 	virtClient := kubevirt.Client()
 
@@ -3318,3 +3316,5 @@ func getSourceLauncherLogs(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMac
 	Expect(err).ToNot(HaveOccurred(), "should get virt-launcher source pod logs")
 	return string(logsRaw)
 }
+
+// runCommandOnVmiTargetPod runs specified command on the target virt-launcher pod of a migration
