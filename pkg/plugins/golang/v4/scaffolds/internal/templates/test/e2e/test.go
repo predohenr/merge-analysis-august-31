@@ -49,33 +49,17 @@ func (f *Test) SetTemplateDefaults() error {
 
 	return nil
 }
-
-// WebhookTestUpdater updates e2e_test.go to insert additional webhook validation tests
-type WebhookTestUpdater struct {
-	machinery.RepositoryMixin
-	machinery.ProjectNameMixin
-	machinery.ResourceMixin
-	WireWebhook bool
-}
-
-// GetPath implements file.Builder
 func (*WebhookTestUpdater) GetPath() string {
 	return filepath.Join("test", "e2e", "e2e_test.go")
 }
-
-// GetIfExistsAction implements file.Builder
 func (*WebhookTestUpdater) GetIfExistsAction() machinery.IfExistsAction {
 	return machinery.OverwriteFile // Ensures only the marker is replaced
 }
-
-// GetMarkers implements file.Inserter
 func (f *WebhookTestUpdater) GetMarkers() []machinery.Marker {
 	return []machinery.Marker{
 		machinery.NewMarkerFor(f.GetPath(), webhookChecksMarker),
 	}
 }
-
-// GetCodeFragments implements file.Inserter
 func (f *WebhookTestUpdater) GetCodeFragments() machinery.CodeFragmentsMap {
 	codeFragments := machinery.CodeFragmentsMap{}
 	if !f.WireWebhook {
@@ -116,6 +100,22 @@ func (f *WebhookTestUpdater) GetCodeFragments() machinery.CodeFragmentsMap {
 
 	return codeFragments
 }
+
+// WebhookTestUpdater updates e2e_test.go to insert additional webhook validation tests
+type WebhookTestUpdater struct {
+	machinery.RepositoryMixin
+	machinery.ProjectNameMixin
+	machinery.ResourceMixin
+	WireWebhook bool
+}
+
+// GetPath implements file.Builder
+
+// GetIfExistsAction implements file.Builder
+
+// GetMarkers implements file.Inserter
+
+// GetCodeFragments implements file.Inserter
 
 const webhookChecksFragment = `It("should provisioned cert-manager", func() {
 	By("validating that cert-manager has the certificate Secret")
