@@ -140,25 +140,6 @@ export class Shape extends Element {
      */
     this.skewY = 0;
   }
-
-  static Properties = [
-    'position',
-    'rotation',
-    'scale',
-    'skewX',
-    'skewY',
-    'matrix',
-    'worldMatrix',
-  ];
-
-  /**
-   * @name Two.Shape.fromObject
-   * @function
-   * @param {Object} obj - Object notation of a {@link Two.Shape} to create a new instance
-   * @returns {Two.Shape}
-   * @description Create a new {@link Two.Shape} from an object notation of a {@link Two.Shape}.
-   * @nota-bene Works in conjunction with {@link Two.Shape#toObject}
-   */
   static fromObject(obj) {
     const shape = new Shape().copy(obj);
 
@@ -175,34 +156,16 @@ export class Shape extends Element {
   set renderer(v) {
     this._renderer = v;
   }
-
-  /**
-   * @name Two.Shape#translation
-   * @description Alias for {@link Two.Shape#position}.
-   */
   get translation() {
     return proto.position.get.apply(this, arguments);
   }
   set translation(v) {
     proto.position.set.apply(this, arguments);
   }
-
-  /**
-   * @name Two.Shape#addTo
-   * @function
-   * @param {Two.Group} group - The parent the shape adds itself to.
-   * @description Convenience method to add itself to the scenegraph.
-   */
   addTo(group) {
     group.add(this);
     return this;
   }
-
-  /**
-   * @name Two.Shape#remove
-   * @function
-   * @description Remove self from the scene / parent.
-   */
   remove() {
     if (!this.parent) {
       return this;
@@ -212,13 +175,6 @@ export class Shape extends Element {
 
     return this;
   }
-
-  /**
-   * @name Two.Shape#copy
-   * @function
-   * @param {Two.Shape} shape
-   * @description Copy the properties of one {@link Two.Shape} onto another.
-   */
   copy(shape) {
     super.copy.call(this, shape);
 
@@ -252,14 +208,6 @@ export class Shape extends Element {
 
     return this;
   }
-
-  /**
-   * @name Two.Shape#clone
-   * @function
-   * @param {Two.Group} [parent] - Optional argument to automatically add the shape to a scenegraph.
-   * @returns {Two.Shape}
-   * @description Create a new {@link Two.Shape} with the same values as the current shape.
-   */
   clone(parent) {
     const clone = new Shape();
 
@@ -279,13 +227,6 @@ export class Shape extends Element {
 
     return clone._update();
   }
-
-  /**
-   * @name Two.Shape#toObject
-   * @function
-   * @description Create a JSON compatible object that represents information of the shape.
-   * @nota-bene Works in conjunction with {@link Two.Shape.fromObject}
-   */
   toObject() {
     const result = super.toObject.call(this);
     result.renderer = { type: 'shape' };
@@ -299,15 +240,6 @@ export class Shape extends Element {
     result.matrix = this.matrix.toObject();
     return result;
   }
-
-  /**
-   * @name Two.Shape#_update
-   * @function
-   * @private
-   * @param {Boolean} [bubbles=false] - Force the parent to `_update` as well.
-   * @description This is called before rendering happens by the renderer. This applies all changes necessary so that rendering is up-to-date but not updated more than it needs to be.
-   * @nota-bene Try not to call this method more than once a frame.
-   */
   _update(bubbles) {
     if (!this._matrix.manual && this._flagMatrix) {
       this._matrix.identity().translate(this.position.x, this.position.y);
@@ -331,13 +263,6 @@ export class Shape extends Element {
 
     return this;
   }
-
-  /**
-   * @name Two.Shape#flagReset
-   * @function
-   * @private
-   * @description Called internally to reset all flags. Ensures that only properties that change are updated before being sent to the renderer.
-   */
   flagReset() {
     this._flagMatrix = this._flagScale = false;
 
@@ -345,6 +270,81 @@ export class Shape extends Element {
 
     return this;
   }
+
+  static Properties = [
+    'position',
+    'rotation',
+    'scale',
+    'skewX',
+    'skewY',
+    'matrix',
+    'worldMatrix',
+  ];
+
+  /**
+   * @name Two.Shape.fromObject
+   * @function
+   * @param {Object} obj - Object notation of a {@link Two.Shape} to create a new instance
+   * @returns {Two.Shape}
+   * @description Create a new {@link Two.Shape} from an object notation of a {@link Two.Shape}.
+   * @nota-bene Works in conjunction with {@link Two.Shape#toObject}
+   */
+
+  /**
+   * @name Two.Shape#translation
+   * @description Alias for {@link Two.Shape#position}.
+   */
+
+  /**
+   * @name Two.Shape#addTo
+   * @function
+   * @param {Two.Group} group - The parent the shape adds itself to.
+   * @description Convenience method to add itself to the scenegraph.
+   */
+
+  /**
+   * @name Two.Shape#remove
+   * @function
+   * @description Remove self from the scene / parent.
+   */
+
+  /**
+   * @name Two.Shape#copy
+   * @function
+   * @param {Two.Shape} shape
+   * @description Copy the properties of one {@link Two.Shape} onto another.
+   */
+
+  /**
+   * @name Two.Shape#clone
+   * @function
+   * @param {Two.Group} [parent] - Optional argument to automatically add the shape to a scenegraph.
+   * @returns {Two.Shape}
+   * @description Create a new {@link Two.Shape} with the same values as the current shape.
+   */
+
+  /**
+   * @name Two.Shape#toObject
+   * @function
+   * @description Create a JSON compatible object that represents information of the shape.
+   * @nota-bene Works in conjunction with {@link Two.Shape.fromObject}
+   */
+
+  /**
+   * @name Two.Shape#_update
+   * @function
+   * @private
+   * @param {Boolean} [bubbles=false] - Force the parent to `_update` as well.
+   * @description This is called before rendering happens by the renderer. This applies all changes necessary so that rendering is up-to-date but not updated more than it needs to be.
+   * @nota-bene Try not to call this method more than once a frame.
+   */
+
+  /**
+   * @name Two.Shape#flagReset
+   * @function
+   * @private
+   * @description Called internally to reset all flags. Ensures that only properties that change are updated before being sent to the renderer.
+   */
 }
 
 const proto = {
