@@ -210,11 +210,6 @@ class PageViewport {
     this.width = width;
     this.height = height;
   }
-
-  /**
-   * The original, un-scaled, viewport dimensions.
-   * @type {Object}
-   */
   get rawDims() {
     const dims = this.viewBox;
 
@@ -225,12 +220,6 @@ class PageViewport {
       pageY: dims[1],
     });
   }
-
-  /**
-   * Clones viewport, with optional additional properties.
-   * @param {PageViewportCloneParameters} [params]
-   * @returns {PageViewport} Cloned viewport.
-   */
   clone({
     scale = this.scale,
     rotation = this.rotation,
@@ -248,6 +237,34 @@ class PageViewport {
       dontFlip,
     });
   }
+  convertToViewportPoint(x, y) {
+    const p = [x, y];
+    Util.applyTransform(p, this.transform);
+    return p;
+  }
+  convertToViewportRectangle(rect) {
+    const topLeft = [rect[0], rect[1]];
+    Util.applyTransform(topLeft, this.transform);
+    const bottomRight = [rect[2], rect[3]];
+    Util.applyTransform(bottomRight, this.transform);
+    return [topLeft[0], topLeft[1], bottomRight[0], bottomRight[1]];
+  }
+  convertToPdfPoint(x, y) {
+    const p = [x, y];
+    Util.applyInverseTransform(p, this.transform);
+    return p;
+  }
+
+  /**
+   * The original, un-scaled, viewport dimensions.
+   * @type {Object}
+   */
+
+  /**
+   * Clones viewport, with optional additional properties.
+   * @param {PageViewportCloneParameters} [params]
+   * @returns {PageViewport} Cloned viewport.
+   */
 
   /**
    * Converts PDF point to the viewport coordinates. For examples, useful for
@@ -259,11 +276,6 @@ class PageViewport {
    * @see {@link convertToPdfPoint}
    * @see {@link convertToViewportRectangle}
    */
-  convertToViewportPoint(x, y) {
-    const p = [x, y];
-    Util.applyTransform(p, this.transform);
-    return p;
-  }
 
   /**
    * Converts PDF rectangle to the viewport coordinates.
@@ -272,13 +284,6 @@ class PageViewport {
    *   rectangle in the viewport coordinate space.
    * @see {@link convertToViewportPoint}
    */
-  convertToViewportRectangle(rect) {
-    const topLeft = [rect[0], rect[1]];
-    Util.applyTransform(topLeft, this.transform);
-    const bottomRight = [rect[2], rect[3]];
-    Util.applyTransform(bottomRight, this.transform);
-    return [topLeft[0], topLeft[1], bottomRight[0], bottomRight[1]];
-  }
 
   /**
    * Converts viewport coordinates to the PDF location. For examples, useful
@@ -289,11 +294,6 @@ class PageViewport {
    *   point in the PDF coordinate space.
    * @see {@link convertToViewportPoint}
    */
-  convertToPdfPoint(x, y) {
-    const p = [x, y];
-    Util.applyInverseTransform(p, this.transform);
-    return p;
-  }
 }
 
 class RenderingCancelledException extends BaseException {
@@ -697,26 +697,12 @@ class OutputScale {
      */
     this.sy = pixelRatio;
   }
-
-  /**
-   * @type {boolean} Returns `true` when scaling is required, `false` otherwise.
-   */
   get scaled() {
     return this.sx !== 1 || this.sy !== 1;
   }
-
-  /**
-   * @type {boolean} Returns `true` when scaling is symmetric,
-   *   `false` otherwise.
-   */
   get symmetric() {
     return this.sx === this.sy;
   }
-
-  /**
-   * @returns {boolean} Returns `true` if scaling was limited,
-   *   `false` otherwise.
-   */
   limitCanvas(width, height, maxPixels, maxDim, capAreaFactor = -1) {
     let maxAreaScale = Infinity,
       maxWidthScale = Infinity,
@@ -757,6 +743,20 @@ class OutputScale {
     }
     return maxPixels;
   }
+
+  /**
+   * @type {boolean} Returns `true` when scaling is required, `false` otherwise.
+   */
+
+  /**
+   * @type {boolean} Returns `true` when scaling is symmetric,
+   *   `false` otherwise.
+   */
+
+  /**
+   * @returns {boolean} Returns `true` if scaling was limited,
+   *   `false` otherwise.
+   */
 }
 
 // See https://developer.mozilla.org/en-US/docs/Web/Media/Formats/Image_types
@@ -1078,12 +1078,6 @@ class PagesMapper {
   get pagesNumber() {
     return PagesMapper.#pagesNumber;
   }
-
-  /**
-   * Sets the total number of pages and initializes default mappings
-   * where page IDs equal page numbers (1-indexed).
-   * @param {number} n - The total number of pages.
-   */
   set pagesNumber(n) {
     if (PagesMapper.#pagesNumber === n) {
       return;
@@ -1132,15 +1126,6 @@ class PagesMapper {
     }
     PagesMapper.#prevIdToPageNumber = array.subarray(2 * n);
   }
-
-  /**
-   * Move a set of pages to a new position while keeping ID→number mappings in
-   * sync.
-   *
-   * @param {Set<number>} selectedPages - Page numbers being moved (1-indexed).
-   * @param {number[]} pagesToMove - Ordered list of page numbers to move.
-   * @param {number} index - Zero-based insertion index in the page-number list.
-   */
   movePages(selectedPages, pagesToMove, index) {
     this.#init(true);
     const pageNumberToId = PagesMapper.#pageNumberToId;
@@ -1195,19 +1180,9 @@ class PagesMapper {
       this.pagesNumber = 0;
     }
   }
-
-  /**
-   * Checks if the page mappings have been altered from their initial state.
-   * @returns {boolean} True if the mappings have been altered, false otherwise.
-   */
   hasBeenAltered() {
     return PagesMapper.#pageNumberToId !== null;
   }
-
-  /**
-   * Gets the current page mapping suitable for saving.
-   * @returns {Object} An object containing the page indices.
-   */
   getPageMappingForSaving() {
     // Saving is index-based.
     return {
@@ -1222,30 +1197,12 @@ class PagesMapper {
       PagesMapper.#pageNumberToId[pageNumber - 1] - 1
     ];
   }
-
-  /**
-   * Gets the page number for a given page ID.
-   * @param {number} id - The page ID (1-indexed).
-   * @returns {number} The page number, or the ID itself if no mapping exists.
-   */
   getPageNumber(id) {
     return PagesMapper.#idToPageNumber?.[id - 1] ?? id;
   }
-
-  /**
-   * Gets the page ID for a given page number.
-   * @param {number} pageNumber - The page number (1-indexed).
-   * @returns {number} The page ID, or the page number itself if no mapping
-   * exists.
-   */
   getPageId(pageNumber) {
     return PagesMapper.#pageNumberToId?.[pageNumber - 1] ?? pageNumber;
   }
-
-  /**
-   * Gets or creates a singleton instance of PagesMapper.
-   * @returns {PagesMapper} The singleton instance.
-   */
   static get instance() {
     return shadow(this, "instance", new PagesMapper());
   }
@@ -1253,6 +1210,49 @@ class PagesMapper {
   getMapping() {
     return PagesMapper.#pageNumberToId.subarray(0, this.pagesNumber);
   }
+
+  /**
+   * Sets the total number of pages and initializes default mappings
+   * where page IDs equal page numbers (1-indexed).
+   * @param {number} n - The total number of pages.
+   */
+
+  /**
+   * Move a set of pages to a new position while keeping ID→number mappings in
+   * sync.
+   *
+   * @param {Set<number>} selectedPages - Page numbers being moved (1-indexed).
+   * @param {number[]} pagesToMove - Ordered list of page numbers to move.
+   * @param {number} index - Zero-based insertion index in the page-number list.
+   */
+
+  /**
+   * Checks if the page mappings have been altered from their initial state.
+   * @returns {boolean} True if the mappings have been altered, false otherwise.
+   */
+
+  /**
+   * Gets the current page mapping suitable for saving.
+   * @returns {Object} An object containing the page indices.
+   */
+
+  /**
+   * Gets the page number for a given page ID.
+   * @param {number} id - The page ID (1-indexed).
+   * @returns {number} The page number, or the ID itself if no mapping exists.
+   */
+
+  /**
+   * Gets the page ID for a given page number.
+   * @param {number} pageNumber - The page number (1-indexed).
+   * @returns {number} The page ID, or the page number itself if no mapping
+   * exists.
+   */
+
+  /**
+   * Gets or creates a singleton instance of PagesMapper.
+   * @returns {PagesMapper} The singleton instance.
+   */
 }
 
 export {
