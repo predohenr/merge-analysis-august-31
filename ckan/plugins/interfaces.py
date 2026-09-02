@@ -7,8 +7,12 @@ extend CKAN.
 from __future__ import annotations
 
 from typing import (
+    Any, Callable, Iterable, Mapping, Optional, Sequence,
+    TYPE_CHECKING, Union, List,
+)
+from typing import (
     Any, Callable, IO, Iterable, Mapping, Optional, Sequence,
-    TYPE_CHECKING, Tuple, Union, List
+    TYPE_CHECKING, Tuple, Union
 )
 
 from flask.blueprints import Blueprint
@@ -1450,11 +1454,6 @@ class IGroupForm(Interface):
 
         '''
         return {}
-
-    # End of control methods ##################################################
-
-    # Hooks for customising the GroupController's behaviour          ##########
-    # TODO: flesh out the docstrings a little more
     def new_template(self, group_type: str) -> str:
         u'''
         Returns a string representing the location of the template to be
@@ -1566,6 +1565,11 @@ class IGroupForm(Interface):
 
         '''
         return blueprint
+
+    # End of control methods ##################################################
+
+    # Hooks for customising the GroupController's behaviour          ##########
+    # TODO: flesh out the docstrings a little more
 
     # End of hooks ############################################################
 
