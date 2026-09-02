@@ -2842,6 +2842,7 @@ class S2TCTCPreprocessor(CommonPreprocessor):
 
         return data
 
+
 class Qwen2AudioPreprocessor(AbsPreprocessor):
     """Preprocessor specifically for Qwen2Audio models"""
 
@@ -2874,3 +2875,9 @@ class Qwen2AudioPreprocessor(AbsPreprocessor):
             "input_features": input_features,
             "feature_attention_mask": feature_attention_mask,
         }
+
+
+class SpeechLMPreprocessor(AbsPreprocessor):
+    """Preprocessor specifically for SpeechLM models"""
+
+    
