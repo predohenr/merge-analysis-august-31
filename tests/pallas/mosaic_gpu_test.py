@@ -68,19 +68,6 @@ jax.config.parse_flags_with_absl()
 def do_not_call_me_directly(*args, **kwargs):
   raise RuntimeError("Use self.kernel instead of plgpu.kernel.")
 
-if TYPE_CHECKING:
-  plgpu = _plgpu
-else:
-  # Clone the module locally because the functions may be called from other
-  # modules.
-  plgpu = types.ModuleType("_plgpu_local")
-  plgpu.__dict__.update(_plgpu.__dict__)
-
-  _kernel = _plgpu.kernel
-  del _plgpu
-
-  plgpu.kernel = do_not_call_me_directly
-
 
 def _fori_loop(force_while: bool, lb, ub, body, init):
   if force_while:
@@ -143,6 +130,19 @@ def _array_splat(value, shape: tuple[int, ...]):
     ir_value = mgpu.c(value, ir.F32Type.get())
     return mgpu.FragmentedArray.splat(ir_value, shape)
   return fn()
+
+if TYPE_CHECKING:
+  plgpu = _plgpu
+else:
+  # Clone the module locally because the functions may be called from other
+  # modules.
+  plgpu = types.ModuleType("_plgpu_local")
+  plgpu.__dict__.update(_plgpu.__dict__)
+
+  _kernel = _plgpu.kernel
+  del _plgpu
+
+  plgpu.kernel = do_not_call_me_directly
 
 
 class PallasTestMetaclass(parameterized.TestGeneratorMetaclass):
@@ -8148,8 +8148,6 @@ class ExamplesTest(PallasTest):
       o_ref[...] = l_ref[...] + r_ref[...]
 
     np.testing.assert_allclose(kernel(x, x), x + x)
-
-  # Multi-block kernels
   def test_stage1(self):
     row_block = 64
     x = jnp.arange(128 * 128, dtype=jnp.float16).reshape(128, 128)
@@ -8164,8 +8162,6 @@ class ExamplesTest(PallasTest):
       o_ref[my_slice] = l_ref[my_slice] + r_ref[my_slice]
 
     np.testing.assert_allclose(kernel(x, x), x + x)
-
-  # Async copies
   def test_stage3(self):
     row_block, col_block = 64, 128
 
@@ -8190,8 +8186,6 @@ class ExamplesTest(PallasTest):
 
     x = jnp.arange(128 * 128, dtype=jnp.float16).reshape(128, 128)
     np.testing.assert_allclose(kernel(x, x), x + x)
-
-  # Pipelining
   def test_stage4(self):
     row_block, col_block = 64, 32
     x = jnp.arange(128 * 128, dtype=jnp.float16).reshape(128, 128)
@@ -8214,8 +8208,6 @@ class ExamplesTest(PallasTest):
       )(l_ref, r_ref, o_ref)
 
     np.testing.assert_allclose(kernel(x, x), x + x)
-
-  # Transforms
   def test_stage5(self):
     row_block, col_block = 64, 32
     x = jnp.arange(128 * 128, dtype=jnp.float16).reshape(128, 128)
@@ -8242,6 +8234,14 @@ class ExamplesTest(PallasTest):
       )(l_ref, r_ref, o_ref)
 
     np.testing.assert_allclose(kernel(x, x), x + x)
+
+  # Multi-block kernels
+
+  # Async copies
+
+  # Pipelining
+
+  # Transforms
 
 
 class ExamplesWGTest(
