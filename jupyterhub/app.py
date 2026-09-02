@@ -189,9 +189,6 @@ class NewToken(Application):
     def _default_name(self):
         return getuser()
 
-    aliases = token_aliases
-    classes = []
-
     def parse_command_line(self, argv=None):
         super().parse_command_line(argv=argv)
         if not self.extra_args:
@@ -218,6 +215,9 @@ class NewToken(Application):
             self.exit(1)
         token = user.new_api_token(note="command-line generated")
         print(token)
+
+    aliases = token_aliases
+    classes = []
 
 
 class UpgradeDB(Application):
