@@ -28,6 +28,22 @@ import (
 
 	"sigs.k8s.io/yaml"
 
+	chart "helm.sh/helm/v4/pkg/chart/v2"
+	"helm.sh/helm/v4/pkg/cli"
+	"helm.sh/helm/v4/pkg/getter"
+)
+import (
+	"bytes"
+	"net/http"
+	"net/http/httptest"
+	"os"
+	"runtime"
+	"strings"
+	"testing"
+	"time"
+
+	"sigs.k8s.io/yaml"
+
 	"helm.sh/helm/v4/pkg/cli"
 	"helm.sh/helm/v4/pkg/getter"
 )
@@ -89,8 +105,6 @@ func TestIndexCustomSchemeDownload(t *testing.T) {
 		t.Fatalf("Custom Getter.Get should be called with %s", expectedRepoIndexURL)
 	}
 }
-
-// startLocalServerForTests Start the local helm server
 func startLocalServerForTests(handler http.Handler) (*httptest.Server, error) {
 	if handler == nil {
 		fileBytes, err := os.ReadFile("testdata/local-index.yaml")
@@ -104,8 +118,6 @@ func startLocalServerForTests(handler http.Handler) (*httptest.Server, error) {
 
 	return httptest.NewServer(handler), nil
 }
-
-// startLocalTLSServerForTests Start the local helm server with TLS
 func startLocalTLSServerForTests(handler http.Handler) (*httptest.Server, error) {
 	if handler == nil {
 		fileBytes, err := os.ReadFile("testdata/local-index.yaml")
@@ -235,3 +247,7 @@ func TestResolveReferenceURL(t *testing.T) {
 		}
 	}
 }
+
+// startLocalServerForTests Start the local helm server
+
+// startLocalTLSServerForTests Start the local helm server with TLS
