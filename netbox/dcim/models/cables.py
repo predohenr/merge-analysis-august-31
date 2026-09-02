@@ -620,12 +620,12 @@ class CableTermination(ChangeLoggedModel):
         # Circuit terminations
         elif getattr(self.termination, 'site', None):
             self._site = self.termination.site
-    cache_related_objects.alters_data = True
 
     def to_objectchange(self, action):
         objectchange = super().to_objectchange(action)
         objectchange.related_object = self.termination
         return objectchange
+    cache_related_objects.alters_data = True
 
 
 class CablePath(models.Model):
@@ -735,8 +735,6 @@ class CablePath(models.Model):
                 nodes.append(decompile_path_node(node))
             res.append(nodes)
         return res
-
-    path_objects = GenericArrayForeignKey("_path_decompiled")
 
     @property
     def origins(self):
@@ -1022,7 +1020,6 @@ class CablePath(models.Model):
             self.save()
         else:
             self.delete()
-    retrace.alters_data = True
 
     def get_cable_ids(self):
         """
@@ -1107,3 +1104,6 @@ class CablePath(models.Model):
                 asymmetric_nodes.extend([node for node in nodes if node.link is None])
 
         return asymmetric_nodes
+
+    path_objects = GenericArrayForeignKey("_path_decompiled")
+    retrace.alters_data = True
