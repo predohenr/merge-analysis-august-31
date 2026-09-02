@@ -215,16 +215,16 @@ def _get_traceback(secret, error: Exception):
     return "".join(traceback.format_exception(type(error), error, _do_skip(error)))
 
 
-# Singleton signal to not update an output, alternative to PreventUpdate
-no_update = _callback.NoUpdate()  # pylint: disable=protected-access
-
-
 async def execute_async_function(func, *args, **kwargs):
     # Check if the function is a coroutine function
     if inspect.iscoroutinefunction(func):
         return await func(*args, **kwargs)
     # If the function is not a coroutine, call it directly
     return func(*args, **kwargs)
+
+
+# Singleton signal to not update an output, alternative to PreventUpdate
+no_update = _callback.NoUpdate()  # pylint: disable=protected-access
 
 
 # pylint: disable=too-many-instance-attributes
