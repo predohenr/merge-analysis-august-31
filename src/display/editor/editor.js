@@ -49,84 +49,166 @@ import { TouchManager } from "../touch_manager.js";
 class AnnotationEditor {
   #accessibilityData = null;
 
-  #allResizerDivs = null;
+  hasAltText() {
+    return !!this.#altText && !this.#altText.isEmpty();
+  }
 
-  #altText = null;
+  focusin(event) {
+    if (!this._focusEventsAllowed) {
+      return;
+    }
+    if (!this.#hasBeenClicked) {
+      this.parent.setSelected(this);
+    } else {
+      this.#hasBeenClicked = false;
+    }
+  }
 
-  #comment = null;
+  /**
+   * Fix the position of the editor in order to keep it inside its parent page.
+   * @param {number} [rotation] - the rotation of the page.
+   */
 
-  #commentStandaloneButton = null;
+  removeCommentButtonFromToolbar() {
+    this._editToolbar?.removeButton("comment");
+  }
 
-  #disabled = false;
+  #touchManager = null
 
-  #dragPointerId = null;
+  get elementBeforePopup() {
+    return this.div;
+  }
 
-  #dragPointerType = "";
+  addContainer(container) {
+    const editToolbarDiv = this._editToolbar?.div;
+    if (editToolbarDiv) {
+      editToolbarDiv.before(container);
+    } else {
+      this.div.append(container);
+    }
+  }
 
-  #resizersDiv = null;
-
-  #lastPointerCoords = null;
-
-  #savedDimensions = null;
-
-  #focusAC = null;
-
-  #focusedResizerName = "";
-
-  #hasBeenClicked = false;
-
-  #initialRect = null;
-
-  #isEditing = false;
-
-  #isInEditMode = false;
-
-  #isResizerEnabledForKeyboard = false;
-
-  #moveInDOMTimeout = null;
-
-  #prevDragX = 0;
-
-  #prevDragY = 0;
-
-  #telemetryTimeouts = null;
-
-  #touchManager = null;
-
-  isSelected = false;
-
-  _isCopy = false;
-
-  _editToolbar = null;
-
-  _initialOptions = Object.create(null);
-
-  _initialData = null;
-
-  _isVisible = true;
-
-  _uiManager = null;
-
-  _focusEventsAllowed = true;
-
-  static _l10n = null;
-
-  static _l10nResizer = null;
-
-  #isDraggable = false;
-
-  #zIndex = AnnotationEditor._zIndex++;
-
-  static _borderLineWidth = -1;
-
-  static _colorManager = new ColorManager();
-
-  static _zIndex = 1;
-
-  // Time to wait (in ms) before sending the telemetry data.
-  // We wait a bit to avoid sending too many requests when changing something
   // like the thickness of a line.
-  static _telemetryTimeout = 1000;
+
+  _onStartDragging() {}
+
+  isInEditMode() {
+    return this.#isInEditMode;
+  }
+
+;
+
+  get propertiesToUpdate() {
+    return [];
+  }
+
+;
+
+;
+
+  _editToolbar = null
+
+  get _hasBeenMoved() {
+    return (
+      !!this.#initialRect &&
+      (this.#initialRect[0] !== this.x || this.#initialRect[1] !== this.y)
+    );
+  }
+
+  async addEditToolbar() {
+    if (this._editToolbar || this.#isInEditMode) {
+      return this._editToolbar;
+    }
+    this._editToolbar = new EditorToolbar(this);
+    this.div.append(this._editToolbar.render());
+    const { toolbarButtons } = this;
+    if (toolbarButtons) {
+      for (const [name, tool] of toolbarButtons) {
+        await this._editToolbar.addButton(name, tool);
+      }
+    }
+    if (!this.hasComment) {
+      this._editToolbar.addButton("comment", this.addCommentButton());
+    }
+    this._editToolbar.addButton("delete");
+
+    return this._editToolbar;
+  }
+
+;
+
+  async editComment(options) {
+    this.#comment ||= new Comment(this);
+    this.#comment.edit(options);
+  }
+
+  /**
+   * Convert a page translation into a screen one.
+   * @param {number} x
+   * @param {number} y
+   */
+
+  set commentPopupPosition(pos) {
+    this.#comment.commentPopupPositionInLayer = pos;
+  }
+
+  get commentPopupPosition() {
+    return this.#comment.commentPopupPositionInLayer;
+  }
+
+;
+
+  #touchPinchEndCallback() {
+    this.#altText?.toggle(true);
+    this.parent.togglePointerEvents(true);
+    this.#addResizeToUndoStack();
+  }
+
+  get isResizable() {
+    return false;
+  }
+
+;
+
+  _setParentAndPosition(parent, x, y) {
+    parent.changeParent(this);
+    this.x = x;
+    this.y = y;
+    this.fixAndSetPosition();
+    this._onTranslated();
+  }
+
+  addComment(serialized) {
+    if (this.hasEditedComment) {
+      const DEFAULT_POPUP_WIDTH = 180;
+      const DEFAULT_POPUP_HEIGHT = 100;
+      const [, , , trY] = serialized.rect;
+      const [pageWidth] = this.pageDimensions;
+      const [pageX] = this.pageTranslation;
+      const blX = pageX + pageWidth + 1;
+      const blY = trY - DEFAULT_POPUP_HEIGHT;
+      const trX = blX + DEFAULT_POPUP_WIDTH;
+      serialized.popup = {
+        contents: this.comment.text,
+        deleted: this.comment.deleted,
+        rect: [blX, blY, trX, trY],
+      };
+    }
+  }
+
+  makeResizable() {
+    if (this.isResizable) {
+      this.#createResizers();
+      this.#resizersDiv.classList.remove("hidden");
+    }
+  }
+
+  // We wait a bit to avoid sending too many requests when changing something
+
+  /**
+   * @returns {boolean} true if position must be fixed (i.e. make the x and y
+   * living in the page).
+   */
 
   static get _resizerKeyboardManager() {
     const resize = AnnotationEditor.prototype._resizeWithKeyboard;
@@ -161,597 +243,65 @@ class AnnotationEditor {
     );
   }
 
-  /**
-   * @param {AnnotationEditorParameters} parameters
-   */
-  constructor(parameters) {
-    if (
-      (typeof PDFJSDev === "undefined" || PDFJSDev.test("TESTING")) &&
-      this.constructor === AnnotationEditor
-    ) {
-      unreachable("Cannot initialize AnnotationEditor.");
-    }
+;
 
-    this.parent = parameters.parent;
-    this.id = parameters.id;
-    this.width = this.height = null;
-    this.pageIndex = parameters.parent.pageIndex;
-    this.name = parameters.name;
-    this.div = null;
-    this._uiManager = parameters.uiManager;
-    this.annotationElementId = null;
-    this._willKeepAspectRatio = false;
-    this._initialOptions.isCentered = parameters.isCentered;
-    this._structTreeParentId = null;
-    this.annotationElementId = parameters.annotationElementId || null;
-    this.creationDate = parameters.creationDate || new Date();
-    this.modificationDate = parameters.modificationDate || null;
+  _onTranslated(x, y) {}
 
-    const {
-      rotation,
-      rawDims: { pageWidth, pageHeight, pageX, pageY },
-    } = this.parent.viewport;
+  #isResizerEnabledForKeyboard = false
 
-    this.rotation = rotation;
-    this.pageRotation =
-      (360 + rotation - this._uiManager.viewParameters.rotation) % 360;
-    this.pageDimensions = [pageWidth, pageHeight];
-    this.pageTranslation = [pageX, pageY];
+  removeEditToolbar() {
+    this._editToolbar?.remove();
+    this._editToolbar = null;
 
-    const [width, height] = this.parentDimensions;
-    this.x = parameters.x / width;
-    this.y = parameters.y / height;
-
-    this.isAttachedToDOM = false;
-    this.deleted = false;
-  }
-
-  get editorType() {
-    return Object.getPrototypeOf(this).constructor._type;
-  }
-
-  get mode() {
-    return Object.getPrototypeOf(this).constructor._editorType;
-  }
-
-  static get isDrawer() {
-    return false;
-  }
-
-  static get _defaultLineColor() {
-    return shadow(
-      this,
-      "_defaultLineColor",
-      this._colorManager.getHexCode("CanvasText")
-    );
-  }
-
-  static deleteAnnotationElement(editor) {
-    const fakeEditor = new FakeEditor({
-      id: editor.parent.getNextId(),
-      parent: editor.parent,
-      uiManager: editor._uiManager,
-    });
-    fakeEditor.annotationElementId = editor.annotationElementId;
-    fakeEditor.deleted = true;
-    fakeEditor._uiManager.addToAnnotationStorage(fakeEditor);
+    // We destroy the alt text but we don't null it because we want to be able
+    // to restore it in case the user undoes the deletion.
+    this.#altText?.destroy();
   }
 
   /**
    * Initialize the l10n stuff for this type of editor.
    * @param {Object} l10n
    */
-  static initialize(l10n, _uiManager) {
-    AnnotationEditor._l10n ??= l10n;
 
-    AnnotationEditor._l10nResizer ||= Object.freeze({
-      topLeft: "pdfjs-editor-resizer-top-left",
-      topMiddle: "pdfjs-editor-resizer-top-middle",
-      topRight: "pdfjs-editor-resizer-top-right",
-      middleRight: "pdfjs-editor-resizer-middle-right",
-      bottomRight: "pdfjs-editor-resizer-bottom-right",
-      bottomMiddle: "pdfjs-editor-resizer-bottom-middle",
-      bottomLeft: "pdfjs-editor-resizer-bottom-left",
-      middleLeft: "pdfjs-editor-resizer-middle-left",
-    });
-
-    if (AnnotationEditor._borderLineWidth !== -1) {
-      return;
+  disableEditMode() {
+    if (!this.isInEditMode()) {
+      return false;
     }
-    const style = getComputedStyle(document.documentElement);
-    AnnotationEditor._borderLineWidth =
-      parseFloat(style.getPropertyValue("--outline-width")) || 0;
+    this.parent.setEditingState(true);
+    this.#isInEditMode = false;
+
+    return true;
   }
 
   /**
-   * Update the default parameters for this type of editor.
-   * @param {number} _type
-   * @param {*} _value
+   * Resize the editor when the page is resized.
    */
-  static updateDefaultParams(_type, _value) {}
 
   /**
-   * Get the default properties to set in the UI for this type of editor.
-   * @returns {Array}
+   * Get the position of the comment button.
+   * @returns {Array<number>|null}
    */
-  static get defaultPropertiesToUpdate() {
-    return [];
-  }
-
-  /**
-   * Check if this kind of editor is able to handle the given mime type for
-   * pasting.
-   * @param {string} mime
-   * @returns {boolean}
-   */
-  static isHandlingMimeForPasting(mime) {
-    return false;
-  }
-
-  /**
-   * Extract the data from the clipboard item and delegate the creation of the
-   * editor to the parent.
-   * @param {DataTransferItem} item
-   * @param {AnnotationEditorLayer} parent
-   */
-  static paste(item, parent) {
-    unreachable("Not implemented");
-  }
 
   /**
    * Get the properties to update in the UI for this editor.
    * @returns {Array}
    */
-  get propertiesToUpdate() {
-    return [];
-  }
 
-  get _isDraggable() {
-    return this.#isDraggable;
-  }
+  #prevDragX = 0
 
-  set _isDraggable(value) {
-    this.#isDraggable = value;
-    this.div?.classList.toggle("draggable", value);
-  }
-
-  get uid() {
-    return this.annotationElementId || this.id;
+  #resizerFocus(name) {
+    this.#focusedResizerName = this.#isResizerEnabledForKeyboard ? name : "";
   }
 
   /**
-   * @returns {boolean} true if the editor handles the Enter key itself.
+   * Deserialize the editor.
+   * The result of the deserialization is a new editor.
+   *
+   * @param {Object} data
+   * @param {AnnotationEditorLayer} parent
+   * @param {AnnotationEditorUIManager} uiManager
+   * @returns {Promise<AnnotationEditor | null>}
    */
-  get isEnterHandled() {
-    return true;
-  }
-
-  center() {
-    const [pageWidth, pageHeight] = this.pageDimensions;
-    switch (this.parentRotation) {
-      case 90:
-        this.x -= (this.height * pageHeight) / (pageWidth * 2);
-        this.y += (this.width * pageWidth) / (pageHeight * 2);
-        break;
-      case 180:
-        this.x += this.width / 2;
-        this.y += this.height / 2;
-        break;
-      case 270:
-        this.x += (this.height * pageHeight) / (pageWidth * 2);
-        this.y -= (this.width * pageWidth) / (pageHeight * 2);
-        break;
-      default:
-        this.x -= this.width / 2;
-        this.y -= this.height / 2;
-        break;
-    }
-    this.fixAndSetPosition();
-  }
-
-  /**
-   * Add some commands into the CommandManager (undo/redo stuff).
-   * @param {Object} params
-   */
-  addCommands(params) {
-    this._uiManager.addCommands(params);
-  }
-
-  get currentLayer() {
-    return this._uiManager.currentLayer;
-  }
-
-  /**
-   * This editor will be behind the others.
-   */
-  setInBackground() {
-    this.div.style.zIndex = 0;
-  }
-
-  /**
-   * This editor will be in the foreground.
-   */
-  setInForeground() {
-    this.div.style.zIndex = this.#zIndex;
-  }
-
-  setParent(parent) {
-    if (parent !== null) {
-      this.pageIndex = parent.pageIndex;
-      this.pageDimensions = parent.pageDimensions;
-    } else {
-      // The editor is being removed from the DOM, so we need to stop resizing.
-      this.#stopResizing();
-    }
-    this.parent = parent;
-  }
-
-  /**
-   * onfocus callback.
-   */
-  focusin(event) {
-    if (!this._focusEventsAllowed) {
-      return;
-    }
-    if (!this.#hasBeenClicked) {
-      this.parent.setSelected(this);
-    } else {
-      this.#hasBeenClicked = false;
-    }
-  }
-
-  /**
-   * onblur callback.
-   * @param {FocusEvent} event
-   */
-  focusout(event) {
-    if (!this._focusEventsAllowed) {
-      return;
-    }
-
-    if (!this.isAttachedToDOM) {
-      return;
-    }
-
-    // In case of focusout, the relatedTarget is the element which
-    // is grabbing the focus.
-    // So if the related target is an element under the div for this
-    // editor, then the editor isn't unactive.
-    const target = event.relatedTarget;
-    if (target?.closest(`#${this.id}`)) {
-      return;
-    }
-
-    event.preventDefault();
-
-    if (!this.parent?.isMultipleSelection) {
-      this.commitOrRemove();
-    }
-  }
-
-  commitOrRemove() {
-    if (this.isEmpty()) {
-      this.remove();
-    } else {
-      this.commit();
-    }
-  }
-
-  /**
-   * Commit the data contained in this editor.
-   */
-  commit() {
-    if (!this.isInEditMode()) {
-      return;
-    }
-    this.addToAnnotationStorage();
-  }
-
-  addToAnnotationStorage() {
-    this._uiManager.addToAnnotationStorage(this);
-  }
-
-  /**
-   * Set the editor position within its parent.
-   * @param {number} x
-   * @param {number} y
-   * @param {number} tx - x-translation in screen coordinates.
-   * @param {number} ty - y-translation in screen coordinates.
-   */
-  setAt(x, y, tx, ty) {
-    const [width, height] = this.parentDimensions;
-    [tx, ty] = this.screenToPageTranslation(tx, ty);
-
-    this.x = (x + tx) / width;
-    this.y = (y + ty) / height;
-
-    this.fixAndSetPosition();
-  }
-
-  _moveAfterPaste(baseX, baseY) {
-    const [parentWidth, parentHeight] = this.parentDimensions;
-    this.setAt(
-      baseX * parentWidth,
-      baseY * parentHeight,
-      this.width * parentWidth,
-      this.height * parentHeight
-    );
-    this._onTranslated();
-  }
-
-  #translate([width, height], x, y) {
-    [x, y] = this.screenToPageTranslation(x, y);
-
-    this.x += x / width;
-    this.y += y / height;
-
-    this._onTranslating(this.x, this.y);
-
-    this.fixAndSetPosition();
-  }
-
-  /**
-   * Translate the editor position within its parent.
-   * @param {number} x - x-translation in screen coordinates.
-   * @param {number} y - y-translation in screen coordinates.
-   */
-  translate(x, y) {
-    // We don't change the initial position because the move here hasn't been
-    // done by the user.
-    this.#translate(this.parentDimensions, x, y);
-  }
-
-  /**
-   * Translate the editor position within its page and adjust the scroll
-   * in order to have the editor in the view.
-   * @param {number} x - x-translation in page coordinates.
-   * @param {number} y - y-translation in page coordinates.
-   */
-  translateInPage(x, y) {
-    this.#initialRect ||= [this.x, this.y, this.width, this.height];
-    this.#translate(this.pageDimensions, x, y);
-    this.div.scrollIntoView({ block: "nearest" });
-  }
-
-  translationDone() {
-    this._onTranslated(this.x, this.y);
-  }
-
-  drag(tx, ty) {
-    this.#initialRect ||= [this.x, this.y, this.width, this.height];
-    const {
-      div,
-      parentDimensions: [parentWidth, parentHeight],
-    } = this;
-    this.x += tx / parentWidth;
-    this.y += ty / parentHeight;
-    if (this.parent && (this.x < 0 || this.x > 1 || this.y < 0 || this.y > 1)) {
-      // It's possible to not have a parent: for example, when the user is
-      // dragging all the selected editors but this one on a page which has been
-      // destroyed.
-      // It's why we need to check for it. In such a situation, it isn't really
-      // a problem to not find a new parent: it's something which is related to
-      // what the user is seeing, hence it depends on how pages are layed out.
-
-      // The element will be outside of its parent so change the parent.
-      const { x, y } = this.div.getBoundingClientRect();
-      if (this.parent.findNewParent(this, x, y)) {
-        this.x -= Math.floor(this.x);
-        this.y -= Math.floor(this.y);
-      }
-    }
-
-    // The editor can be moved wherever the user wants, so we don't need to fix
-    // the position: it'll be done when the user will release the mouse button.
-
-    let { x, y } = this;
-    const [bx, by] = this.getBaseTranslation();
-    x += bx;
-    y += by;
-
-    const { style } = div;
-    style.left = `${(100 * x).toFixed(2)}%`;
-    style.top = `${(100 * y).toFixed(2)}%`;
-
-    this._onTranslating(x, y);
-
-    div.scrollIntoView({ block: "nearest" });
-  }
-
-  /**
-   * Called when the editor is being translated.
-   * @param {number} x - in page coordinates.
-   * @param {number} y - in page coordinates.
-   */
-  _onTranslating(x, y) {}
-
-  /**
-   * Called when the editor has been translated.
-   * @param {number} x - in page coordinates.
-   * @param {number} y - in page coordinates.
-   */
-  _onTranslated(x, y) {}
-
-  get _hasBeenMoved() {
-    return (
-      !!this.#initialRect &&
-      (this.#initialRect[0] !== this.x || this.#initialRect[1] !== this.y)
-    );
-  }
-
-  get _hasBeenResized() {
-    return (
-      !!this.#initialRect &&
-      (this.#initialRect[2] !== this.width ||
-        this.#initialRect[3] !== this.height)
-    );
-  }
-
-  /**
-   * Get the translation to take into account the editor border.
-   * The CSS engine positions the element by taking the border into account so
-   * we must apply the opposite translation to have the editor in the right
-   * position.
-   * @returns {Array<number>}
-   */
-  getBaseTranslation() {
-    const [parentWidth, parentHeight] = this.parentDimensions;
-    const { _borderLineWidth } = AnnotationEditor;
-    const x = _borderLineWidth / parentWidth;
-    const y = _borderLineWidth / parentHeight;
-    switch (this.rotation) {
-      case 90:
-        return [-x, y];
-      case 180:
-        return [x, y];
-      case 270:
-        return [x, -y];
-      default:
-        return [-x, -y];
-    }
-  }
-
-  /**
-   * @returns {boolean} true if position must be fixed (i.e. make the x and y
-   * living in the page).
-   */
-  get _mustFixPosition() {
-    return true;
-  }
-
-  /**
-   * Fix the position of the editor in order to keep it inside its parent page.
-   * @param {number} [rotation] - the rotation of the page.
-   */
-  fixAndSetPosition(rotation = this.rotation) {
-    const {
-      div: { style },
-      pageDimensions: [pageWidth, pageHeight],
-    } = this;
-    let { x, y, width, height } = this;
-    width *= pageWidth;
-    height *= pageHeight;
-    x *= pageWidth;
-    y *= pageHeight;
-
-    if (this._mustFixPosition) {
-      switch (rotation) {
-        case 0:
-          x = MathClamp(x, 0, pageWidth - width);
-          y = MathClamp(y, 0, pageHeight - height);
-          break;
-        case 90:
-          x = MathClamp(x, 0, pageWidth - height);
-          y = MathClamp(y, width, pageHeight);
-          break;
-        case 180:
-          x = MathClamp(x, width, pageWidth);
-          y = MathClamp(y, height, pageHeight);
-          break;
-        case 270:
-          x = MathClamp(x, height, pageWidth);
-          y = MathClamp(y, 0, pageHeight - width);
-          break;
-      }
-    }
-
-    this.x = x /= pageWidth;
-    this.y = y /= pageHeight;
-
-    const [bx, by] = this.getBaseTranslation();
-    x += bx;
-    y += by;
-
-    style.left = `${(100 * x).toFixed(2)}%`;
-    style.top = `${(100 * y).toFixed(2)}%`;
-
-    this.moveInDOM();
-  }
-
-  static #rotatePoint(x, y, angle) {
-    switch (angle) {
-      case 90:
-        return [y, -x];
-      case 180:
-        return [-x, -y];
-      case 270:
-        return [-y, x];
-      default:
-        return [x, y];
-    }
-  }
-
-  /**
-   * Convert a screen translation into a page one.
-   * @param {number} x
-   * @param {number} y
-   */
-  screenToPageTranslation(x, y) {
-    return AnnotationEditor.#rotatePoint(x, y, this.parentRotation);
-  }
-
-  /**
-   * Convert a page translation into a screen one.
-   * @param {number} x
-   * @param {number} y
-   */
-  pageTranslationToScreen(x, y) {
-    return AnnotationEditor.#rotatePoint(x, y, 360 - this.parentRotation);
-  }
-
-  #getRotationMatrix(rotation) {
-    switch (rotation) {
-      case 90: {
-        const [pageWidth, pageHeight] = this.pageDimensions;
-        return [0, -pageWidth / pageHeight, pageHeight / pageWidth, 0];
-      }
-      case 180:
-        return [-1, 0, 0, -1];
-      case 270: {
-        const [pageWidth, pageHeight] = this.pageDimensions;
-        return [0, pageWidth / pageHeight, -pageHeight / pageWidth, 0];
-      }
-      default:
-        return [1, 0, 0, 1];
-    }
-  }
-
-  get parentScale() {
-    return this._uiManager.viewParameters.realScale;
-  }
-
-  get parentRotation() {
-    return (this._uiManager.viewParameters.rotation + this.pageRotation) % 360;
-  }
-
-  get parentDimensions() {
-    const {
-      parentScale,
-      pageDimensions: [pageWidth, pageHeight],
-    } = this;
-    return [pageWidth * parentScale, pageHeight * parentScale];
-  }
-
-  /**
-   * Set the dimensions of this editor.
-   */
-  setDims() {
-    const {
-      div: { style },
-      width,
-      height,
-    } = this;
-    style.width = `${(100 * width).toFixed(2)}%`;
-    style.height = `${(100 * height).toFixed(2)}%`;
-  }
-
-  /**
-   * Get the translation used to position this editor when it's created.
-   * @returns {Array<number>}
-   */
-  getInitialTranslation() {
-    return [0, 0];
-  }
 
   #createResizers() {
     if (this.#resizersDiv) {
@@ -789,6 +339,537 @@ class AnnotationEditor {
       div.tabIndex = -1;
     }
     this.div.prepend(this.#resizersDiv);
+  }
+
+  static _round(x) {
+    // 10000 because we multiply by 100 and use toFixed(2) in fixAndSetPosition.
+    // Without rounding, the positions of the corners other than the top left
+    // one can be slightly wrong.
+    return Math.round(x * 10000) / 10000;
+  }
+
+  #resizerKeydown(event) {
+    AnnotationEditor._resizerKeyboardManager.exec(this, event);
+  }
+
+  #stopResizing() {
+    this.#isResizerEnabledForKeyboard = false;
+    this.#setResizerTabIndex(-1);
+    this.#addResizeToUndoStack();
+  }
+
+  render() {
+    const div = (this.div = document.createElement("div"));
+    div.setAttribute("data-editor-rotation", (360 - this.rotation) % 360);
+    div.className = this.name;
+    div.setAttribute("id", this.id);
+    div.tabIndex = this.#disabled ? -1 : 0;
+    div.setAttribute("role", "application");
+    if (this.defaultL10nId) {
+      div.setAttribute("data-l10n-id", this.defaultL10nId);
+    }
+    if (!this._isVisible) {
+      div.classList.add("hidden");
+    }
+
+    this.setInForeground();
+    this.#addFocusListeners();
+
+    const [parentWidth, parentHeight] = this.parentDimensions;
+    if (this.parentRotation % 180 !== 0) {
+      div.style.maxWidth = `${((100 * parentHeight) / parentWidth).toFixed(
+        2
+      )}%`;
+      div.style.maxHeight = `${((100 * parentWidth) / parentHeight).toFixed(
+        2
+      )}%`;
+    }
+
+    const [tx, ty] = this.getInitialTranslation();
+    this.translate(tx, ty);
+
+    bindEvents(this, div, ["keydown", "pointerdown", "dblclick"]);
+
+    if (this.isResizable && this._uiManager._supportsPinchToZoom) {
+      this.#touchManager ||= new TouchManager({
+        container: div,
+        isPinchingDisabled: () => !this.isSelected,
+        onPinchStart: this.#touchPinchStartCallback.bind(this),
+        onPinching: this.#touchPinchCallback.bind(this),
+        onPinchEnd: this.#touchPinchEndCallback.bind(this),
+        signal: this._uiManager._signal,
+      });
+    }
+
+    this.addStandaloneCommentButton();
+    this._uiManager._editorUndoBar?.hide();
+
+    return div;
+  }
+
+  addCommentButtonInToolbar() {
+    this._editToolbar?.addButtonBefore(
+      "comment",
+      this.addCommentButton(),
+      ".deleteButton"
+    );
+  }
+
+  /**
+   * Check if this editor needs to be rebuilt or not.
+   * @returns {boolean}
+   */
+
+  get guessedAltText() {
+    return this.#altText?.guessedText;
+  }
+
+;
+
+;
+
+;
+
+  #setResizerTabIndex(value) {
+    if (!this.#allResizerDivs) {
+      return;
+    }
+    for (const div of this.#allResizerDivs) {
+      div.tabIndex = value;
+    }
+  }
+
+  #resize(x, y, width, height) {
+    this.width = width;
+    this.height = height;
+    this.x = x;
+    this.y = y;
+    this.setDims();
+    this.fixAndSetPosition();
+    this._onResized();
+  }
+
+;
+
+  static _colorManager = new ColorManager()
+
+  resize() {}
+
+  setAt(x, y, tx, ty) {
+    const [width, height] = this.parentDimensions;
+    [tx, ty] = this.screenToPageTranslation(tx, ty);
+
+    this.x = (x + tx) / width;
+    this.y = (y + ty) / height;
+
+    this.fixAndSetPosition();
+  }
+
+  /**
+   * Called when the editor has been resized.
+   */
+
+  /**
+   * Called when the editor has been translated.
+   * @param {number} x - in page coordinates.
+   * @param {number} y - in page coordinates.
+   */
+
+  /**
+   * Get the toolbar buttons for this editor.
+   * @returns {Array<Array<string|object|null>>|null}
+   */
+
+;
+
+  /**
+   * Get the translation used to position this editor when it's created.
+   * @returns {Array<number>}
+   */
+
+  get commentButtonPositionInPage() {
+    const {
+      commentButtonPosition: [posX, posY],
+    } = this;
+    const [blX, blY, trX, trY] = this.getPDFRect();
+    return [
+      AnnotationEditor._round(blX + (trX - blX) * posX),
+      AnnotationEditor._round(blY + (trY - blY) * (1 - posY)),
+    ];
+  }
+
+  /**
+   * @returns {boolean} true if this editor can be resized.
+   */
+
+  #comment = null
+
+;
+
+  #resizersDiv = null
+
+  focus() {
+    if (this.div && !this.div.contains(document.activeElement)) {
+      setTimeout(() => this.div?.focus({ preventScroll: true }), 0);
+    }
+  }
+
+;
+
+  getInitialTranslation() {
+    return [0, 0];
+  }
+
+  screenToPageTranslation(x, y) {
+    return AnnotationEditor.#rotatePoint(x, y, this.parentRotation);
+  }
+
+;
+
+;
+
+  _isCopy = false
+
+;
+
+  // like the thickness of a line.
+
+  /**
+   * The color has been changed.
+   */
+
+  /**
+   * Get the default properties to set in the UI for this type of editor.
+   * @returns {Array}
+   */
+
+;
+
+  /**
+   * Check if the editor is edited.
+   * @returns {boolean}
+   */
+
+  get uid() {
+    return this.annotationElementId || this.id;
+  }
+
+;
+
+  #commentStandaloneButton = null
+
+  /**
+   * Extract the data from the clipboard item and delegate the creation of the
+   * editor to the parent.
+   * @param {DataTransferItem} item
+   * @param {AnnotationEditorLayer} parent
+   */
+
+  hasDefaultPopupPosition() {
+    return this.#comment.hasDefaultPopupPosition();
+  }
+
+  get altTextData() {
+    return this.#altText?.data;
+  }
+  set altTextData(data) {
+    if (!this.#altText) {
+      return;
+    }
+    this.#altText.data = data;
+  }
+
+;
+
+  /**
+   * Create the alt text for this editor.
+   * @returns {object}
+   */
+
+  setSelectedCommentButton(selected) {
+    this.#comment.setSelectedButton(selected);
+  }
+
+;
+
+  translate(x, y) {
+    // We don't change the initial position because the move here hasn't been
+    // done by the user.
+    this.#translate(this.parentDimensions, x, y);
+  }
+
+  /**
+   * Convert the current rect into a page one.
+   * @param {number} tx - x-translation in screen coordinates.
+   * @param {number} ty - y-translation in screen coordinates.
+   * @param {number} [rotation] - the rotation of the page.
+   */
+
+;
+
+  /**
+   * Check if the editor contains something.
+   * @returns {boolean}
+   */
+
+  get hasEditedComment() {
+    return this.#comment?.hasBeenEdited();
+  }
+
+  _uiManager = null
+
+  #focusedResizerName = ""
+
+  /**
+   * onblur callback.
+   * @param {FocusEvent} event
+   */
+
+  /**
+   * Check if an existing annotation associated with this editor has been
+   * modified.
+   * @returns {boolean}
+   */
+
+  get hasBeenModified() {
+    return (
+      !!this.annotationElementId && (this.deleted || this.serialize() !== null)
+    );
+  }
+
+  setCommentButtonStates(options) {
+    this.#comment.setCommentButtonStates(options);
+  }
+
+;
+
+  static #rotatePoint(x, y, angle) {
+    switch (angle) {
+      case 90:
+        return [y, -x];
+      case 180:
+        return [-x, -y];
+      case 270:
+        return [-y, x];
+      default:
+        return [x, y];
+    }
+  }
+
+  static paste(item, parent) {
+    unreachable("Not implemented");
+  }
+
+  #focusAC = null
+
+  #resizerBlur(event) {
+    if (
+      this.#isResizerEnabledForKeyboard &&
+      event.relatedTarget?.parentNode !== this.#resizersDiv
+    ) {
+      this.#stopResizing();
+    }
+  }
+
+  _onResizing() {}
+
+;
+
+;
+
+  get mode() {
+    return Object.getPrototypeOf(this).constructor._editorType;
+  }
+
+  get commentButtonWidth() {
+    return this.#comment.commentButtonWidth;
+  }
+
+;
+
+  /**
+   * Add a toolbar for this editor.
+   * @returns {Promise<EditorToolbar|null>}
+   */
+
+  remove() {
+    this.#focusAC?.abort();
+    this.#focusAC = null;
+
+    if (!this.isEmpty()) {
+      // The editor is removed but it can be back at some point thanks to
+      // undo/redo so we must commit it before.
+      this.commit();
+    }
+    if (this.parent) {
+      this.parent.remove(this);
+    } else {
+      this._uiManager.removeEditor(this);
+    }
+
+    if (this.#moveInDOMTimeout) {
+      clearTimeout(this.#moveInDOMTimeout);
+      this.#moveInDOMTimeout = null;
+    }
+    this.#stopResizing();
+    this.removeEditToolbar();
+    if (this.#telemetryTimeouts) {
+      for (const timeout of this.#telemetryTimeouts.values()) {
+        clearTimeout(timeout);
+      }
+      this.#telemetryTimeouts = null;
+    }
+    this.parent = null;
+    this.#touchManager?.destroy();
+    this.#touchManager = null;
+  }
+
+  _initialData = null
+
+;
+
+  /**
+   * Set the dimensions of this editor.
+   */
+
+  set _isDraggable(value) {
+    this.#isDraggable = value;
+    this.div?.classList.toggle("draggable", value);
+  }
+
+  get _isDraggable() {
+    return this.#isDraggable;
+  }
+
+  get commentButtonColor() {
+    return this._uiManager.makeCommentColor(
+      this.getNonHCMColor(),
+      this.opacity
+    );
+  }
+
+  /**
+   * This editor will be behind the others.
+   */
+
+;
+
+  getClientDimensions() {
+    return this.div.getBoundingClientRect();
+  }
+
+  setCommentData({ comment, popupRef, richText }) {
+    if (!popupRef) {
+      return;
+    }
+    this.#comment ||= new Comment(this);
+    this.#comment.setInitialText(comment, richText);
+
+    if (!this.annotationElementId) {
+      return;
+    }
+    const storedData = this._uiManager.getAndRemoveDataFromAnnotationStorage(
+      this.annotationElementId
+    );
+    if (storedData) {
+      this.updateFromAnnotationLayer(storedData);
+    }
+  }
+
+  translationDone() {
+    this._onTranslated(this.x, this.y);
+  }
+
+  static get _defaultLineColor() {
+    return shadow(
+      this,
+      "_defaultLineColor",
+      this._colorManager.getHexCode("CanvasText")
+    );
+  }
+
+;
+
+  addCommentButton() {
+    return (this.#comment ||= new Comment(this));
+  }
+
+  get _mustFixPosition() {
+    return true;
+  }
+
+  /**
+   * Check if this kind of editor is able to handle the given mime type for
+   * pasting.
+   * @param {string} mime
+   * @returns {boolean}
+   */
+
+;
+
+  pointerdown(event) {
+    const { isMac } = FeatureTest.platform;
+    if (event.button !== 0 || (event.ctrlKey && isMac)) {
+      // Avoid to focus this editor because of a non-left click.
+      event.preventDefault();
+      return;
+    }
+    this.#hasBeenClicked = true;
+
+    if (this._isDraggable) {
+      this.#setUpDragSession(event);
+      return;
+    }
+
+    this.#selectOnPointerEvent(event);
+  }
+
+  static _l10n = null
+
+  #addResizeToUndoStack() {
+    if (!this.#savedDimensions) {
+      return;
+    }
+    const { savedX, savedY, savedWidth, savedHeight } = this.#savedDimensions;
+    this.#savedDimensions = null;
+
+    const newX = this.x;
+    const newY = this.y;
+    const newWidth = this.width;
+    const newHeight = this.height;
+    if (
+      newX === savedX &&
+      newY === savedY &&
+      newWidth === savedWidth &&
+      newHeight === savedHeight
+    ) {
+      return;
+    }
+
+    this.addCommands({
+      cmd: this.#resize.bind(this, newX, newY, newWidth, newHeight),
+      undo: this.#resize.bind(this, savedX, savedY, savedWidth, savedHeight),
+      mustExec: true,
+    });
+  }
+
+  #isEditing = false
+
+;
+
+  /**
+   * Commit the data contained in this editor.
+   */
+
+;
+
+  getNonHCMColor() {
+    return (
+      this.color &&
+      AnnotationEditor._colorManager.convert(
+        this._uiManager.getNonHCMColor(this.color)
+      )
+    );
   }
 
   #resizerPointerdown(name, event) {
@@ -846,53 +927,260 @@ class AnnotationEditor {
     window.addEventListener("blur", pointerUpCallback, { signal });
   }
 
-  #resize(x, y, width, height) {
-    this.width = width;
-    this.height = height;
-    this.x = x;
-    this.y = y;
-    this.setDims();
-    this.fixAndSetPosition();
-    this._onResized();
+  #touchPinchStartCallback() {
+    this.#savedDimensions = {
+      savedX: this.x,
+      savedY: this.y,
+      savedWidth: this.width,
+      savedHeight: this.height,
+    };
+    this.#altText?.toggle(false);
+    this.parent.togglePointerEvents(false);
+  }
+
+  _moveAfterPaste(baseX, baseY) {
+    const [parentWidth, parentHeight] = this.parentDimensions;
+    this.setAt(
+      baseX * parentWidth,
+      baseY * parentHeight,
+      this.width * parentWidth,
+      this.height * parentHeight
+    );
+    this._onTranslated();
+  }
+
+  #lastPointerCoords = null
+
+  rebuild() {
+    this.#addFocusListeners();
   }
 
   /**
-   * Called when the editor has been resized.
+   * @returns {boolean} true if the editor handles the Enter key itself.
    */
-  _onResized() {}
 
-  #addResizeToUndoStack() {
-    if (!this.#savedDimensions) {
-      return;
-    }
-    const { savedX, savedY, savedWidth, savedHeight } = this.#savedDimensions;
-    this.#savedDimensions = null;
+  /**
+   * @param {AnnotationEditorParameters} parameters
+   */
 
-    const newX = this.x;
-    const newY = this.y;
-    const newWidth = this.width;
-    const newHeight = this.height;
-    if (
-      newX === savedX &&
-      newY === savedY &&
-      newWidth === savedWidth &&
-      newHeight === savedHeight
-    ) {
-      return;
-    }
+;
 
-    this.addCommands({
-      cmd: this.#resize.bind(this, newX, newY, newWidth, newHeight),
-      undo: this.#resize.bind(this, savedX, savedY, savedWidth, savedHeight),
-      mustExec: true,
-    });
+  get parentBoundingClientRect() {
+    return this.parent.boundingClientRect;
   }
 
-  static _round(x) {
-    // 10000 because we multiply by 100 and use toFixed(2) in fixAndSetPosition.
-    // Without rounding, the positions of the corners other than the top left
-    // one can be slightly wrong.
-    return Math.round(x * 10000) / 10000;
+  toggleComment(isSelected, visibility = undefined) {
+    if (this.hasComment) {
+      this._uiManager.toggleComment(this, isSelected, visibility);
+    }
+  }
+
+  onUpdatedColor() {
+    this.#comment?.onUpdatedColor();
+  }
+
+;
+
+  /**
+   * Rotate the editor when the page is rotated.
+   * @param {number} angle
+   */
+
+  get parentScale() {
+    return this._uiManager.viewParameters.realScale;
+  }
+
+  #isInEditMode = false
+
+  #getRotationMatrix(rotation) {
+    switch (rotation) {
+      case 90: {
+        const [pageWidth, pageHeight] = this.pageDimensions;
+        return [0, -pageWidth / pageHeight, pageHeight / pageWidth, 0];
+      }
+      case 180:
+        return [-1, 0, 0, -1];
+      case 270: {
+        const [pageWidth, pageHeight] = this.pageDimensions;
+        return [0, pageWidth / pageHeight, -pageHeight / pageWidth, 0];
+      }
+      default:
+        return [1, 0, 0, 1];
+    }
+  }
+
+  /**
+   * This editor will be in the foreground.
+   */
+
+;
+
+  createAltText() {
+    if (!this.#altText) {
+      AltText.initialize(AnnotationEditor._l10n);
+      this.#altText = new AltText(this);
+      if (this.#accessibilityData) {
+        this.#altText.data = this.#accessibilityData;
+        this.#accessibilityData = null;
+      }
+    }
+    return this.#altText;
+  }
+
+  _isVisible = true
+
+  /**
+   * Rebuild the editor in case it has been removed on undo.
+   *
+   * To implement in subclasses.
+   */
+
+;
+
+  set comment(text) {
+    this.#comment ||= new Comment(this);
+    this.#comment.data = text;
+    if (this.hasComment) {
+      this.removeCommentButtonFromToolbar();
+      this.addStandaloneCommentButton();
+      this._uiManager.updateComment(this);
+    } else {
+      this.addCommentButtonInToolbar();
+      this.removeStandaloneCommentButton();
+      this._uiManager.removeComment(this);
+    }
+  }
+
+  get comment() {
+    const {
+      data: { richText, text, date, deleted },
+    } = this.#comment;
+    return {
+      text,
+      richText,
+      date,
+      deleted,
+      color: this.getNonHCMColor(),
+      opacity: this.opacity ?? 1,
+    };
+  }
+
+;
+
+  /**
+   * Render this editor in a div.
+   * @returns {HTMLDivElement | null}
+   */
+
+  // Time to wait (in ms) before sending the telemetry data.
+
+  _onTranslating(x, y) {}
+
+  translateInPage(x, y) {
+    this.#initialRect ||= [this.x, this.y, this.width, this.height];
+    this.#translate(this.pageDimensions, x, y);
+    this.div.scrollIntoView({ block: "nearest" });
+  }
+
+;
+
+  isSelected = false
+
+;
+
+;
+
+  shouldGetKeyboardEvents() {
+    return this.#isResizerEnabledForKeyboard;
+  }
+
+  #isDraggable = false
+
+;
+
+  commitOrRemove() {
+    if (this.isEmpty()) {
+      this.remove();
+    } else {
+      this.commit();
+    }
+  }
+
+  /**
+   * Get the translation to take into account the editor border.
+   * The CSS engine positions the element by taking the border into account so
+   * we must apply the opposite translation to have the editor in the right
+   * position.
+   * @returns {Array<number>}
+   */
+
+;
+
+  #prevDragY = 0
+
+  /**
+   * Convert a screen translation into a page one.
+   * @param {number} x
+   * @param {number} y
+   */
+
+;
+
+  #dragPointerType = ""
+
+  /**
+   * Translate the editor position within its page and adjust the scroll
+   * in order to have the editor in the view.
+   * @param {number} x - x-translation in page coordinates.
+   * @param {number} y - y-translation in page coordinates.
+   */
+
+  #hasBeenClicked = false
+
+  /**
+   * Called when the editor is being translated.
+   * @param {number} x - in page coordinates.
+   * @param {number} y - in page coordinates.
+   */
+
+;
+
+  /**
+   * Executed once this editor has been rendered.
+   * @param {boolean} focus - true if the editor should be focused.
+   */
+
+  /**
+   * Called when the alt text dialog is closed.
+   */
+
+;
+
+;
+
+  /**
+   * Set the alt text data.
+   */
+
+  /**
+   * Add the resizers to this editor.
+   */
+
+;
+
+  #addFocusListeners() {
+    if (this.#focusAC || !this.div) {
+      return;
+    }
+    this.#focusAC = new AbortController();
+    const signal = this._uiManager.combinedSignal(this.#focusAC);
+
+    this.div.addEventListener("focusin", this.focusin.bind(this), { signal });
+    this.div.addEventListener("focusout", this.focusout.bind(this), { signal });
+  }
+
+  get toolbarButtons() {
+    return null;
   }
 
   #resizerPointermove(name, event) {
@@ -1035,321 +1323,210 @@ class AnnotationEditor {
   }
 
   /**
-   * Called when the editor is being resized.
+   * Update the default parameters for this type of editor.
+   * @param {number} _type
+   * @param {*} _value
    */
-  _onResizing() {}
 
-  /**
-   * Called when the alt text dialog is closed.
-   */
-  altTextFinish() {
-    this.#altText?.finish();
+  get commentButtonPosition() {
+    return this._uiManager.direction === "ltr" ? [1, 0] : [0, 0];
   }
 
-  /**
-   * Get the toolbar buttons for this editor.
-   * @returns {Array<Array<string|object|null>>|null}
-   */
-  get toolbarButtons() {
-    return null;
-  }
+;
 
-  /**
-   * Add a toolbar for this editor.
-   * @returns {Promise<EditorToolbar|null>}
-   */
-  async addEditToolbar() {
-    if (this._editToolbar || this.#isInEditMode) {
-      return this._editToolbar;
-    }
-    this._editToolbar = new EditorToolbar(this);
-    this.div.append(this._editToolbar.render());
-    const { toolbarButtons } = this;
-    if (toolbarButtons) {
-      for (const [name, tool] of toolbarButtons) {
-        await this._editToolbar.addButton(name, tool);
-      }
-    }
-    if (!this.hasComment) {
-      this._editToolbar.addButton("comment", this.addCommentButton());
-    }
-    this._editToolbar.addButton("delete");
-
-    return this._editToolbar;
-  }
-
-  addCommentButtonInToolbar() {
-    this._editToolbar?.addButtonBefore(
-      "comment",
-      this.addCommentButton(),
-      ".deleteButton"
-    );
-  }
-
-  removeCommentButtonFromToolbar() {
-    this._editToolbar?.removeButton("comment");
-  }
-
-  removeEditToolbar() {
-    this._editToolbar?.remove();
-    this._editToolbar = null;
-
-    // We destroy the alt text but we don't null it because we want to be able
-    // to restore it in case the user undoes the deletion.
-    this.#altText?.destroy();
-  }
-
-  addContainer(container) {
-    const editToolbarDiv = this._editToolbar?.div;
-    if (editToolbarDiv) {
-      editToolbarDiv.before(container);
-    } else {
-      this.div.append(container);
+  getBaseTranslation() {
+    const [parentWidth, parentHeight] = this.parentDimensions;
+    const { _borderLineWidth } = AnnotationEditor;
+    const x = _borderLineWidth / parentWidth;
+    const y = _borderLineWidth / parentHeight;
+    switch (this.rotation) {
+      case 90:
+        return [-x, y];
+      case 180:
+        return [x, y];
+      case 270:
+        return [x, -y];
+      default:
+        return [-x, -y];
     }
   }
 
-  getClientDimensions() {
-    return this.div.getBoundingClientRect();
+;
+
+  get currentLayer() {
+    return this._uiManager.currentLayer;
   }
 
-  /**
-   * Create the alt text for this editor.
-   * @returns {object}
-   */
-  createAltText() {
-    if (!this.#altText) {
-      AltText.initialize(AnnotationEditor._l10n);
-      this.#altText = new AltText(this);
-      if (this.#accessibilityData) {
-        this.#altText.data = this.#accessibilityData;
-        this.#accessibilityData = null;
-      }
-    }
-    return this.#altText;
+  get parentRotation() {
+    return (this._uiManager.viewParameters.rotation + this.pageRotation) % 360;
   }
 
-  get altTextData() {
-    return this.#altText?.data;
-  }
-
-  /**
-   * Set the alt text data.
-   */
-  set altTextData(data) {
-    if (!this.#altText) {
+  select() {
+    if (this.isSelected && this._editToolbar) {
+      this._editToolbar.show();
       return;
     }
-    this.#altText.data = data;
-  }
-
-  get guessedAltText() {
-    return this.#altText?.guessedText;
-  }
-
-  async setGuessedAltText(text) {
-    await this.#altText?.setGuessedText(text);
-  }
-
-  serializeAltText(isForCopying) {
-    return this.#altText?.serialize(isForCopying);
-  }
-
-  hasAltText() {
-    return !!this.#altText && !this.#altText.isEmpty();
-  }
-
-  hasAltTextData() {
-    return this.#altText?.hasData() ?? false;
-  }
-
-  focusCommentButton() {
-    this.#comment?.focusButton();
-  }
-
-  addCommentButton() {
-    return (this.#comment ||= new Comment(this));
-  }
-
-  addStandaloneCommentButton() {
-    if (this.#commentStandaloneButton) {
-      this.#commentStandaloneButton.classList.remove("hidden");
+    this.isSelected = true;
+    this.makeResizable();
+    this.div?.classList.add("selectedEditor");
+    if (!this._editToolbar) {
+      this.addEditToolbar().then(() => {
+        if (this.div?.classList.contains("selectedEditor")) {
+          // The editor can have been unselected while we were waiting for the
+          // edit toolbar to be created, hence we want to be sure that this
+          // editor is still selected.
+          this._editToolbar?.show();
+        }
+      });
       return;
     }
-    if (!this.hasComment) {
-      return;
-    }
-    this.#commentStandaloneButton = this.#comment.renderForStandalone();
-    this.div.append(this.#commentStandaloneButton);
+    this._editToolbar?.show();
+    this.#altText?.toggleAltTextBadge(false);
   }
 
-  removeStandaloneCommentButton() {
-    this.#comment.removeStandaloneCommentButton();
-    this.#commentStandaloneButton = null;
-  }
-
-  hideStandaloneCommentButton() {
-    this.#commentStandaloneButton?.classList.add("hidden");
-  }
-
-  get comment() {
-    const {
-      data: { richText, text, date, deleted },
-    } = this.#comment;
+  serializeDeleted() {
     return {
-      text,
-      richText,
-      date,
-      deleted,
-      color: this.getNonHCMColor(),
-      opacity: this.opacity ?? 1,
+      id: this.annotationElementId,
+      deleted: true,
+      pageIndex: this.pageIndex,
+      popupRef: this._initialData?.popupRef || "",
     };
   }
 
-  set comment(text) {
-    this.#comment ||= new Comment(this);
-    this.#comment.data = text;
-    if (this.hasComment) {
-      this.removeCommentButtonFromToolbar();
-      this.addStandaloneCommentButton();
-      this._uiManager.updateComment(this);
-    } else {
-      this.addCommentButtonInToolbar();
-      this.removeStandaloneCommentButton();
-      this._uiManager.removeComment(this);
+  moveInDOM() {
+    // Moving the editor in the DOM can be expensive, so we wait a bit before.
+    // It's important to not block the UI (for example when changing the font
+    // size in a FreeText).
+    if (this.#moveInDOMTimeout) {
+      clearTimeout(this.#moveInDOMTimeout);
+    }
+    this.#moveInDOMTimeout = setTimeout(() => {
+      this.#moveInDOMTimeout = null;
+      this.parent?.moveEditorInDOM(this);
+      if (typeof PDFJSDev !== "undefined" && PDFJSDev.test("TESTING")) {
+        this._uiManager._eventBus.dispatch("editormovedindom", {
+          source: this,
+        });
+      }
+    }, 0);
+  }
+
+  /**
+   * Called when the editor is being resized.
+   */
+
+  isEmpty() {
+    return false;
+  }
+
+  getRect(tx, ty, rotation = this.rotation) {
+    const scale = this.parentScale;
+    const [pageWidth, pageHeight] = this.pageDimensions;
+    const [pageX, pageY] = this.pageTranslation;
+    const shiftX = tx / scale;
+    const shiftY = ty / scale;
+    const x = this.x * pageWidth;
+    const y = this.y * pageHeight;
+    const width = this.width * pageWidth;
+    const height = this.height * pageHeight;
+
+    switch (rotation) {
+      case 0:
+        return [
+          x + shiftX + pageX,
+          pageHeight - y - shiftY - height + pageY,
+          x + shiftX + width + pageX,
+          pageHeight - y - shiftY + pageY,
+        ];
+      case 90:
+        return [
+          x + shiftY + pageX,
+          pageHeight - y + shiftX + pageY,
+          x + shiftY + height + pageX,
+          pageHeight - y + shiftX + width + pageY,
+        ];
+      case 180:
+        return [
+          x - shiftX - width + pageX,
+          pageHeight - y + shiftY + pageY,
+          x - shiftX + pageX,
+          pageHeight - y + shiftY + height + pageY,
+        ];
+      case 270:
+        return [
+          x - shiftY - height + pageX,
+          pageHeight - y - shiftX - width + pageY,
+          x - shiftY + pageX,
+          pageHeight - y - shiftX + pageY,
+        ];
+      default:
+        throw new Error("Invalid rotation");
     }
   }
 
-  setCommentData({ comment, popupRef, richText }) {
-    if (!popupRef) {
-      return;
+;
+
+;
+
+  drag(tx, ty) {
+    this.#initialRect ||= [this.x, this.y, this.width, this.height];
+    const {
+      div,
+      parentDimensions: [parentWidth, parentHeight],
+    } = this;
+    this.x += tx / parentWidth;
+    this.y += ty / parentHeight;
+    if (this.parent && (this.x < 0 || this.x > 1 || this.y < 0 || this.y > 1)) {
+      // It's possible to not have a parent: for example, when the user is
+      // dragging all the selected editors but this one on a page which has been
+      // destroyed.
+      // It's why we need to check for it. In such a situation, it isn't really
+      // a problem to not find a new parent: it's something which is related to
+      // what the user is seeing, hence it depends on how pages are layed out.
+
+      // The element will be outside of its parent so change the parent.
+      const { x, y } = this.div.getBoundingClientRect();
+      if (this.parent.findNewParent(this, x, y)) {
+        this.x -= Math.floor(this.x);
+        this.y -= Math.floor(this.y);
+      }
     }
-    this.#comment ||= new Comment(this);
-    this.#comment.setInitialText(comment, richText);
 
-    if (!this.annotationElementId) {
-      return;
-    }
-    const storedData = this._uiManager.getAndRemoveDataFromAnnotationStorage(
-      this.annotationElementId
-    );
-    if (storedData) {
-      this.updateFromAnnotationLayer(storedData);
-    }
+    // The editor can be moved wherever the user wants, so we don't need to fix
+    // the position: it'll be done when the user will release the mouse button.
+
+    let { x, y } = this;
+    const [bx, by] = this.getBaseTranslation();
+    x += bx;
+    y += by;
+
+    const { style } = div;
+    style.left = `${(100 * x).toFixed(2)}%`;
+    style.top = `${(100 * y).toFixed(2)}%`;
+
+    this._onTranslating(x, y);
+
+    div.scrollIntoView({ block: "nearest" });
   }
 
-  get hasEditedComment() {
-    return this.#comment?.hasBeenEdited();
+;
+
+  #allResizerDivs = null
+
+  #initialRect = null
+
+  rotate(_angle) {}
+
+  get isEnterHandled() {
+    return true;
   }
 
-  get hasComment() {
-    return (
-      !!this.#comment && !this.#comment.isEmpty() && !this.#comment.isDeleted()
-    );
-  }
+  #zIndex = AnnotationEditor._zIndex++
 
-  async editComment(options) {
-    this.#comment ||= new Comment(this);
-    this.#comment.edit(options);
-  }
-
-  toggleComment(isSelected, visibility = undefined) {
-    if (this.hasComment) {
-      this._uiManager.toggleComment(this, isSelected, visibility);
-    }
-  }
-
-  setSelectedCommentButton(selected) {
-    this.#comment.setSelectedButton(selected);
-  }
-
-  addComment(serialized) {
-    if (this.hasEditedComment) {
-      const DEFAULT_POPUP_WIDTH = 180;
-      const DEFAULT_POPUP_HEIGHT = 100;
-      const [, , , trY] = serialized.rect;
-      const [pageWidth] = this.pageDimensions;
-      const [pageX] = this.pageTranslation;
-      const blX = pageX + pageWidth + 1;
-      const blY = trY - DEFAULT_POPUP_HEIGHT;
-      const trX = blX + DEFAULT_POPUP_WIDTH;
-      serialized.popup = {
-        contents: this.comment.text,
-        deleted: this.comment.deleted,
-        rect: [blX, blY, trX, trY],
-      };
-    }
-  }
+;
 
   updateFromAnnotationLayer({ popup: { contents, deleted } }) {
     this.#comment.data = deleted ? null : contents;
-  }
-
-  get parentBoundingClientRect() {
-    return this.parent.boundingClientRect;
-  }
-
-  /**
-   * Render this editor in a div.
-   * @returns {HTMLDivElement | null}
-   */
-  render() {
-    const div = (this.div = document.createElement("div"));
-    div.setAttribute("data-editor-rotation", (360 - this.rotation) % 360);
-    div.className = this.name;
-    div.setAttribute("id", this.id);
-    div.tabIndex = this.#disabled ? -1 : 0;
-    div.setAttribute("role", "application");
-    if (this.defaultL10nId) {
-      div.setAttribute("data-l10n-id", this.defaultL10nId);
-    }
-    if (!this._isVisible) {
-      div.classList.add("hidden");
-    }
-
-    this.setInForeground();
-    this.#addFocusListeners();
-
-    const [parentWidth, parentHeight] = this.parentDimensions;
-    if (this.parentRotation % 180 !== 0) {
-      div.style.maxWidth = `${((100 * parentHeight) / parentWidth).toFixed(
-        2
-      )}%`;
-      div.style.maxHeight = `${((100 * parentWidth) / parentHeight).toFixed(
-        2
-      )}%`;
-    }
-
-    const [tx, ty] = this.getInitialTranslation();
-    this.translate(tx, ty);
-
-    bindEvents(this, div, ["keydown", "pointerdown", "dblclick"]);
-
-    if (this.isResizable && this._uiManager._supportsPinchToZoom) {
-      this.#touchManager ||= new TouchManager({
-        container: div,
-        isPinchingDisabled: () => !this.isSelected,
-        onPinchStart: this.#touchPinchStartCallback.bind(this),
-        onPinching: this.#touchPinchCallback.bind(this),
-        onPinchEnd: this.#touchPinchEndCallback.bind(this),
-        signal: this._uiManager._signal,
-      });
-    }
-
-    this.addStandaloneCommentButton();
-    this._uiManager._editorUndoBar?.hide();
-
-    return div;
-  }
-
-  #touchPinchStartCallback() {
-    this.#savedDimensions = {
-      savedX: this.x,
-      savedY: this.y,
-      savedWidth: this.width,
-      savedHeight: this.height,
-    };
-    this.#altText?.toggle(false);
-    this.parent.togglePointerEvents(false);
   }
 
   #touchPinchCallback(_origin, prevDistance, distance) {
@@ -1405,45 +1582,101 @@ class AnnotationEditor {
     this._onResizing();
   }
 
-  #touchPinchEndCallback() {
-    this.#altText?.toggle(true);
-    this.parent.togglePointerEvents(true);
-    this.#addResizeToUndoStack();
+  getData() {
+    const {
+      comment: { text: str, color, date, opacity, deleted, richText },
+      uid: id,
+      pageIndex,
+      creationDate,
+      modificationDate,
+    } = this;
+    return {
+      id,
+      pageIndex,
+      rect: this.getPDFRect(),
+      richText,
+      contentsObj: { str },
+      creationDate,
+      modificationDate: date || modificationDate,
+      popupRef: !deleted,
+      color,
+      opacity,
+    };
   }
+
+  setParent(parent) {
+    if (parent !== null) {
+      this.pageIndex = parent.pageIndex;
+      this.pageDimensions = parent.pageDimensions;
+    } else {
+      // The editor is being removed from the DOM, so we need to stop resizing.
+      this.#stopResizing();
+    }
+    this.parent = parent;
+  }
+
+;
 
   /**
-   * Onpointerdown callback.
-   * @param {PointerEvent} event
+   * Remove this editor.
+   * It's used on ctrl+backspace action.
    */
-  pointerdown(event) {
-    const { isMac } = FeatureTest.platform;
-    if (event.button !== 0 || (event.ctrlKey && isMac)) {
-      // Avoid to focus this editor because of a non-left click.
-      event.preventDefault();
-      return;
-    }
-    this.#hasBeenClicked = true;
 
-    if (this._isDraggable) {
-      this.#setUpDragSession(event);
-      return;
-    }
-
-    this.#selectOnPointerEvent(event);
+  get _hasBeenResized() {
+    return (
+      !!this.#initialRect &&
+      (this.#initialRect[2] !== this.width ||
+        this.#initialRect[3] !== this.height)
+    );
   }
 
-  #selectOnPointerEvent(event) {
-    const { isMac } = FeatureTest.platform;
-    if (
-      (event.ctrlKey && !isMac) ||
-      event.shiftKey ||
-      (event.metaKey && isMac)
-    ) {
-      this.parent.toggleSelected(this);
-    } else {
-      this.parent.setSelected(this);
+  focusout(event) {
+    if (!this._focusEventsAllowed) {
+      return;
+    }
+
+    if (!this.isAttachedToDOM) {
+      return;
+    }
+
+    // In case of focusout, the relatedTarget is the element which
+    // is grabbing the focus.
+    // So if the related target is an element under the div for this
+    // editor, then the editor isn't unactive.
+    const target = event.relatedTarget;
+    if (target?.closest(`#${this.id}`)) {
+      return;
+    }
+
+    event.preventDefault();
+
+    if (!this.parent?.isMultipleSelection) {
+      this.commitOrRemove();
     }
   }
+
+  get toolbarPosition() {
+    return null;
+  }
+
+  #translate([width, height], x, y) {
+    [x, y] = this.screenToPageTranslation(x, y);
+
+    this.x += x / width;
+    this.y += y / height;
+
+    this._onTranslating(this.x, this.y);
+
+    this.fixAndSetPosition();
+  }
+
+;
+
+  static isHandlingMimeForPasting(mime) {
+    return false;
+  }
+
+;
 
   #setUpDragSession(event) {
     const { isSelected } = this;
@@ -1536,301 +1769,176 @@ class AnnotationEditor {
     window.addEventListener("blur", pointerUpCallback, { signal });
   }
 
-  _onStartDragging() {}
+  static _borderLineWidth = -1
 
-  _onStopDragging() {}
+  _focusEventsAllowed = true
 
-  moveInDOM() {
-    // Moving the editor in the DOM can be expensive, so we wait a bit before.
-    // It's important to not block the UI (for example when changing the font
-    // size in a FreeText).
-    if (this.#moveInDOMTimeout) {
-      clearTimeout(this.#moveInDOMTimeout);
+  static _telemetryTimeout = 1000
+
+  setInBackground() {
+    this.div.style.zIndex = 0;
+  }
+
+  setDims() {
+    const {
+      div: { style },
+      width,
+      height,
+    } = this;
+    style.width = `${(100 * width).toFixed(2)}%`;
+    style.height = `${(100 * height).toFixed(2)}%`;
+  }
+
+  _resizeWithKeyboard(x, y) {
+    if (!this.#isResizerEnabledForKeyboard) {
+      return;
     }
-    this.#moveInDOMTimeout = setTimeout(() => {
-      this.#moveInDOMTimeout = null;
-      this.parent?.moveEditorInDOM(this);
-      if (typeof PDFJSDev !== "undefined" && PDFJSDev.test("TESTING")) {
-        this._uiManager._eventBus.dispatch("editormovedindom", {
-          source: this,
-        });
-      }
-    }, 0);
+    this.#resizerPointermove(this.#focusedResizerName, {
+      deltaX: x,
+      deltaY: y,
+      fromKeyboard: true,
+    });
   }
 
-  _setParentAndPosition(parent, x, y) {
-    parent.changeParent(this);
-    this.x = x;
-    this.y = y;
-    this.fixAndSetPosition();
-    this._onTranslated();
+  static deleteAnnotationElement(editor) {
+    const fakeEditor = new FakeEditor({
+      id: editor.parent.getNextId(),
+      parent: editor.parent,
+      uiManager: editor._uiManager,
+    });
+    fakeEditor.annotationElementId = editor.annotationElementId;
+    fakeEditor.deleted = true;
+    fakeEditor._uiManager.addToAnnotationStorage(fakeEditor);
   }
 
-  /**
-   * Convert the current rect into a page one.
-   * @param {number} tx - x-translation in screen coordinates.
-   * @param {number} ty - y-translation in screen coordinates.
-   * @param {number} [rotation] - the rotation of the page.
-   */
-  getRect(tx, ty, rotation = this.rotation) {
-    const scale = this.parentScale;
+  static get isDrawer() {
+    return false;
+  }
+
+;
+
+  #altText = null
+
+  hideStandaloneCommentButton() {
+    this.#commentStandaloneButton?.classList.add("hidden");
+  }
+
+;
+
+;
+
+  center() {
     const [pageWidth, pageHeight] = this.pageDimensions;
-    const [pageX, pageY] = this.pageTranslation;
-    const shiftX = tx / scale;
-    const shiftY = ty / scale;
-    const x = this.x * pageWidth;
-    const y = this.y * pageHeight;
-    const width = this.width * pageWidth;
-    const height = this.height * pageHeight;
-
-    switch (rotation) {
-      case 0:
-        return [
-          x + shiftX + pageX,
-          pageHeight - y - shiftY - height + pageY,
-          x + shiftX + width + pageX,
-          pageHeight - y - shiftY + pageY,
-        ];
+    switch (this.parentRotation) {
       case 90:
-        return [
-          x + shiftY + pageX,
-          pageHeight - y + shiftX + pageY,
-          x + shiftY + height + pageX,
-          pageHeight - y + shiftX + width + pageY,
-        ];
+        this.x -= (this.height * pageHeight) / (pageWidth * 2);
+        this.y += (this.width * pageWidth) / (pageHeight * 2);
+        break;
       case 180:
-        return [
-          x - shiftX - width + pageX,
-          pageHeight - y + shiftY + pageY,
-          x - shiftX + pageX,
-          pageHeight - y + shiftY + height + pageY,
-        ];
+        this.x += this.width / 2;
+        this.y += this.height / 2;
+        break;
       case 270:
-        return [
-          x - shiftY - height + pageX,
-          pageHeight - y - shiftX - width + pageY,
-          x - shiftY + pageX,
-          pageHeight - y - shiftX + pageY,
-        ];
+        this.x += (this.height * pageHeight) / (pageWidth * 2);
+        this.y -= (this.width * pageWidth) / (pageHeight * 2);
+        break;
       default:
-        throw new Error("Invalid rotation");
+        this.x -= this.width / 2;
+        this.y -= this.height / 2;
+        break;
     }
+    this.fixAndSetPosition();
   }
 
-  getRectInCurrentCoords(rect, pageHeight) {
-    const [x1, y1, x2, y2] = rect;
-
-    const width = x2 - x1;
-    const height = y2 - y1;
-
-    switch (this.rotation) {
-      case 0:
-        return [x1, pageHeight - y2, width, height];
-      case 90:
-        return [x1, pageHeight - y1, height, width];
-      case 180:
-        return [x2, pageHeight - y1, width, height];
-      case 270:
-        return [x2, pageHeight - y2, height, width];
-      default:
-        throw new Error("Invalid rotation");
-    }
+  focusCommentButton() {
+    this.#comment?.focusButton();
   }
 
-  /**
-   * Get the rect in page coordinates without any translation.
-   * It's used when serializing the editor.
-   * @returns {Array<number>}
-   */
+  async setGuessedAltText(text) {
+    await this.#altText?.setGuessedText(text);
+  }
+
+;
+
+;
+
+  get editorType() {
+    return Object.getPrototypeOf(this).constructor._type;
+  }
+
+  constructor(parameters) {
+    if (
+      (typeof PDFJSDev === "undefined" || PDFJSDev.test("TESTING")) &&
+      this.constructor === AnnotationEditor
+    ) {
+      unreachable("Cannot initialize AnnotationEditor.");
+    }
+
+    this.parent = parameters.parent;
+    this.id = parameters.id;
+    this.width = this.height = null;
+    this.pageIndex = parameters.parent.pageIndex;
+    this.name = parameters.name;
+    this.div = null;
+    this._uiManager = parameters.uiManager;
+    this.annotationElementId = null;
+    this._willKeepAspectRatio = false;
+    this._initialOptions.isCentered = parameters.isCentered;
+    this._structTreeParentId = null;
+    this.annotationElementId = parameters.annotationElementId || null;
+    this.creationDate = parameters.creationDate || new Date();
+    this.modificationDate = parameters.modificationDate || null;
+
+    const {
+      rotation,
+      rawDims: { pageWidth, pageHeight, pageX, pageY },
+    } = this.parent.viewport;
+
+    this.rotation = rotation;
+    this.pageRotation =
+      (360 + rotation - this._uiManager.viewParameters.rotation) % 360;
+    this.pageDimensions = [pageWidth, pageHeight];
+    this.pageTranslation = [pageX, pageY];
+
+    const [width, height] = this.parentDimensions;
+    this.x = parameters.x / width;
+    this.y = parameters.y / height;
+
+    this.isAttachedToDOM = false;
+    this.deleted = false;
+  }
+
+;
+
+;
+
+  #dragPointerId = null
+
+  get parentDimensions() {
+    const {
+      parentScale,
+      pageDimensions: [pageWidth, pageHeight],
+    } = this;
+    return [pageWidth * parentScale, pageHeight * parentScale];
+  }
+
   getPDFRect() {
     return this.getRect(0, 0);
   }
 
-  getNonHCMColor() {
-    return (
-      this.color &&
-      AnnotationEditor._colorManager.convert(
-        this._uiManager.getNonHCMColor(this.color)
-      )
-    );
+  removeStandaloneCommentButton() {
+    this.#comment.removeStandaloneCommentButton();
+    this.#commentStandaloneButton = null;
   }
 
-  /**
-   * The color has been changed.
-   */
-  onUpdatedColor() {
-    this.#comment?.onUpdatedColor();
+  static get defaultPropertiesToUpdate() {
+    return [];
   }
 
-  getData() {
-    const {
-      comment: { text: str, color, date, opacity, deleted, richText },
-      uid: id,
-      pageIndex,
-      creationDate,
-      modificationDate,
-    } = this;
-    return {
-      id,
-      pageIndex,
-      rect: this.getPDFRect(),
-      richText,
-      contentsObj: { str },
-      creationDate,
-      modificationDate: date || modificationDate,
-      popupRef: !deleted,
-      color,
-      opacity,
-    };
-  }
+;
 
-  /**
-   * Executed once this editor has been rendered.
-   * @param {boolean} focus - true if the editor should be focused.
-   */
-  onceAdded(focus) {}
+  // We wait a bit to avoid sending too many requests when changing something
 
-  /**
-   * Check if the editor contains something.
-   * @returns {boolean}
-   */
-  isEmpty() {
-    return false;
-  }
-
-  /**
-   * Enable edit mode.
-   * @returns {boolean} - true if the edit mode has been enabled.
-   */
-  enableEditMode() {
-    if (this.isInEditMode()) {
-      return false;
-    }
-    this.parent.setEditingState(false);
-    this.#isInEditMode = true;
-
-    return true;
-  }
-
-  /**
-   * Disable edit mode.
-   * @returns {boolean} - true if the edit mode has been disabled.
-   */
-  disableEditMode() {
-    if (!this.isInEditMode()) {
-      return false;
-    }
-    this.parent.setEditingState(true);
-    this.#isInEditMode = false;
-
-    return true;
-  }
-
-  /**
-   * Check if the editor is edited.
-   * @returns {boolean}
-   */
-  isInEditMode() {
-    return this.#isInEditMode;
-  }
-
-  /**
-   * If it returns true, then this editor handles the keyboard
-   * events itself.
-   * @returns {boolean}
-   */
-  shouldGetKeyboardEvents() {
-    return this.#isResizerEnabledForKeyboard;
-  }
-
-  /**
-   * Check if this editor needs to be rebuilt or not.
-   * @returns {boolean}
-   */
-  needsToBeRebuilt() {
-    return this.div && !this.isAttachedToDOM;
-  }
-
-  get isOnScreen() {
-    const { top, left, bottom, right } = this.getClientDimensions();
-    const { innerHeight, innerWidth } = window;
-    return left < innerWidth && right > 0 && top < innerHeight && bottom > 0;
-  }
-
-  #addFocusListeners() {
-    if (this.#focusAC || !this.div) {
-      return;
-    }
-    this.#focusAC = new AbortController();
-    const signal = this._uiManager.combinedSignal(this.#focusAC);
-
-    this.div.addEventListener("focusin", this.focusin.bind(this), { signal });
-    this.div.addEventListener("focusout", this.focusout.bind(this), { signal });
-  }
-
-  /**
-   * Rebuild the editor in case it has been removed on undo.
-   *
-   * To implement in subclasses.
-   */
-  rebuild() {
-    this.#addFocusListeners();
-  }
-
-  /**
-   * Rotate the editor when the page is rotated.
-   * @param {number} angle
-   */
-  rotate(_angle) {}
-
-  /**
-   * Resize the editor when the page is resized.
-   */
-  resize() {}
-
-  /**
-   * Serialize the editor when it has been deleted.
-   * @returns {Object}
-   */
-  serializeDeleted() {
-    return {
-      id: this.annotationElementId,
-      deleted: true,
-      pageIndex: this.pageIndex,
-      popupRef: this._initialData?.popupRef || "",
-    };
-  }
-
-  /**
-   * Serialize the editor.
-   * The result of the serialization will be used to construct a
-   * new annotation to add to the pdf document.
-   *
-   * To implement in subclasses.
-   * @param {boolean} [isForCopying]
-   * @param {Object | null} [context]
-   * @returns {Object | null}
-   */
-  serialize(isForCopying = false, context = null) {
-    return {
-      annotationType: this.mode,
-      pageIndex: this.pageIndex,
-      rect: this.getPDFRect(),
-      rotation: this.rotation,
-      structTreeParentId: this._structTreeParentId,
-      popupRef: this._initialData?.popupRef || "",
-    };
-  }
-
-  /**
-   * Deserialize the editor.
-   * The result of the deserialization is a new editor.
-   *
-   * @param {Object} data
-   * @param {AnnotationEditorLayer} parent
-   * @param {AnnotationEditorUIManager} uiManager
-   * @returns {Promise<AnnotationEditor | null>}
-   */
   static async deserialize(data, parent, uiManager) {
     const editor = new this.prototype.constructor({
       parent,
@@ -1858,128 +1966,286 @@ class AnnotationEditor {
     return editor;
   }
 
-  /**
-   * Check if an existing annotation associated with this editor has been
-   * modified.
-   * @returns {boolean}
-   */
-  get hasBeenModified() {
-    return (
-      !!this.annotationElementId && (this.deleted || this.serialize() !== null)
-    );
-  }
+  getRectInCurrentCoords(rect, pageHeight) {
+    const [x1, y1, x2, y2] = rect;
 
-  /**
-   * Remove this editor.
-   * It's used on ctrl+backspace action.
-   */
-  remove() {
-    this.#focusAC?.abort();
-    this.#focusAC = null;
+    const width = x2 - x1;
+    const height = y2 - y1;
 
-    if (!this.isEmpty()) {
-      // The editor is removed but it can be back at some point thanks to
-      // undo/redo so we must commit it before.
-      this.commit();
-    }
-    if (this.parent) {
-      this.parent.remove(this);
-    } else {
-      this._uiManager.removeEditor(this);
-    }
-
-    if (this.#moveInDOMTimeout) {
-      clearTimeout(this.#moveInDOMTimeout);
-      this.#moveInDOMTimeout = null;
-    }
-    this.#stopResizing();
-    this.removeEditToolbar();
-    if (this.#telemetryTimeouts) {
-      for (const timeout of this.#telemetryTimeouts.values()) {
-        clearTimeout(timeout);
-      }
-      this.#telemetryTimeouts = null;
-    }
-    this.parent = null;
-    this.#touchManager?.destroy();
-    this.#touchManager = null;
-  }
-
-  /**
-   * @returns {boolean} true if this editor can be resized.
-   */
-  get isResizable() {
-    return false;
-  }
-
-  /**
-   * Add the resizers to this editor.
-   */
-  makeResizable() {
-    if (this.isResizable) {
-      this.#createResizers();
-      this.#resizersDiv.classList.remove("hidden");
+    switch (this.rotation) {
+      case 0:
+        return [x1, pageHeight - y2, width, height];
+      case 90:
+        return [x1, pageHeight - y1, height, width];
+      case 180:
+        return [x2, pageHeight - y1, width, height];
+      case 270:
+        return [x2, pageHeight - y2, height, width];
+      default:
+        throw new Error("Invalid rotation");
     }
   }
 
-  get toolbarPosition() {
-    return null;
+  needsToBeRebuilt() {
+    return this.div && !this.isAttachedToDOM;
   }
 
-  /**
-   * Get the position of the comment button.
-   * @returns {Array<number>|null}
-   */
-  get commentButtonPosition() {
-    return this._uiManager.direction === "ltr" ? [1, 0] : [0, 0];
-  }
+  onceAdded(focus) {}
 
-  get commentButtonPositionInPage() {
+  #moveInDOMTimeout = null
+
+  fixAndSetPosition(rotation = this.rotation) {
     const {
-      commentButtonPosition: [posX, posY],
+      div: { style },
+      pageDimensions: [pageWidth, pageHeight],
     } = this;
-    const [blX, blY, trX, trY] = this.getPDFRect();
-    return [
-      AnnotationEditor._round(blX + (trX - blX) * posX),
-      AnnotationEditor._round(blY + (trY - blY) * (1 - posY)),
-    ];
+    let { x, y, width, height } = this;
+    width *= pageWidth;
+    height *= pageHeight;
+    x *= pageWidth;
+    y *= pageHeight;
+
+    if (this._mustFixPosition) {
+      switch (rotation) {
+        case 0:
+          x = MathClamp(x, 0, pageWidth - width);
+          y = MathClamp(y, 0, pageHeight - height);
+          break;
+        case 90:
+          x = MathClamp(x, 0, pageWidth - height);
+          y = MathClamp(y, width, pageHeight);
+          break;
+        case 180:
+          x = MathClamp(x, width, pageWidth);
+          y = MathClamp(y, height, pageHeight);
+          break;
+        case 270:
+          x = MathClamp(x, height, pageWidth);
+          y = MathClamp(y, 0, pageHeight - width);
+          break;
+      }
+    }
+
+    this.x = x /= pageWidth;
+    this.y = y /= pageHeight;
+
+    const [bx, by] = this.getBaseTranslation();
+    x += bx;
+    y += by;
+
+    style.left = `${(100 * x).toFixed(2)}%`;
+    style.top = `${(100 * y).toFixed(2)}%`;
+
+    this.moveInDOM();
   }
 
-  get commentButtonColor() {
-    return this._uiManager.makeCommentColor(
-      this.getNonHCMColor(),
-      this.opacity
+;
+
+;
+
+;
+
+;
+
+;
+
+  /**
+   * Get the rect in page coordinates without any translation.
+   * It's used when serializing the editor.
+   * @returns {Array<number>}
+   */
+
+  #telemetryTimeouts = null
+
+  /**
+   * Enable edit mode.
+   * @returns {boolean} - true if the edit mode has been enabled.
+   */
+
+  /**
+   * onfocus callback.
+   */
+
+  commit() {
+    if (!this.isInEditMode()) {
+      return;
+    }
+    this.addToAnnotationStorage();
+  }
+
+  altTextFinish() {
+    this.#altText?.finish();
+  }
+
+  pageTranslationToScreen(x, y) {
+    return AnnotationEditor.#rotatePoint(x, y, 360 - this.parentRotation);
+  }
+
+;
+
+  _initialOptions = Object.create(null)
+
+;
+
+  /**
+   * Serialize the editor.
+   * The result of the serialization will be used to construct a
+   * new annotation to add to the pdf document.
+   *
+   * To implement in subclasses.
+   * @param {boolean} [isForCopying]
+   * @param {Object | null} [context]
+   * @returns {Object | null}
+   */
+
+  #selectOnPointerEvent(event) {
+    const { isMac } = FeatureTest.platform;
+    if (
+      (event.ctrlKey && !isMac) ||
+      event.shiftKey ||
+      (event.metaKey && isMac)
+    ) {
+      this.parent.toggleSelected(this);
+    } else {
+      this.parent.setSelected(this);
+    }
+  }
+
+  /**
+   * Select this editor.
+   */
+
+;
+
+  // Time to wait (in ms) before sending the telemetry data.
+
+  /**
+   * Add some commands into the CommandManager (undo/redo stuff).
+   * @param {Object} params
+   */
+
+  /**
+   * Translate the editor position within its parent.
+   * @param {number} x - x-translation in screen coordinates.
+   * @param {number} y - y-translation in screen coordinates.
+   */
+
+  _stopResizingWithKeyboard() {
+    this.#stopResizing();
+    this.div.focus();
+  }
+
+  /**
+   * Disable edit mode.
+   * @returns {boolean} - true if the edit mode has been disabled.
+   */
+
+  /**
+   * Onpointerdown callback.
+   * @param {PointerEvent} event
+   */
+
+  setInForeground() {
+    this.div.style.zIndex = this.#zIndex;
+  }
+
+  get hasComment() {
+    return (
+      !!this.#comment && !this.#comment.isEmpty() && !this.#comment.isDeleted()
     );
   }
 
-  get commentPopupPosition() {
-    return this.#comment.commentPopupPositionInLayer;
-  }
+;
 
-  set commentPopupPosition(pos) {
-    this.#comment.commentPopupPositionInLayer = pos;
-  }
+  /**
+   * Serialize the editor when it has been deleted.
+   * @returns {Object}
+   */
 
-  hasDefaultPopupPosition() {
-    return this.#comment.hasDefaultPopupPosition();
-  }
-
-  get commentButtonWidth() {
-    return this.#comment.commentButtonWidth;
-  }
-
-  get elementBeforePopup() {
-    return this.div;
-  }
-
-  setCommentButtonStates(options) {
-    this.#comment.setCommentButtonStates(options);
+  serializeAltText(isForCopying) {
+    return this.#altText?.serialize(isForCopying);
   }
 
   /**
    * onkeydown callback.
    * @param {KeyboardEvent} event
    */
+
+  addStandaloneCommentButton() {
+    if (this.#commentStandaloneButton) {
+      this.#commentStandaloneButton.classList.remove("hidden");
+      return;
+    }
+    if (!this.hasComment) {
+      return;
+    }
+    this.#commentStandaloneButton = this.#comment.renderForStandalone();
+    this.div.append(this.#commentStandaloneButton);
+  }
+
+;
+
+;
+
+  _onResized() {}
+
+  static updateDefaultParams(_type, _value) {}
+
+  static _l10nResizer = null
+
+;
+
+  static _zIndex = 1
+
+  addCommands(params) {
+    this._uiManager.addCommands(params);
+  }
+
+  get isOnScreen() {
+    const { top, left, bottom, right } = this.getClientDimensions();
+    const { innerHeight, innerWidth } = window;
+    return left < innerWidth && right > 0 && top < innerHeight && bottom > 0;
+  }
+
+  #savedDimensions = null
+
+  #disabled = false
+
+  enableEditMode() {
+    if (this.isInEditMode()) {
+      return false;
+    }
+    this.parent.setEditingState(false);
+    this.#isInEditMode = true;
+
+    return true;
+  }
+
+;
+
+  _onStopDragging() {}
+
+  addToAnnotationStorage() {
+    this._uiManager.addToAnnotationStorage(this);
+  }
+
+  serialize(isForCopying = false, context = null) {
+    return {
+      annotationType: this.mode,
+      pageIndex: this.pageIndex,
+      rect: this.getPDFRect(),
+      rotation: this.rotation,
+      structTreeParentId: this._structTreeParentId,
+      popupRef: this._initialData?.popupRef || "",
+    };
+  }
+
+  /**
+   * If it returns true, then this editor handles the keyboard
+   * events itself.
+   * @returns {boolean}
+   */
+
   keydown(event) {
     if (
       !this.isResizable ||
@@ -2055,84 +2321,38 @@ class AnnotationEditor {
     event.stopImmediatePropagation();
   }
 
-  #resizerKeydown(event) {
-    AnnotationEditor._resizerKeyboardManager.exec(this, event);
-  }
-
-  #resizerBlur(event) {
-    if (
-      this.#isResizerEnabledForKeyboard &&
-      event.relatedTarget?.parentNode !== this.#resizersDiv
-    ) {
-      this.#stopResizing();
-    }
-  }
-
-  #resizerFocus(name) {
-    this.#focusedResizerName = this.#isResizerEnabledForKeyboard ? name : "";
-  }
-
-  #setResizerTabIndex(value) {
-    if (!this.#allResizerDivs) {
-      return;
-    }
-    for (const div of this.#allResizerDivs) {
-      div.tabIndex = value;
-    }
-  }
-
-  _resizeWithKeyboard(x, y) {
-    if (!this.#isResizerEnabledForKeyboard) {
-      return;
-    }
-    this.#resizerPointermove(this.#focusedResizerName, {
-      deltaX: x,
-      deltaY: y,
-      fromKeyboard: true,
-    });
-  }
-
-  #stopResizing() {
-    this.#isResizerEnabledForKeyboard = false;
-    this.#setResizerTabIndex(-1);
-    this.#addResizeToUndoStack();
-  }
-
-  _stopResizingWithKeyboard() {
-    this.#stopResizing();
-    this.div.focus();
-  }
-
   /**
-   * Select this editor.
+   * Set the editor position within its parent.
+   * @param {number} x
+   * @param {number} y
+   * @param {number} tx - x-translation in screen coordinates.
+   * @param {number} ty - y-translation in screen coordinates.
    */
-  select() {
-    if (this.isSelected && this._editToolbar) {
-      this._editToolbar.show();
-      return;
-    }
-    this.isSelected = true;
-    this.makeResizable();
-    this.div?.classList.add("selectedEditor");
-    if (!this._editToolbar) {
-      this.addEditToolbar().then(() => {
-        if (this.div?.classList.contains("selectedEditor")) {
-          // The editor can have been unselected while we were waiting for the
-          // edit toolbar to be created, hence we want to be sure that this
-          // editor is still selected.
-          this._editToolbar?.show();
-        }
-      });
-      return;
-    }
-    this._editToolbar?.show();
-    this.#altText?.toggleAltTextBadge(false);
+
+  hasAltTextData() {
+    return this.#altText?.hasData() ?? false;
   }
 
-  focus() {
-    if (this.div && !this.div.contains(document.activeElement)) {
-      setTimeout(() => this.div?.focus({ preventScroll: true }), 0);
+  static initialize(l10n, _uiManager) {
+    AnnotationEditor._l10n ??= l10n;
+
+    AnnotationEditor._l10nResizer ||= Object.freeze({
+      topLeft: "pdfjs-editor-resizer-top-left",
+      topMiddle: "pdfjs-editor-resizer-top-middle",
+      topRight: "pdfjs-editor-resizer-top-right",
+      middleRight: "pdfjs-editor-resizer-middle-right",
+      bottomRight: "pdfjs-editor-resizer-bottom-right",
+      bottomMiddle: "pdfjs-editor-resizer-bottom-middle",
+      bottomLeft: "pdfjs-editor-resizer-bottom-left",
+      middleLeft: "pdfjs-editor-resizer-middle-left",
+    });
+
+    if (AnnotationEditor._borderLineWidth !== -1) {
+      return;
     }
+    const style = getComputedStyle(document.documentElement);
+    AnnotationEditor._borderLineWidth =
+      parseFloat(style.getPropertyValue("--outline-width")) || 0;
   }
 
   /**
@@ -2241,11 +2461,6 @@ class AnnotationEditor {
   get isEditing() {
     return this.#isEditing;
   }
-
-  /**
-   * When set to true, it means that this editor is currently edited.
-   * @param {boolean} value
-   */
   set isEditing(value) {
     this.#isEditing = value;
     if (!this.parent) {
@@ -2258,6 +2473,11 @@ class AnnotationEditor {
       this.parent.setActiveEditor(null);
     }
   }
+
+  /**
+   * When set to true, it means that this editor is currently edited.
+   * @param {boolean} value
+   */
 
   static get MIN_SIZE() {
     return 16;
