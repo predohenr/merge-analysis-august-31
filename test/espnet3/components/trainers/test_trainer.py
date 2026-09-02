@@ -446,6 +446,7 @@ def test_validate_calls_trainer_validate(
     assert result == [{"acc": 0.9}]
 
 
+
 def test_missing_model_raises(base_trainer_config):
     with pytest.raises(TypeCheckError):
         ESPnet3LightningTrainer(model=None, config=base_trainer_config, exp_dir="exp")
