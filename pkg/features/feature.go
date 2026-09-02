@@ -178,17 +178,17 @@ var (
 type Feature struct {
 	name        string
 	description string
+	val bool
+	def bool
+	dynamic bool
+	install bool
+	lockedOnInstall bool
 	// val is the effective value- it is equal to default until explicitly changed.
 	// The order of precedence is lockedValue > value > default
-	val bool
 	// default value of feature
-	def bool
 	// if a feature is not dynamic, then rancher must be restarted when the value is changed
-	dynamic bool
 	// Whether we should install this feature or assume something else will install and manage the Feature CR
-	install bool
 	// If a feature is locked on install, it can't be modified after install. A new Rancher instance is required to change the value.
-	lockedOnInstall bool
 }
 
 // InitializeFeatures updates feature default if given valid --features flag and creates/updates necessary features in k8s
@@ -297,9 +297,6 @@ func SetFeature(featuresClient managementv3.FeatureClient, featureName string, v
 
 	return nil
 }
-
-// applyArgumentDefaults reads the features arguments and uses their values to overwrite
-// the corresponding feature default value
 func applyArgumentDefaults(featureArgs string) error {
 	if featureArgs == "" {
 		return nil
@@ -338,20 +335,51 @@ func applyArgumentDefaults(featureArgs string) error {
 	return nil
 }
 
+func GetFeatureByName(name string) *Feature {
+	return features[name]
+}
+
+func IsEnabled(feature *v3.Feature) bool {
+	if feature == nil {
+		return false
+	}
+	if feature.Status.LockedValue != nil {
+		return *feature.Status.LockedValue
+	}
+	if feature.Spec.Value == nil {
+		return feature.Status.Default
+	}
+	return *feature.Spec.Value
+}
+func newFeature(name, description string, def, dynamic, install bool) *Feature {
+	feature := &Feature{
+		name:        name,
+		description: description,
+		def:         def,
+		val:         def,
+		dynamic:     dynamic,
+		install:     install,
+	}
+
+	// feature will be stored in feature map, features contained in feature
+	// map will then be initialized
+	features[name] = feature
+
+	return feature
+}
+
+// applyArgumentDefaults reads the features arguments and uses their values to overwrite
+// the corresponding feature default value
+
 // Enabled returns whether the feature is enabled
 func (f *Feature) Enabled() bool {
 	return f.val
 }
-
-// Disable will disable a feature such that regardless of the user's choice it will always be false
 func (f *Feature) Disable() {
 	f.val = false
 	f.def = false
 	delete(features, f.name)
 }
-
-// Dynamic returns whether the feature is dynamic. Rancher must be restarted when
-// a non-dynamic feature's effective value is changed.
 func (f *Feature) Dynamic() bool {
 	return f.dynamic
 }
@@ -369,37 +397,9 @@ func (f *Feature) lockOnInstall() *Feature {
 	return f
 }
 
-func GetFeatureByName(name string) *Feature {
-	return features[name]
-}
+// Disable will disable a feature such that regardless of the user's choice it will always be false
 
-func IsEnabled(feature *v3.Feature) bool {
-	if feature == nil {
-		return false
-	}
-	if feature.Status.LockedValue != nil {
-		return *feature.Status.LockedValue
-	}
-	if feature.Spec.Value == nil {
-		return feature.Status.Default
-	}
-	return *feature.Spec.Value
-}
+// Dynamic returns whether the feature is dynamic. Rancher must be restarted when
+// a non-dynamic feature's effective value is changed.
 
 // newFeature adds feature to the global feature map
-func newFeature(name, description string, def, dynamic, install bool) *Feature {
-	feature := &Feature{
-		name:        name,
-		description: description,
-		def:         def,
-		val:         def,
-		dynamic:     dynamic,
-		install:     install,
-	}
-
-	// feature will be stored in feature map, features contained in feature
-	// map will then be initialized
-	features[name] = feature
-
-	return feature
-}
