@@ -102,6 +102,20 @@ def __getattr__(name: str) -> Any:
     )
 
 
+def structural_coverage(label: int) -> StructuralCoverageTag:
+    try:
+        return STRUCTURAL_COVERAGE_CACHE[label]
+    except KeyError:
+        return STRUCTURAL_COVERAGE_CACHE.setdefault(label, StructuralCoverageTag(label))
+
+
+def draw_choice(
+    choice_type: ChoiceTypeT, constraints: ChoiceConstraintsT, *, random: Random
+) -> ChoiceT:
+    cd = ConjectureData(random=random)
+    return cast(ChoiceT, getattr(cd.provider, f"draw_{choice_type}")(**constraints))
+
+
 T = TypeVar("T")
 TargetObservations = dict[str, Union[int, float]]
 # index, choice_type, constraints, forced value
@@ -144,13 +158,6 @@ class StructuralCoverageTag:
 
 
 STRUCTURAL_COVERAGE_CACHE: dict[int, StructuralCoverageTag] = {}
-
-
-def structural_coverage(label: int) -> StructuralCoverageTag:
-    try:
-        return STRUCTURAL_COVERAGE_CACHE[label]
-    except KeyError:
-        return STRUCTURAL_COVERAGE_CACHE.setdefault(label, StructuralCoverageTag(label))
 
 
 # This cache can be quite hot and so we prefer LRUCache over LRUReusedCache for
@@ -523,12 +530,12 @@ class Spans:
         if i < 0:
             i += n
         return Span(self, i)
-
-    # not strictly necessary as we have len/getitem, but required for mypy.
-    # https://github.com/python/mypy/issues/9737
     def __iter__(self) -> Iterator[Span]:
         for i in range(len(self)):
             yield self[i]
+
+    # not strictly necessary as we have len/getitem, but required for mypy.
+    # https://github.com/python/mypy/issues/9737
 
 
 class _Overrun:
@@ -1379,10 +1386,3 @@ class ConjectureData:
 
     def mark_overrun(self) -> NoReturn:
         self.conclude_test(Status.OVERRUN)
-
-
-def draw_choice(
-    choice_type: ChoiceTypeT, constraints: ChoiceConstraintsT, *, random: Random
-) -> ChoiceT:
-    cd = ConjectureData(random=random)
-    return cast(ChoiceT, getattr(cd.provider, f"draw_{choice_type}")(**constraints))
