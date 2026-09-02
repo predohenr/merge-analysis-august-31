@@ -216,6 +216,286 @@ def _warn_defaults_deprecation():
     )
 
 
+def reset_context(search_path=SEARCH_PATH, argparse_args=None):
+    global context
+
+    # remove plugin config params
+    remove_all_plugin_settings()
+
+    context.__init__(search_path, argparse_args)
+    context.__dict__.pop("_Context__conda_build", None)
+    from ..models.channel import Channel
+
+    Channel._reset_state()
+
+    # need to import here to avoid circular dependency
+
+    # clear function cache
+    from ..reporters import _get_render_func
+
+    # reload plugin config params
+    with suppress(AttributeError):
+        del context.plugins
+
+    _get_render_func.cache_clear()
+
+    return context
+
+
+@contextmanager
+def fresh_context(env=None, search_path=SEARCH_PATH, argparse_args=None, **kwargs):
+    if env or kwargs:
+        old_env = os.environ.copy()
+        os.environ.update(env or {})
+        os.environ.update(kwargs)
+    yield reset_context(search_path=search_path, argparse_args=argparse_args)
+    if env or kwargs:
+        os.environ.clear()
+        os.environ.update(old_env)
+        reset_context()
+
+
+def stack_context(pushing, search_path=SEARCH_PATH, argparse_args=None):
+    if pushing:
+        # Fast
+        context_stack.push(search_path, argparse_args)
+    else:
+        # Slow
+        context_stack.pop()
+def stack_context_default(pushing, argparse_args=None):
+    return stack_context(pushing, search_path=(), argparse_args=argparse_args)
+
+
+def replace_context(pushing=None, search_path=SEARCH_PATH, argparse_args=None):
+    # pushing arg intentionally not used here, but kept for API compatibility
+    return context_stack.replace(search_path, argparse_args)
+
+
+def replace_context_default(pushing=None, argparse_args=None):
+    # pushing arg intentionally not used here, but kept for API compatibility
+    return context_stack.replace(search_path=(), argparse_args=argparse_args)
+
+
+def env_name(prefix):
+    # counter part to `locate_prefix_by_name()` below
+    if not prefix:
+        return None
+    if paths_equal(prefix, context.root_prefix):
+        return ROOT_ENV_NAME
+    maybe_envs_dir, maybe_name = path_split(prefix)
+    for envs_dir in context.envs_dirs:
+        if paths_equal(envs_dir, maybe_envs_dir):
+            return maybe_name
+    return prefix
+
+
+def locate_prefix_by_name(name, envs_dirs=None):
+    """Find the location of a prefix given a conda env name.  If the location does not exist, an
+    error is raised.
+    """
+    assert name
+    if name in (ROOT_ENV_NAME, "root"):
+        return context.root_prefix
+    if envs_dirs is None:
+        envs_dirs = context.envs_dirs
+    for envs_dir in envs_dirs:
+        if not isdir(envs_dir):
+            continue
+        prefix = join(envs_dir, name)
+        if isdir(prefix):
+            return abspath(prefix)
+
+    from ..exceptions import EnvironmentNameNotFound
+
+    raise EnvironmentNameNotFound(name)
+
+
+def validate_channels(channels: Iterator[str]) -> tuple[str, ...]:
+    """
+    Validate if the given channel URLs are allowed based on the context's allowlist
+    and denylist configurations.
+
+    :param channels: A list of channels (either URLs or names) to validate.
+    :raises ChannelNotAllowed: If any URL is not in the allowlist.
+    :raises ChannelDenied: If any URL is in the denylist.
+    """
+    from ..exceptions import ChannelDenied, ChannelNotAllowed
+    from ..models.channel import Channel
+
+    allowlist = [
+        url
+        for channel in context.allowlist_channels
+        for url in Channel(channel).base_urls
+    ]
+    denylist = [
+        url
+        for channel in context.denylist_channels
+        for url in Channel(channel).base_urls
+    ]
+    if allowlist or denylist:
+        for channel in map(Channel, channels):
+            for url in channel.base_urls:
+                if url in denylist:
+                    raise ChannelDenied(channel)
+                if allowlist and url not in allowlist:
+                    raise ChannelNotAllowed(channel)
+
+    return tuple(IndexedSet(channels))
+
+
+def validate_prefix_name(prefix_name: str, ctx: Context, allow_base=True) -> str:
+    """Run various validations to make sure prefix_name is valid"""
+    from ..exceptions import CondaValueError
+
+    if PREFIX_NAME_DISALLOWED_CHARS.intersection(prefix_name):
+        raise CondaValueError(
+            dals(
+                f"""
+                Invalid environment name: {prefix_name!r}
+                Characters not allowed: {PREFIX_NAME_DISALLOWED_CHARS}
+                If you are specifying a path to an environment, the `-p`
+                flag should be used instead.
+                """
+            )
+        )
+
+    if prefix_name in (ROOT_ENV_NAME, "root"):
+        if allow_base:
+            return ctx.root_prefix
+        else:
+            raise CondaValueError(
+                "Use of 'base' as environment name is not allowed here."
+            )
+
+    else:
+        from ..exceptions import EnvironmentNameNotFound
+
+        try:
+            return locate_prefix_by_name(prefix_name)
+        except EnvironmentNameNotFound:
+            return join(_first_writable_envs_dir(), prefix_name)
+
+
+def determine_target_prefix(ctx, args=None):
+    """Get the prefix to operate in.  The prefix may not yet exist.
+
+    Args:
+        ctx: the context of conda
+        args: the argparse args from the command line
+
+    Returns: the prefix
+    Raises: CondaEnvironmentNotFoundError if the prefix is invalid
+    """
+    argparse_args = args or ctx._argparse_args
+    try:
+        prefix_name = argparse_args.name
+    except AttributeError:
+        prefix_name = None
+    try:
+        prefix_path = argparse_args.prefix
+    except AttributeError:
+        prefix_path = None
+
+    if prefix_name is not None and not prefix_name.strip():  # pragma: no cover
+        from ..exceptions import ArgumentError
+
+        raise ArgumentError("Argument --name requires a value.")
+
+    if prefix_path is not None and not prefix_path.strip():  # pragma: no cover
+        from ..exceptions import ArgumentError
+
+        raise ArgumentError("Argument --prefix requires a value.")
+
+    if prefix_name is None and prefix_path is None:
+        return ctx.default_prefix
+    elif prefix_path is not None:
+        return expand(prefix_path)
+    else:
+        return validate_prefix_name(prefix_name, ctx=ctx)
+
+
+def _first_writable_envs_dir():
+    # Calling this function will *create* an envs directory if one does not already
+    # exist. Any caller should intend to *use* that directory for *writing*, not just reading.
+    for envs_dir in context.envs_dirs:
+        if envs_dir == os.devnull:
+            continue
+
+        # The magic file being used here could change in the future.  Don't write programs
+        # outside this code base that rely on the presence of this file.
+        # This value is duplicated in conda.gateways.disk.create.create_envs_directory().
+        envs_dir_magic_file = join(envs_dir, ".conda_envs_dir_test")
+
+        if isfile(envs_dir_magic_file):
+            try:
+                open(envs_dir_magic_file, "a").close()
+                return envs_dir
+            except OSError:
+                log.log(TRACE, "Tried envs_dir but not writable: %s", envs_dir)
+        else:
+            from ..gateways.disk.create import create_envs_directory
+
+            was_created = create_envs_directory(envs_dir)
+            if was_created:
+                return envs_dir
+
+    from ..exceptions import NoWritableEnvsDirError
+
+    raise NoWritableEnvsDirError(context.envs_dirs)
+
+
+def get_plugin_config_data(
+    data: dict[Path, dict[str, RawParameter]],
+) -> dict[Path, dict[str, RawParameter]]:
+    """
+    This is used to move everything under the key "plugins" from the provided dictionary
+    to the top level of the returned dictionary. The returned dictionary is then passed
+    to :class:`PluginConfig`.
+    """
+    new_data = defaultdict(dict)
+
+    for source, config in data.items():
+        if plugin_data := config.get("plugins"):
+            plugin_data_value = plugin_data.value(None)
+
+            if not isinstance(plugin_data_value, Mapping):
+                continue
+
+            for param_name, raw_param in plugin_data_value.items():
+                new_data[source][param_name] = raw_param
+
+        elif source == EnvRawParameter.source:
+            for env_var, raw_param in config.items():
+                if env_var.startswith("plugins_"):
+                    _, param_name = env_var.split("plugins_")
+                    new_data[source][param_name] = raw_param
+
+    return new_data
+
+
+def add_plugin_setting(name: str, parameter: Parameter, aliases: tuple[str, ...] = ()):
+    """
+    Adds a setting to the :class:`PluginConfig` class
+    """
+    PluginConfig.parameter_names = PluginConfig.parameter_names + (name,)
+    loader = ParameterLoader(parameter, aliases=aliases)
+    name = loader._set_name(name)
+    setattr(PluginConfig, name, loader)
+
+
+def remove_all_plugin_settings() -> None:
+    """
+    Removes all attached settings from the :class:`PluginConfig` class
+    """
+    for name in PluginConfig.parameter_names:
+        try:
+            delattr(PluginConfig, name)
+        except AttributeError:
+            continue
+
+    PluginConfig.parameter_names = tuple()
+
+
 class Context(Configuration):
     add_pip_as_python_dependency = ParameterLoader(PrimitiveParameter(True))
     allow_conda_downgrades = ParameterLoader(PrimitiveParameter(False))
@@ -1902,45 +2182,6 @@ class Context(Configuration):
         )
 
 
-def reset_context(search_path=SEARCH_PATH, argparse_args=None):
-    global context
-
-    # remove plugin config params
-    remove_all_plugin_settings()
-
-    context.__init__(search_path, argparse_args)
-    context.__dict__.pop("_Context__conda_build", None)
-    from ..models.channel import Channel
-
-    Channel._reset_state()
-
-    # need to import here to avoid circular dependency
-
-    # clear function cache
-    from ..reporters import _get_render_func
-
-    # reload plugin config params
-    with suppress(AttributeError):
-        del context.plugins
-
-    _get_render_func.cache_clear()
-
-    return context
-
-
-@contextmanager
-def fresh_context(env=None, search_path=SEARCH_PATH, argparse_args=None, **kwargs):
-    if env or kwargs:
-        old_env = os.environ.copy()
-        os.environ.update(env or {})
-        os.environ.update(kwargs)
-    yield reset_context(search_path=search_path, argparse_args=argparse_args)
-    if env or kwargs:
-        os.environ.clear()
-        os.environ.update(old_env)
-        reset_context()
-
-
 class ContextStackObject:
     def __init__(self, search_path=SEARCH_PATH, argparse_args=None):
         self.set_value(search_path, argparse_args)
@@ -1990,30 +2231,9 @@ class ContextStack:
 context_stack = ContextStack()
 
 
-def stack_context(pushing, search_path=SEARCH_PATH, argparse_args=None):
-    if pushing:
-        # Fast
-        context_stack.push(search_path, argparse_args)
-    else:
-        # Slow
-        context_stack.pop()
-
-
 # Default means "The configuration when there are no condarc files present". It is
 # all the settings and defaults that are built in to the code and *not* the default
 # value of search_path=SEARCH_PATH. It means search_path=().
-def stack_context_default(pushing, argparse_args=None):
-    return stack_context(pushing, search_path=(), argparse_args=argparse_args)
-
-
-def replace_context(pushing=None, search_path=SEARCH_PATH, argparse_args=None):
-    # pushing arg intentionally not used here, but kept for API compatibility
-    return context_stack.replace(search_path, argparse_args)
-
-
-def replace_context_default(pushing=None, argparse_args=None):
-    # pushing arg intentionally not used here, but kept for API compatibility
-    return context_stack.replace(search_path=(), argparse_args=argparse_args)
 
 
 # Tests that want to only declare 'I support the project-wide default for how to
@@ -2022,203 +2242,6 @@ def replace_context_default(pushing=None, argparse_args=None):
 # be a stated goal to set conda_tests_ctxt_mgmt_def_pol to replace_context_default
 # and not to stack_context_default.
 conda_tests_ctxt_mgmt_def_pol = replace_context_default
-
-
-def env_name(prefix):
-    # counter part to `locate_prefix_by_name()` below
-    if not prefix:
-        return None
-    if paths_equal(prefix, context.root_prefix):
-        return ROOT_ENV_NAME
-    maybe_envs_dir, maybe_name = path_split(prefix)
-    for envs_dir in context.envs_dirs:
-        if paths_equal(envs_dir, maybe_envs_dir):
-            return maybe_name
-    return prefix
-
-
-def locate_prefix_by_name(name, envs_dirs=None):
-    """Find the location of a prefix given a conda env name.  If the location does not exist, an
-    error is raised.
-    """
-    assert name
-    if name in (ROOT_ENV_NAME, "root"):
-        return context.root_prefix
-    if envs_dirs is None:
-        envs_dirs = context.envs_dirs
-    for envs_dir in envs_dirs:
-        if not isdir(envs_dir):
-            continue
-        prefix = join(envs_dir, name)
-        if isdir(prefix):
-            return abspath(prefix)
-
-    from ..exceptions import EnvironmentNameNotFound
-
-    raise EnvironmentNameNotFound(name)
-
-
-def validate_channels(channels: Iterator[str]) -> tuple[str, ...]:
-    """
-    Validate if the given channel URLs are allowed based on the context's allowlist
-    and denylist configurations.
-
-    :param channels: A list of channels (either URLs or names) to validate.
-    :raises ChannelNotAllowed: If any URL is not in the allowlist.
-    :raises ChannelDenied: If any URL is in the denylist.
-    """
-    from ..exceptions import ChannelDenied, ChannelNotAllowed
-    from ..models.channel import Channel
-
-    allowlist = [
-        url
-        for channel in context.allowlist_channels
-        for url in Channel(channel).base_urls
-    ]
-    denylist = [
-        url
-        for channel in context.denylist_channels
-        for url in Channel(channel).base_urls
-    ]
-    if allowlist or denylist:
-        for channel in map(Channel, channels):
-            for url in channel.base_urls:
-                if url in denylist:
-                    raise ChannelDenied(channel)
-                if allowlist and url not in allowlist:
-                    raise ChannelNotAllowed(channel)
-
-    return tuple(IndexedSet(channels))
-
-
-def validate_prefix_name(prefix_name: str, ctx: Context, allow_base=True) -> str:
-    """Run various validations to make sure prefix_name is valid"""
-    from ..exceptions import CondaValueError
-
-    if PREFIX_NAME_DISALLOWED_CHARS.intersection(prefix_name):
-        raise CondaValueError(
-            dals(
-                f"""
-                Invalid environment name: {prefix_name!r}
-                Characters not allowed: {PREFIX_NAME_DISALLOWED_CHARS}
-                If you are specifying a path to an environment, the `-p`
-                flag should be used instead.
-                """
-            )
-        )
-
-    if prefix_name in (ROOT_ENV_NAME, "root"):
-        if allow_base:
-            return ctx.root_prefix
-        else:
-            raise CondaValueError(
-                "Use of 'base' as environment name is not allowed here."
-            )
-
-    else:
-        from ..exceptions import EnvironmentNameNotFound
-
-        try:
-            return locate_prefix_by_name(prefix_name)
-        except EnvironmentNameNotFound:
-            return join(_first_writable_envs_dir(), prefix_name)
-
-
-def determine_target_prefix(ctx, args=None):
-    """Get the prefix to operate in.  The prefix may not yet exist.
-
-    Args:
-        ctx: the context of conda
-        args: the argparse args from the command line
-
-    Returns: the prefix
-    Raises: CondaEnvironmentNotFoundError if the prefix is invalid
-    """
-    argparse_args = args or ctx._argparse_args
-    try:
-        prefix_name = argparse_args.name
-    except AttributeError:
-        prefix_name = None
-    try:
-        prefix_path = argparse_args.prefix
-    except AttributeError:
-        prefix_path = None
-
-    if prefix_name is not None and not prefix_name.strip():  # pragma: no cover
-        from ..exceptions import ArgumentError
-
-        raise ArgumentError("Argument --name requires a value.")
-
-    if prefix_path is not None and not prefix_path.strip():  # pragma: no cover
-        from ..exceptions import ArgumentError
-
-        raise ArgumentError("Argument --prefix requires a value.")
-
-    if prefix_name is None and prefix_path is None:
-        return ctx.default_prefix
-    elif prefix_path is not None:
-        return expand(prefix_path)
-    else:
-        return validate_prefix_name(prefix_name, ctx=ctx)
-
-
-def _first_writable_envs_dir():
-    # Calling this function will *create* an envs directory if one does not already
-    # exist. Any caller should intend to *use* that directory for *writing*, not just reading.
-    for envs_dir in context.envs_dirs:
-        if envs_dir == os.devnull:
-            continue
-
-        # The magic file being used here could change in the future.  Don't write programs
-        # outside this code base that rely on the presence of this file.
-        # This value is duplicated in conda.gateways.disk.create.create_envs_directory().
-        envs_dir_magic_file = join(envs_dir, ".conda_envs_dir_test")
-
-        if isfile(envs_dir_magic_file):
-            try:
-                open(envs_dir_magic_file, "a").close()
-                return envs_dir
-            except OSError:
-                log.log(TRACE, "Tried envs_dir but not writable: %s", envs_dir)
-        else:
-            from ..gateways.disk.create import create_envs_directory
-
-            was_created = create_envs_directory(envs_dir)
-            if was_created:
-                return envs_dir
-
-    from ..exceptions import NoWritableEnvsDirError
-
-    raise NoWritableEnvsDirError(context.envs_dirs)
-
-
-def get_plugin_config_data(
-    data: dict[Path, dict[str, RawParameter]],
-) -> dict[Path, dict[str, RawParameter]]:
-    """
-    This is used to move everything under the key "plugins" from the provided dictionary
-    to the top level of the returned dictionary. The returned dictionary is then passed
-    to :class:`PluginConfig`.
-    """
-    new_data = defaultdict(dict)
-
-    for source, config in data.items():
-        if plugin_data := config.get("plugins"):
-            plugin_data_value = plugin_data.value(None)
-
-            if not isinstance(plugin_data_value, Mapping):
-                continue
-
-            for param_name, raw_param in plugin_data_value.items():
-                new_data[source][param_name] = raw_param
-
-        elif source == EnvRawParameter.source:
-            for env_var, raw_param in config.items():
-                if env_var.startswith("plugins_"):
-                    _, param_name = env_var.split("plugins_")
-                    new_data[source][param_name] = raw_param
-
-    return new_data
 
 
 class PluginConfig(metaclass=ConfigurationType):
@@ -2240,29 +2263,6 @@ class PluginConfig(metaclass=ConfigurationType):
     def __init__(self, data):
         self._cache_ = {}
         self.raw_data = get_plugin_config_data(data)
-
-
-def add_plugin_setting(name: str, parameter: Parameter, aliases: tuple[str, ...] = ()):
-    """
-    Adds a setting to the :class:`PluginConfig` class
-    """
-    PluginConfig.parameter_names = PluginConfig.parameter_names + (name,)
-    loader = ParameterLoader(parameter, aliases=aliases)
-    name = loader._set_name(name)
-    setattr(PluginConfig, name, loader)
-
-
-def remove_all_plugin_settings() -> None:
-    """
-    Removes all attached settings from the :class:`PluginConfig` class
-    """
-    for name in PluginConfig.parameter_names:
-        try:
-            delattr(PluginConfig, name)
-        except AttributeError:
-            continue
-
-    PluginConfig.parameter_names = tuple()
 
 
 try:
