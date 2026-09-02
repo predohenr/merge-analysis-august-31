@@ -183,6 +183,7 @@ define(req, function(AppConfig, Default, Language) {
     Messages.diagram_simpleTheme = "simple";
     Messages.diagram_classicTheme = "classic";
 
+
     return Messages;
 
 });

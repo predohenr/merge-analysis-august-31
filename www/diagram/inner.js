@@ -242,7 +242,7 @@ define([
         var mkModeButton = function (framework) {
             var modes = [Messages.diagram_sketchTheme, Messages.diagram_simpleTheme, Messages.diagram_classicTheme];
             var types = [];
-
+            
             modes.forEach(function(mode){
                 types.push({
                     tag: 'a',
@@ -283,7 +283,7 @@ define([
 
         };
         mkModeButton(framework);
-
+        
     };
 
     $('#cp-app-diagram-editor').hide();
