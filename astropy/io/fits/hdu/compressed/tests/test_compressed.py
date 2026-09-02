@@ -1302,18 +1302,6 @@ def test_section_scaling(tmp_path):
         assert section[...].dtype == np.float32
 
 
-EXPECTED_HEADER = """
-XTENSION= 'IMAGE   '           / Image extension
-BITPIX  =                   16 / data type of original image
-NAXIS   =                    2 / dimension of original image
-NAXIS1  =                   10 / length of original image axis
-NAXIS2  =                   10 / length of original image axis
-PCOUNT  =                    0 / number of parameters
-GCOUNT  =                    1 / number of groups
-END
-""".lstrip()
-
-
 def test_header():
     """
     Check that the header is correct when reading in compressed images and
@@ -1573,3 +1561,15 @@ def test_compimghdu_with_primary_header_no_dual_keywords(tmp_path):
         bintable_header = hdul[1].header
         assert "ZSIMPLE" in bintable_header
         assert "ZTENSION" not in bintable_header
+
+
+EXPECTED_HEADER = """
+XTENSION= 'IMAGE   '           / Image extension
+BITPIX  =                   16 / data type of original image
+NAXIS   =                    2 / dimension of original image
+NAXIS1  =                   10 / length of original image axis
+NAXIS2  =                   10 / length of original image axis
+PCOUNT  =                    0 / number of parameters
+GCOUNT  =                    1 / number of groups
+END
+""".lstrip()
