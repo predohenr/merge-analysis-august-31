@@ -5,6 +5,7 @@ import json
 import unittest.mock
 from io import StringIO
 from pathlib import Path
+from typing import List, Optional, TextIO, Union
 from typing import AsyncIterator, Iterator, List, Optional, TextIO, Union
 
 import pytest
@@ -57,14 +58,6 @@ def registry() -> Iterator[payload.PayloadRegistry]:
     reg = payload.PAYLOAD_REGISTRY = payload.PayloadRegistry()
     yield reg
     payload.PAYLOAD_REGISTRY = old
-
-
-class Payload(payload.Payload):
-    def decode(self, encoding: str = "utf-8", errors: str = "strict") -> str:
-        assert False
-
-    async def write(self, writer: AbstractStreamWriter) -> None:
-        pass
 
 
 def test_register_type(registry: payload.PayloadRegistry) -> None:
@@ -164,40 +157,6 @@ def test_async_iterable_payload_explicit_content_type() -> None:
 def test_async_iterable_payload_not_async_iterable() -> None:
     with pytest.raises(TypeError):
         payload.AsyncIterablePayload(object())  # type: ignore[arg-type]
-
-
-class MockStreamWriter(AbstractStreamWriter):
-    """Mock stream writer for testing payload writes."""
-
-    def __init__(self) -> None:
-        self.written: List[bytes] = []
-
-    async def write(
-        self, chunk: Union[bytes, bytearray, "memoryview[int]", "memoryview[bytes]"]
-    ) -> None:
-        """Store the chunk in the written list."""
-        self.written.append(bytes(chunk))
-
-    async def write_eof(self, chunk: Optional[bytes] = None) -> None:
-        """write_eof implementation - no-op for tests."""
-
-    async def drain(self) -> None:
-        """Drain implementation - no-op for tests."""
-
-    def enable_compression(
-        self, encoding: str = "deflate", strategy: Optional[int] = None
-    ) -> None:
-        """Enable compression - no-op for tests."""
-
-    def enable_chunking(self) -> None:
-        """Enable chunking - no-op for tests."""
-
-    async def write_headers(self, status_line: str, headers: CIMultiDict[str]) -> None:
-        """Write headers - no-op for tests."""
-
-    def get_written_bytes(self) -> bytes:
-        """Return all written bytes as a single bytes object."""
-        return b"".join(self.written)
 
 
 async def test_bytes_payload_write_with_length_no_limit() -> None:
@@ -1276,3 +1235,45 @@ async def test_text_io_payload_size_utf16(tmp_path: Path) -> None:
         assert len(writer.buffer) == utf16_file_size
     finally:
         await loop.run_in_executor(None, f.close)
+
+
+class Payload(payload.Payload):
+    def decode(self, encoding: str = "utf-8", errors: str = "strict") -> str:
+        assert False
+
+    async def write(self, writer: AbstractStreamWriter) -> None:
+        pass
+
+
+class MockStreamWriter(AbstractStreamWriter):
+    """Mock stream writer for testing payload writes."""
+
+    def __init__(self) -> None:
+        self.written: List[bytes] = []
+
+    async def write(
+        self, chunk: Union[bytes, bytearray, "memoryview[int]", "memoryview[bytes]"]
+    ) -> None:
+        """Store the chunk in the written list."""
+        self.written.append(bytes(chunk))
+
+    async def write_eof(self, chunk: Optional[bytes] = None) -> None:
+        """write_eof implementation - no-op for tests."""
+
+    async def drain(self) -> None:
+        """Drain implementation - no-op for tests."""
+
+    def enable_compression(
+        self, encoding: str = "deflate", strategy: Optional[int] = None
+    ) -> None:
+        """Enable compression - no-op for tests."""
+
+    def enable_chunking(self) -> None:
+        """Enable chunking - no-op for tests."""
+
+    async def write_headers(self, status_line: str, headers: CIMultiDict[str]) -> None:
+        """Write headers - no-op for tests."""
+
+    def get_written_bytes(self) -> bytes:
+        """Return all written bytes as a single bytes object."""
+        return b"".join(self.written)
