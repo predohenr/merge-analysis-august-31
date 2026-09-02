@@ -274,27 +274,6 @@ func resourceEndpointConfiguration() *schema.Resource {
 								ForceNew:         true,
 								ValidateDiagFunc: enum.Validate[awstypes.ProductionVariantAcceleratorType](),
 							},
-							"capacity_reservation_config": {
-								Type:     schema.TypeList,
-								Optional: true,
-								MaxItems: 1,
-								ForceNew: true,
-								Elem: &schema.Resource{
-									Schema: map[string]*schema.Schema{
-										"capacity_reservation_preference": {
-											Type:             schema.TypeString,
-											Optional:         true,
-											ForceNew:         true,
-											ValidateDiagFunc: enum.Validate[awstypes.CapacityReservationPreference](),
-										},
-										"ml_reservation_arn": {
-											Type:     schema.TypeString,
-											Optional: true,
-											ForceNew: true,
-										},
-									},
-								},
-							},
 							"container_startup_health_check_timeout_in_seconds": {
 								Type:         schema.TypeInt,
 								Optional:     true,
@@ -465,6 +444,27 @@ func resourceEndpointConfiguration() *schema.Resource {
 								ValidateFunc: validation.IntBetween(1, 512),
 							},
 						},
+						"capacity_reservation_config": {
+							Type:     schema.TypeList,
+							Optional: true,
+							MaxItems: 1,
+							ForceNew: true,
+							Elem: &schema.Resource{
+								Schema: map[string]*schema.Schema{
+									"capacity_reservation_preference": {
+										Type:             schema.TypeString,
+										Optional:         true,
+										ForceNew:         true,
+										ValidateDiagFunc: enum.Validate[awstypes.CapacityReservationPreference](),
+									},
+									"ml_reservation_arn": {
+										Type:     schema.TypeString,
+										Optional: true,
+										ForceNew: true,
+									},
+								},
+							},
+						},
 					},
 				},
 				"shadow_production_variants": {
@@ -479,27 +479,6 @@ func resourceEndpointConfiguration() *schema.Resource {
 								Optional:         true,
 								ForceNew:         true,
 								ValidateDiagFunc: enum.Validate[awstypes.ProductionVariantAcceleratorType](),
-							},
-							"capacity_reservation_config": {
-								Type:     schema.TypeList,
-								Optional: true,
-								MaxItems: 1,
-								ForceNew: true,
-								Elem: &schema.Resource{
-									Schema: map[string]*schema.Schema{
-										"capacity_reservation_preference": {
-											Type:             schema.TypeString,
-											Optional:         true,
-											ForceNew:         true,
-											ValidateDiagFunc: enum.Validate[awstypes.CapacityReservationPreference](),
-										},
-										"ml_reservation_arn": {
-											Type:     schema.TypeString,
-											Optional: true,
-											ForceNew: true,
-										},
-									},
-								},
 							},
 							"container_startup_health_check_timeout_in_seconds": {
 								Type:         schema.TypeInt,
@@ -668,6 +647,27 @@ func resourceEndpointConfiguration() *schema.Resource {
 								Optional:     true,
 								ForceNew:     true,
 								ValidateFunc: validation.IntBetween(1, 512),
+							},
+						},
+						"capacity_reservation_config": {
+							Type:     schema.TypeList,
+							Optional: true,
+							MaxItems: 1,
+							ForceNew: true,
+							Elem: &schema.Resource{
+								Schema: map[string]*schema.Schema{
+									"capacity_reservation_preference": {
+										Type:             schema.TypeString,
+										Optional:         true,
+										ForceNew:         true,
+										ValidateDiagFunc: enum.Validate[awstypes.CapacityReservationPreference](),
+									},
+									"ml_reservation_arn": {
+										Type:     schema.TypeString,
+										Optional: true,
+										ForceNew: true,
+									},
+								},
 							},
 						},
 					},
