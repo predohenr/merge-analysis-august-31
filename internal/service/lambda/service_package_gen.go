@@ -201,7 +201,7 @@ func (p *servicePackage) SDKResources(ctx context.Context) []*inttypes.ServicePa
 			Factory:  resourceLayerVersion,
 			TypeName: "aws_lambda_layer_version",
 			Name:     "Layer Version",
-			Region:   inttypes.ResourceRegionDefault(),
+			Region:   unique.Make(inttypes.ResourceRegionDefault()),
 			Identity: inttypes.RegionalParameterizedIdentity([]inttypes.IdentityAttribute{
 				inttypes.StringIdentityAttribute("layer_name", true),
 				inttypes.StringIdentityAttribute(names.AttrVersion, false),
@@ -257,7 +257,7 @@ func (p *servicePackage) SDKListResources(ctx context.Context) iter.Seq[*inttype
 			Factory:  newLayerVersionResourceAsListResource,
 			TypeName: "aws_lambda_layer_version",
 			Name:     "Layer Version",
-			Region:   inttypes.ResourceRegionDefault(),
+			Region:   unique.Make(inttypes.ResourceRegionDefault()),
 			Identity: inttypes.RegionalParameterizedIdentity([]inttypes.IdentityAttribute{
 				inttypes.StringIdentityAttribute("layer_name", true),
 				inttypes.StringIdentityAttribute(names.AttrVersion, false),
