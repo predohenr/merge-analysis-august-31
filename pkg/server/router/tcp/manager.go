@@ -169,7 +169,7 @@ func (m *Manager) buildEntryPointHandler(ctx context.Context, configs map[string
 		}
 
 		if len(domains) > 0 && routerHTTPConfig.TLS.ResolvedOptions != tlsOptionsName {
-			logger.Warn().Msg("Found different TLS options for routers on the same host, so using the default TLS options instead.")
+			logger.Warn("Found different TLS options for routers on the same host, so using the default TLS options instead.")
 			routerHTTPConfig.AddError(errors.New("found different TLS options for routers on the same host, so using the default TLS options instead"), false)
 		}
 
