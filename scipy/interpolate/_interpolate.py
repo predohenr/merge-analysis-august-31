@@ -86,6 +86,28 @@ def lagrange(x, w):
     return p
 
 
+def _check_broadcast_up_to(arr_from, shape_to, name):
+    """Helper to check that arr_from broadcasts up to shape_to"""
+    shape_from = arr_from.shape
+    if len(shape_to) >= len(shape_from):
+        for t, f in zip(shape_to[::-1], shape_from[::-1]):
+            if f != 1 and f != t:
+                break
+        else:  # all checks pass, do the upcasting that we need later
+            if arr_from.size != 1 and arr_from.shape != shape_to:
+                arr_from = np.ones(shape_to, arr_from.dtype) * arr_from
+            return arr_from.ravel()
+    # at least one check failed
+    raise ValueError(f'{name} argument must be able to broadcast up '
+                     f'to shape {shape_to} but had shape {shape_from}')
+
+
+def _do_extrapolate(fill_value):
+    """Helper to check if fill_value == "extrapolate" without warnings"""
+    return (isinstance(fill_value, str) and
+            fill_value == 'extrapolate')
+
+
 # !! Need to find argument for keeping initialize. If it isn't
 # !! found, get rid of it!
 
@@ -129,28 +151,6 @@ class interp2d:
     def __init__(self, x, y, z, kind='linear', copy=True, bounds_error=False,
                  fill_value=None):
         raise NotImplementedError(err_mesg)
-
-
-def _check_broadcast_up_to(arr_from, shape_to, name):
-    """Helper to check that arr_from broadcasts up to shape_to"""
-    shape_from = arr_from.shape
-    if len(shape_to) >= len(shape_from):
-        for t, f in zip(shape_to[::-1], shape_from[::-1]):
-            if f != 1 and f != t:
-                break
-        else:  # all checks pass, do the upcasting that we need later
-            if arr_from.size != 1 and arr_from.shape != shape_to:
-                arr_from = np.ones(shape_to, arr_from.dtype) * arr_from
-            return arr_from.ravel()
-    # at least one check failed
-    raise ValueError(f'{name} argument must be able to broadcast up '
-                     f'to shape {shape_to} but had shape {shape_from}')
-
-
-def _do_extrapolate(fill_value):
-    """Helper to check if fill_value == "extrapolate" without warnings"""
-    return (isinstance(fill_value, str) and
-            fill_value == 'extrapolate')
 
 
 class interp1d(_Interpolator1D):
