@@ -610,22 +610,6 @@ func checkInterfacesInGuest(vmi *v1.VirtualMachineInstance, interfaces []string)
 		Expect(libnet.InterfaceExists(vmi, iface)).To(Succeed())
 	}
 }
-
-// isInterfaceOnRootPCIComplex checks whether device is on root complex
-// Follow the sysfs path of the interface stating from bus 0
-// If the interface is on root complex, we expect it to have a PCI address in
-// the format of 0000:00:??.0, because we hard code everything to 0 during assignment
-// except for the slot which we allocate dynamically.
-// In addition, we expect only one PCI address along the path, otherwise it is an indication
-// that another device is bridging between the interface and the root-complex, i.e.
-// a pcie-root-port allocated by libvirt.
-//
-// Examples:
-// on root       /sys/devices/pci0000:00/0000:00:03.0/net/eth1
-// not on root   /sys/devices/pci0000:00/0000:00:02.7/0000:08:00.0/net/eth1
-// Another device (virtio) may look like this:
-// on root 		/sys/devices/pci0000:00/0000:00:02.0/virtio0/net/eth0
-// not on root 	/sys/devices/pci0000:00/0000:00:02.0/0000:01:00.0/virtio0/net/eth0
 func isInterfaceOnRootPCIComplex(vmi *v1.VirtualMachineInstance, iface string) (bool, error) {
 	const bus0Path = "/sys/devices/pci0000:00/"
 	ifacePath, err := console.RunCommandAndStoreOutput(vmi,
@@ -655,8 +639,6 @@ func isInterfaceOnRootPCIComplex(vmi *v1.VirtualMachineInstance, iface string) (
 	}
 	return true, nil
 }
-
-// createVMIAndWait creates the received VMI and waits for the guest to load the guest-agent
 func createVMIAndWait(vmi *v1.VirtualMachineInstance) (*v1.VirtualMachineInstance, error) {
 	virtClient := kubevirt.Client()
 
@@ -693,11 +675,6 @@ func waitVMI(vmi *v1.VirtualMachineInstance) (*v1.VirtualMachineInstance, error)
 
 	return virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, k8smetav1.GetOptions{})
 }
-
-// deleteVMI deletes the specified VMI and waits for its absence.
-// Waiting for the VMI removal is placed intentionally for VMI/s with SR-IOV networks in order
-// to assure resources (VF/s) are fully released before reused again on a new VMI.
-// Ref: https://github.com/k8snetworkplumbingwg/sriov-cni/issues/219
 func deleteVMI(vmi *v1.VirtualMachineInstance) error {
 	virtClient := kubevirt.Client()
 
@@ -745,8 +722,6 @@ func checkDefaultInterfaceInPod(vmi *v1.VirtualMachineInstance) error {
 
 	return nil
 }
-
-// createSRIOVVmiOnNode creates a VMI on the specified node, connected to the specified SR-IOV network.
 func createSRIOVVmiOnNode(nodeName, networkName, cidr string) (*v1.VirtualMachineInstance, error) {
 	// Explicitly choose different random mac addresses instead of relying on kubemacpool to do it:
 	// 1) we don't at the moment deploy kubemacpool in kind providers
@@ -792,9 +767,6 @@ func mountGuestDevice(vmi *v1.VirtualMachineInstance, devName string) error {
 		&expect.BExp{R: console.RetValue("0")},
 	}, 15)
 }
-
-// trimRawString2JSON remove string left of first { and right of last }
-// e.g. xxx { yyy } zzzz => { yyy }
 func trimRawString2JSON(input string) string {
 	startIdx := strings.Index(input, "{")
 	endIdx := strings.LastIndex(input, "}")
@@ -803,3 +775,31 @@ func trimRawString2JSON(input string) string {
 	}
 	return input[startIdx : endIdx+1]
 }
+
+// isInterfaceOnRootPCIComplex checks whether device is on root complex
+// Follow the sysfs path of the interface stating from bus 0
+// If the interface is on root complex, we expect it to have a PCI address in
+// the format of 0000:00:??.0, because we hard code everything to 0 during assignment
+// except for the slot which we allocate dynamically.
+// In addition, we expect only one PCI address along the path, otherwise it is an indication
+// that another device is bridging between the interface and the root-complex, i.e.
+// a pcie-root-port allocated by libvirt.
+//
+// Examples:
+// on root       /sys/devices/pci0000:00/0000:00:03.0/net/eth1
+// not on root   /sys/devices/pci0000:00/0000:00:02.7/0000:08:00.0/net/eth1
+// Another device (virtio) may look like this:
+// on root 		/sys/devices/pci0000:00/0000:00:02.0/virtio0/net/eth0
+// not on root 	/sys/devices/pci0000:00/0000:00:02.0/0000:01:00.0/virtio0/net/eth0
+
+// createVMIAndWait creates the received VMI and waits for the guest to load the guest-agent
+
+// deleteVMI deletes the specified VMI and waits for its absence.
+// Waiting for the VMI removal is placed intentionally for VMI/s with SR-IOV networks in order
+// to assure resources (VF/s) are fully released before reused again on a new VMI.
+// Ref: https://github.com/k8snetworkplumbingwg/sriov-cni/issues/219
+
+// createSRIOVVmiOnNode creates a VMI on the specified node, connected to the specified SR-IOV network.
+
+// trimRawString2JSON remove string left of first { and right of last }
+// e.g. xxx { yyy } zzzz => { yyy }
