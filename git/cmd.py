@@ -226,6 +226,29 @@ def handle_process_output(
         finalizer(process)
 
 
+def dashify(string: str) -> str:
+    return string.replace("_", "-")
+
+
+def slots_to_dict(self: "Git", exclude: Sequence[str] = ()) -> Dict[str, Any]:
+    return {s: getattr(self, s) for s in self.__slots__ if s not in exclude}
+
+
+def dict_to_slots_and__excluded_are_none(self: object, d: Mapping[str, Any], excluded: Sequence[str] = ()) -> None:
+    for k, v in d.items():
+        setattr(self, k, v)
+    for k in excluded:
+        setattr(self, k, None)
+
+
+def _warn_use_shell(*, extra_danger: bool) -> None:
+    warnings.warn(
+        _USE_SHELL_DANGER_MESSAGE if extra_danger else _USE_SHELL_DEFAULT_MESSAGE,
+        DeprecationWarning,
+        stacklevel=3,
+    )
+
+
 safer_popen: Callable[..., Popen]
 
 if sys.platform == "win32":
@@ -294,21 +317,6 @@ if sys.platform == "win32":
     safer_popen = _safer_popen_windows
 else:
     safer_popen = Popen
-
-
-def dashify(string: str) -> str:
-    return string.replace("_", "-")
-
-
-def slots_to_dict(self: "Git", exclude: Sequence[str] = ()) -> Dict[str, Any]:
-    return {s: getattr(self, s) for s in self.__slots__ if s not in exclude}
-
-
-def dict_to_slots_and__excluded_are_none(self: object, d: Mapping[str, Any], excluded: Sequence[str] = ()) -> None:
-    for k, v in d.items():
-        setattr(self, k, v)
-    for k in excluded:
-        setattr(self, k, None)
 
 
 ## -- End Utilities -- @}
@@ -381,8 +389,6 @@ class _AutoInterrupt:
 
     def __getattr__(self, attr: str) -> Any:
         return getattr(self.proc, attr)
-
-    # TODO: Bad choice to mimic `proc.wait()` but with different args.
     def wait(self, stderr: Union[None, str, bytes] = b"") -> int:
         """Wait for the process and return its status code.
 
@@ -422,6 +428,8 @@ class _AutoInterrupt:
             _logger.debug("AutoInterrupt wait stderr: %r" % (errstr,))
             raise GitCommandError(remove_password_if_present(self.args), status, errstr)
         return status
+
+    # TODO: Bad choice to mimic `proc.wait()` but with different args.
 
 
 _AutoInterrupt.__name__ = "AutoInterrupt"
@@ -514,8 +522,6 @@ class _CatFileContentStream:
             # END handle size constraint
         # END readline loop
         return out
-
-    # skipcq: PYL-E0301
     def __iter__(self) -> "Git.CatFileContentStream":
         return self
 
@@ -526,8 +532,6 @@ class _CatFileContentStream:
 
         return line
 
-    next = __next__
-
     def __del__(self) -> None:
         bytes_left = self._size - self._nbr
         if bytes_left:
@@ -535,6 +539,10 @@ class _CatFileContentStream:
             # This includes any terminating newline.
             self._stream.read(bytes_left + 1)
         # END handle incomplete read
+
+    # skipcq: PYL-E0301
+
+    next = __next__
 
 
 _CatFileContentStream.__name__ = "CatFileContentStream"
@@ -552,14 +560,6 @@ _USE_SHELL_DANGER_MESSAGE = (
     "injection vulnerability and arbitrary code execution. Git.USE_SHELL is deprecated "
     "and will be removed in a future release."
 )
-
-
-def _warn_use_shell(*, extra_danger: bool) -> None:
-    warnings.warn(
-        _USE_SHELL_DANGER_MESSAGE if extra_danger else _USE_SHELL_DEFAULT_MESSAGE,
-        DeprecationWarning,
-        stacklevel=3,
-    )
 
 
 class _GitMeta(type):
