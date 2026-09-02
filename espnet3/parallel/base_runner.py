@@ -5,16 +5,13 @@ import importlib
 import json
 import os
 import sys
-from abc import ABC, abstractmethod
 from dataclasses import asdict, dataclass
-from pathlib import Path
-from typing import Any, Dict, Iterable, List, Sequence
-from uuid import uuid4
-
-from dask.utils import tmpfile
 from omegaconf import OmegaConf
+from uuid import uuid4
+from pathlib import Path
+from dask.utils import tmpfile
+from typing import Any, Dict, Iterable, List, Sequence
 from tqdm import tqdm
-
 from espnet3.parallel.env_provider import EnvironmentProvider
 from espnet3.parallel.parallel import (
     get_client,
@@ -22,6 +19,8 @@ from espnet3.parallel.parallel import (
     make_client,
     parallel_for,
 )
+from abc import ABC, abstractmethod
+from espnet3.parallel.env_provider import EnvironmentProvider
 
 
 @dataclass(frozen=True)
@@ -117,6 +116,69 @@ def get_job_cls(cluster, spec_path=None):
             self._command_template = f"{python} {current_file_path} {spec_path} "
 
     return ASyncRunnerJob
+
+
+def _async_worker_entry_from_spec_path(spec_path: str):
+    """Worker entrypoint: reconstruct runner/provider and process indices.
+
+    This function is executed on a Dask worker. It reads the shard spec JSON,
+    imports the designated Runner/Provider classes, rebuilds the DictConfig and
+    provider, constructs the per-worker environment, and applies
+    ``RunnerClass.forward`` to each index in the shard.
+
+    If ``result_path`` is provided, results are streamed to a JSONL file on the
+    worker and ``None`` is returned; otherwise the list of results is returned
+    to the driver.
+
+    Args:
+        spec_path (str): Path to the shard spec JSON file.
+
+    Returns:
+        list | None: List of results, or ``None`` if results were written to file.
+
+    Raises:
+        ImportError: If the runner/provider import path is invalid.
+        Exception: Any exception thrown by environment builders or ``forward``.
+
+    Notes:
+        - Non-JSON-serializable results are ``repr``-serialized when writing JSONL.
+    """
+    from omegaconf import DictConfig
+
+    with open(spec_path, "r", encoding="utf-8") as f:
+        spec = json.load(f)
+
+    RunnerCls = _import_obj(spec["runner_cls"])
+    ProviderCls = _import_obj(spec["provider_cls"])
+
+    cfg = DictConfig(spec["config"])
+    params = spec.get("params", {}) or {}
+    provider = ProviderCls(cfg, params=params)
+
+    # Add world size and rank
+    os.environ["WORLD_SIZE"] = str(spec["world_size"])
+    os.environ["WORLD_RANK"] = str(spec["world_rank"])
+
+    setup_fn = provider.make_worker_setup_fn()
+    env = setup_fn()
+
+    f = RunnerCls.forward  # staticmethod
+    results = []
+    for idx in spec["indices"]:
+        results.append(f(idx, **env))
+
+    result_path = spec.get("result_path")
+    if result_path:
+        with open(result_path, "w", encoding="utf-8") as w:
+            for r in results:
+                try:
+                    json.dump(r, w, ensure_ascii=False)
+                    w.write("\n")
+                except TypeError:
+                    w.write(repr(r) + "\n")
+        return None
+
+    return results
 
 
 class BaseRunner(ABC):
@@ -339,69 +401,6 @@ class BaseRunner(ABC):
         if par_cfg is None or getattr(par_cfg, "env", "local") == "local":
             return self._run_local(indices)
         return self._run_parallel(indices)
-
-
-def _async_worker_entry_from_spec_path(spec_path: str):
-    """Worker entrypoint: reconstruct runner/provider and process indices.
-
-    This function is executed on a Dask worker. It reads the shard spec JSON,
-    imports the designated Runner/Provider classes, rebuilds the DictConfig and
-    provider, constructs the per-worker environment, and applies
-    ``RunnerClass.forward`` to each index in the shard.
-
-    If ``result_path`` is provided, results are streamed to a JSONL file on the
-    worker and ``None`` is returned; otherwise the list of results is returned
-    to the driver.
-
-    Args:
-        spec_path (str): Path to the shard spec JSON file.
-
-    Returns:
-        list | None: List of results, or ``None`` if results were written to file.
-
-    Raises:
-        ImportError: If the runner/provider import path is invalid.
-        Exception: Any exception thrown by environment builders or ``forward``.
-
-    Notes:
-        - Non-JSON-serializable results are ``repr``-serialized when writing JSONL.
-    """
-    from omegaconf import DictConfig
-
-    with open(spec_path, "r", encoding="utf-8") as f:
-        spec = json.load(f)
-
-    RunnerCls = _import_obj(spec["runner_cls"])
-    ProviderCls = _import_obj(spec["provider_cls"])
-
-    cfg = DictConfig(spec["config"])
-    params = spec.get("params", {}) or {}
-    provider = ProviderCls(cfg, params=params)
-
-    # Add world size and rank
-    os.environ["WORLD_SIZE"] = str(spec["world_size"])
-    os.environ["WORLD_RANK"] = str(spec["world_rank"])
-
-    setup_fn = provider.make_worker_setup_fn()
-    env = setup_fn()
-
-    f = RunnerCls.forward  # staticmethod
-    results = []
-    for idx in spec["indices"]:
-        results.append(f(idx, **env))
-
-    result_path = spec.get("result_path")
-    if result_path:
-        with open(result_path, "w", encoding="utf-8") as w:
-            for r in results:
-                try:
-                    json.dump(r, w, ensure_ascii=False)
-                    w.write("\n")
-                except TypeError:
-                    w.write(repr(r) + "\n")
-        return None
-
-    return results
 
 
 if __name__ == "__main__":
