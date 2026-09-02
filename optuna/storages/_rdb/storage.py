@@ -103,6 +103,13 @@ def _create_scoped_session(
         session.close()
 
 
+def escape_alembic_config_value(value: str) -> str:
+    # We must escape '%' in a value string because the character
+    # is regarded as the trigger of variable expansion.
+    # Please see the documentation of `configparser.BasicInterpolation` for more details.
+    return value.replace("%", "%%")
+
+
 class RDBStorage(BaseStorage, BaseHeartbeat):
     """Storage class for RDB backend.
 
@@ -1237,10 +1244,3 @@ class _VersionManager:
         config.set_main_option("script_location", escape_alembic_config_value(alembic_dir))
         config.set_main_option("sqlalchemy.url", escape_alembic_config_value(self.url))
         return config
-
-
-def escape_alembic_config_value(value: str) -> str:
-    # We must escape '%' in a value string because the character
-    # is regarded as the trigger of variable expansion.
-    # Please see the documentation of `configparser.BasicInterpolation` for more details.
-    return value.replace("%", "%%")
