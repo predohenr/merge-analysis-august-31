@@ -969,15 +969,11 @@ class BaseModelView(BaseView, ActionsMixin):
                 UserWarning,
                 stacklevel=1,
             )
-
-    # Endpoint
     def _get_endpoint(self, endpoint: t.Optional[str]) -> str:
         if endpoint:
             return super()._get_endpoint(endpoint)
 
         return self.model.__name__.lower()
-
-    # Caching
     def _refresh_forms_cache(self) -> None:
         # Forms
         self._form_ajax_refs: dict[
@@ -1111,15 +1107,11 @@ class BaseModelView(BaseView, ActionsMixin):
         # Process form rules
         self._validate_form_class(self._form_edit_rules, self._edit_form_class)
         self._validate_form_class(self._form_create_rules, self._create_form_class)
-
-    # Primary key
     def get_pk_value(self, model: type[T_ORM_MODEL]) -> t.Union[t.Any, tuple[str, ...]]:
         """
         Return PK value from a model object.
         """
         raise NotImplementedError()
-
-    # List view
     def scaffold_list_columns(self) -> list[str]:
         """
         Return list of the model field names. Must be implemented in
@@ -1285,8 +1277,6 @@ class BaseModelView(BaseView, ActionsMixin):
         Return search placeholder text.
         """
         return None
-
-    # Filter helpers
     def scaffold_filters(
         self, name: t.Union[str, BaseFilter]
     ) -> t.Optional[list[BaseFilter]]:
@@ -1387,8 +1377,6 @@ class BaseModelView(BaseView, ActionsMixin):
             return results
 
         return None
-
-    # Form helpers
     def scaffold_form(self) -> type[Form]:
         """
         Create `form.BaseForm` inherited class from the model. Must be
@@ -1651,8 +1639,6 @@ class BaseModelView(BaseView, ActionsMixin):
     ) -> None:
         for field_name in field_names:
             delattr(form_class, field_name)
-
-    # Helpers
     def is_sortable(self, name: str) -> bool:
         """
         Verify if column is sortable.
@@ -1705,8 +1691,6 @@ class BaseModelView(BaseView, ActionsMixin):
             safe_page_size = page_size
 
         return safe_page_size
-
-    # Database-related API
     def get_list(
         self,
         page: t.Optional[int],
@@ -1750,8 +1734,6 @@ class BaseModelView(BaseView, ActionsMixin):
             Model id
         """
         raise NotImplementedError("Please implement get_one method")
-
-    # Exception handler
     def handle_view_exception(self, exc: Exception) -> bool:
         if isinstance(exc, ValidationError):
             flash(as_unicode(exc), "error")  # type: ignore[arg-type]
@@ -1764,8 +1746,6 @@ class BaseModelView(BaseView, ActionsMixin):
             raise
 
         return False
-
-    # Model event handlers
     def on_model_change(self, form: Form, model: T_ORM_MODEL, is_created: bool) -> None:
         """
         Perform some actions before a model is created or updated.
@@ -1915,8 +1895,6 @@ class BaseModelView(BaseView, ActionsMixin):
             Model instance
         """
         raise NotImplementedError()
-
-    # Various helpers
     def _prettify_name(self, name: str) -> str:
         """
         Prettify pythonic variable name.
@@ -1939,8 +1917,6 @@ class BaseModelView(BaseView, ActionsMixin):
         :return: string
         """
         return gettext("Invalid Filter Value: %(value)s", value=value)
-
-    # URL generation helpers
     def _get_list_filter_args(self) -> t.Optional[list[T_FILTER]]:
         if self._filters:
             filters = []
@@ -2023,8 +1999,6 @@ class BaseModelView(BaseView, ActionsMixin):
                 kwargs[key] = value
 
         return kwargs
-
-    # URL generation helpers
     def _get_list_url(self, view_args: ViewArgs) -> str:
         """
         Generate page URL with current page, sort column and other parameters.
@@ -2045,8 +2019,6 @@ class BaseModelView(BaseView, ActionsMixin):
         kwargs.update(self._get_filters(view_args.filters))
 
         return self.get_url(".index_view", **kwargs)
-
-    # Actions
     def is_action_allowed(self, name: str) -> bool:
         """
         Override this method to allow or disallow actions based
@@ -2189,8 +2161,6 @@ class BaseModelView(BaseView, ActionsMixin):
             export_type,
         )
         return filename
-
-    # AJAX references
     def _process_ajax_references(self) -> dict[str, AjaxModelLoader]:
         """
         Process `form_ajax_refs` and generate model loaders that
@@ -2216,8 +2186,6 @@ class BaseModelView(BaseView, ActionsMixin):
         Model backend will override this to implement AJAX model loading.
         """
         raise NotImplementedError()
-
-    # Views
     @expose("/")
     def index_view(self) -> str:
         """
@@ -2740,3 +2708,35 @@ class BaseModelView(BaseView, ActionsMixin):
                             "Failed to update record. %(error)s", error=error
                         ), 500
         return None
+
+    # Endpoint
+
+    # Caching
+
+    # Primary key
+
+    # List view
+
+    # Filter helpers
+
+    # Form helpers
+
+    # Helpers
+
+    # Database-related API
+
+    # Exception handler
+
+    # Model event handlers
+
+    # Various helpers
+
+    # URL generation helpers
+
+    # URL generation helpers
+
+    # Actions
+
+    # AJAX references
+
+    # Views
