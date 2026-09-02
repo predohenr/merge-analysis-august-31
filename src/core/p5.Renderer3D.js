@@ -330,91 +330,34 @@ export class Renderer3D extends Renderer {
     };
   }
 
-  //This is helper function to reset the context anytime the attributes
-  //are changed with setAttributes()
+  _applyBlendMode() {
+    // By default, a noop
+  }
+  //////////////////////////////////////////////
+  _drawGeometryScaled(model, scaleX, scaleY, scaleZ) {
+    let originalModelMatrix = this.states.uModelMatrix;
+    this.states.setValue("uModelMatrix", this.states.uModelMatrix.clone());
+    try {
+      this.states.uModelMatrix.scale(scaleX, scaleY, scaleZ);
 
-  async _resetContext(options, callback, ctor = Renderer3D) {
-    const w = this.width;
-    const h = this.height;
-    const defaultId = this.canvas.id;
-    const isPGraphics = this._pInst instanceof Graphics;
-
-    // Preserve existing position and styles before recreation
-    const prevStyle = {
-      position: this.canvas.style.position,
-      top: this.canvas.style.top,
-      left: this.canvas.style.left,
-    };
-
-    if (isPGraphics) {
-      // Handle PGraphics: remove and recreate the canvas
-      const pg = this._pInst;
-      pg.canvas.parentNode.removeChild(pg.canvas);
-      pg.canvas = document.createElement("canvas");
-      const node = pg._pInst._userNode || document.body;
-      node.appendChild(pg.canvas);
-      Element.call(pg, pg.canvas, pg._pInst);
-      // Restore previous width and height
-      pg.width = w;
-      pg.height = h;
-    } else {
-      // Handle main canvas: remove and recreate it
-      let c = this.canvas;
-      if (c) {
-        c.parentNode.removeChild(c);
-      }
-      c = document.createElement("canvas");
-      c.id = defaultId;
-      // Attach the new canvas to the correct parent node
-      if (this._pInst._userNode) {
-        this._pInst._userNode.appendChild(c);
+      if (this.geometryBuilder) {
+        this.geometryBuilder.addRetained(model);
       } else {
-        document.body.appendChild(c);
+        this._drawGeometry(model);
       }
-      this._pInst.canvas = c;
-      this.canvas = c;
-
-      // Restore the saved position
-      this.canvas.style.position = prevStyle.position;
-      this.canvas.style.top = prevStyle.top;
-      this.canvas.style.left = prevStyle.left;
-    }
-
-    const renderer = new ctor(
-      this._pInst,
-      w,
-      h,
-      !isPGraphics,
-      this._pInst.canvas
-    );
-    this._pInst._renderer = renderer;
-
-    renderer._applyDefaults();
-
-    if (renderer.contextReady) {
-      await renderer.contextReady
-    }
-
-    if (typeof callback === "function") {
-      //setTimeout with 0 forces the task to the back of the queue, this ensures that
-      //we finish switching out the renderer
-      setTimeout(() => {
-        callback.apply(window._renderer, options);
-      }, 0);
+    } finally {
+      this.states.setValue("uModelMatrix", originalModelMatrix);
     }
   }
-
-  remove() {
-    this.wrappedElt.remove();
-    this.wrappedElt = null;
-    this.canvas = null;
-    this.elt = null;
+  _getEmptyTexture() {
+    if (!this._emptyTexture) {
+      // a plain white texture RGBA, full alpha, single pixel.
+      const im = new Image(1, 1);
+      im.set(0, 0, 255);
+      this._emptyTexture = new Texture(this, im);
+    }
+    return this._emptyTexture;
   }
-
-  //////////////////////////////////////////////
-  // Geometry Building
-  //////////////////////////////////////////////
-
   /**
    * Starts creating a new p5.Geometry. Subsequent shapes drawn will be added
    * to the geometry and then returned when
@@ -427,145 +370,25 @@ export class Renderer3D extends Renderer {
    * drawing that will run faster than repeatedly drawing the individual pieces.
    * @private
    */
-  beginGeometry() {
-    if (this.geometryBuilder) {
-      throw new Error(
-        "It looks like `beginGeometry()` is being called while another p5.Geometry is already being build."
-      );
-    }
-    this.geometryBuilder = new GeometryBuilder(this);
-    this.geometryBuilder.prevFillColor = this.states.fillColor;
-    this.fill(new Color([-1, -1, -1, -1]));
+  get uMVMatrix() {
+    const m = this.uModelMatrix.copy();
+    m.mult(this.uViewMatrix);
+    return m;
   }
-
-  /**
-   * Finishes creating a new <a href="#/p5.Geometry">p5.Geometry</a> that was
-   * started using <a href="#/p5/beginGeometry">beginGeometry()</a>. One can also
-   * use <a href="#/p5/buildGeometry">buildGeometry()</a> to pass a function that
-   * draws shapes.
-   * @private
-   *
-   * @returns {p5.Geometry} The model that was built.
-   */
-  endGeometry() {
-    if (!this.geometryBuilder) {
-      throw new Error(
-        "Make sure you call beginGeometry() before endGeometry()!"
-      );
-    }
-    const geometry = this.geometryBuilder.finish();
-    if (this.geometryBuilder.prevFillColor) {
-      this.fill(this.geometryBuilder.prevFillColor);
-    } else {
-      this.noFill();
-    }
-    this.geometryBuilder = undefined;
-    return geometry;
-  }
-
-  /**
-   * Creates a new <a href="#/p5.Geometry">p5.Geometry</a> that contains all
-   * the shapes drawn in a provided callback function. The returned combined shape
-   * can then be drawn all at once using <a href="#/p5/model">model()</a>.
-   *
-   * If you need to draw complex shapes every frame which don't change over time,
-   * combining them with `buildGeometry()` once and then drawing that will run
-   * faster than repeatedly drawing the individual pieces.
-   *
-   * One can also draw shapes directly between
-   * <a href="#/p5/beginGeometry">beginGeometry()</a> and
-   * <a href="#/p5/endGeometry">endGeometry()</a> instead of using a callback
-   * function.
-   * @param {Function} callback A function that draws shapes.
-   * @returns {p5.Geometry} The model that was built from the callback function.
-   */
-  buildGeometry(callback) {
-    this.beginGeometry();
-    callback();
-    return this.endGeometry();
-  }
-
   //////////////////////////////////////////////
-  // Shape drawing
+  get uModelMatrix() {
+    return this.states.uModelMatrix;
+  }
+  // HASH | for geometry
+  geometryInHash(gid) {
+    return this.geometryBufferCache.isCached(gid);
+  }
   //////////////////////////////////////////////
-
-  beginShape(...args) {
-    super.beginShape(...args);
-    // TODO remove when shape refactor is complete
-    // this.shapeBuilder.beginShape(...args);
-  }
-
-  curveDetail(d) {
-    if (d === undefined) {
-      return this.states.curveDetail;
-    } else {
-      this.states.setValue("curveDetail", d);
-    }
-  }
-
-  drawShape(shape) {
-    const visitor = new PrimitiveToVerticesConverter({
-      curveDetail: this.states.curveDetail,
-    });
-    shape.accept(visitor);
-    this.shapeBuilder.constructFromContours(shape, visitor.contours);
-
-    if (this.geometryBuilder) {
-      this.geometryBuilder.addImmediate(
-        this.shapeBuilder.geometry,
-        this.shapeBuilder.shapeMode,
-        { validateFaces: this._validateFaces }
-      );
-    } else if (this.states.fillColor || this.states.strokeColor) {
-      this._drawGeometry(this.shapeBuilder.geometry, {
-        mode: this.shapeBuilder.shapeMode,
-        count: this.drawShapeCount
-      });
-    }
-    this.drawShapeCount = 1;
-  }
-
-  endShape(mode, count) {
-    this.drawShapeCount = count;
-    super.endShape(mode, count);
-  }
-
-  vertexProperty(...args) {
-    this.currentShape.vertexProperty(...args);
-  }
-
-  normal(xorv, y, z) {
-    if (xorv instanceof Vector) {
-      this.states.setValue("_currentNormal", xorv);
-    } else {
-      this.states.setValue("_currentNormal", new Vector(xorv, y, z));
-    }
-    this.updateShapeVertexProperties();
-  }
-
-  model(model, count = 1) {
-    if (model.vertices.length > 0) {
-      if (this.geometryBuilder) {
-        this.geometryBuilder.addRetained(model);
-      } else {
-        if (!this.geometryInHash(model.gid)) {
-          model._edgesToVertices();
-          this._getOrMakeCachedBuffers(model);
-        }
-
-        this._drawGeometry(model, { count });
-      }
-    }
-  }
-
-  _getOrMakeCachedBuffers(geometry) {
-    return this.geometryBufferCache.ensureCached(geometry);
-  }
-
   //////////////////////////////////////////////
-  // Rendering
-  //////////////////////////////////////////////
-
+  //// UTILITY FUNCTIONS
+  baseMaterialShader() {
+    return this._getLightShader();
+  }
   _drawGeometry(geometry, { mode = constants.TRIANGLES, count = 1 } = {}) {
     for (const propName in geometry.userVertexProperties) {
       const prop = geometry.userVertexProperties[propName];
@@ -594,7 +417,104 @@ export class Renderer3D extends Renderer {
 
     this.buffers.user = [];
   }
-
+  beginShape(...args) {
+    super.beginShape(...args);
+    // TODO remove when shape refactor is complete
+    // this.shapeBuilder.beginShape(...args);
+  }
+  // getting called from _setFillUniforms
+  //////////////////////////////////////////////
+  // Shape drawing
+  //////////////////////////////////////////////
+  baseColorShader() {
+    return this._getColorShader();
+  }
+  _prepareUserAttributes(geometry, shader) {
+    for (const buff of this.buffers.user) {
+      if (!this._pInst.constructor.disableFriendleErrors) {
+        // Check for the right data size
+        const prop = geometry.userVertexProperties[buff.attr];
+        if (prop) {
+          const adjustedLength = prop.getSrcArray().length / prop.getDataSize();
+          if (adjustedLength > geometry.vertices.length) {
+            this._pInst.constructor._friendlyError(
+              `One of the geometries has a custom vertex property '${prop.getName()}' with more values than vertices. This is probably caused by directly using the Geometry.vertexProperty() method.`,
+              "vertexProperty()"
+            );
+          } else if (adjustedLength < geometry.vertices.length) {
+            this._pInst.constructor._friendlyError(
+              `One of the geometries has a custom vertex property '${prop.getName()}' with fewer values than vertices. This is probably caused by directly using the Geometry.vertexProperty() method.`,
+              "vertexProperty()"
+            );
+          }
+        }
+      }
+      buff._prepareBuffer(geometry, shader);
+    }
+  }
+  stroke(...args) {
+    super.stroke(...args);
+    // const color = fn.color.apply(this._pInst, arguments);
+    this.states.setValue('curStrokeColor', this.states.strokeColor._array);
+  }
+  // Positioning
+  /**
+   * @private
+   * @returns {p5.Framebuffer|null} The currently active framebuffer, or null if
+   * the main canvas is the current draw target.
+   */
+  rotateZ(rad) {
+    this.rotate(rad, 0, 0, 1);
+    return this;
+  }
+  // SHADER
+  //// TEXT SUPPORT METHODS
+  _setStrokeUniforms(strokeShader) {
+    // set the uniform values
+    strokeShader.setUniform("uSimpleLines", this._simpleLines);
+    strokeShader.setUniform("uUseLineColor", this._useLineColor);
+    strokeShader.setUniform("uMaterialColor", this.states.curStrokeColor);
+    strokeShader.setUniform("uStrokeWeight", this.states.strokeWeight);
+    strokeShader.setUniform("uStrokeCap", STROKE_CAP_ENUM[this.curStrokeCap]);
+    strokeShader.setUniform(
+      "uStrokeJoin",
+      STROKE_JOIN_ENUM[this.curStrokeJoin]
+    );
+  }
+  _getOrMakeCachedBuffers(geometry) {
+    return this.geometryBufferCache.ensureCached(geometry);
+  }
+  noErase() {
+    if (this._isErasing) {
+      // Restore colors
+      this.states.setValue('curFillColor', this._cachedFillStyle.slice());
+      this.states.setValue('curStrokeColor', this._cachedStrokeStyle.slice());
+      // Restore blend mode
+      this.states.setValue('curBlendMode', this.preEraseBlend);
+      this.blendMode(this.preEraseBlend);
+      // Ensure that _applyBlendMode() sets preEraseBlend back to the original blend mode
+      this._isErasing = false;
+      this._applyBlendMode();
+    }
+  }
+  // getting called from _setFillUniforms
+  // HASH | for geometry
+  endShape(mode, count) {
+    this.drawShapeCount = count;
+    super.endShape(mode, count);
+  }
+  //////////////////////////////////////////////
+  //////////////////////////////////////////////
+  //////////////////////////////////////////////
+  ///////////////////////////////
+  rotate(rad, axis) {
+    if (typeof axis === "undefined") {
+      return this.rotateZ(rad);
+    }
+    this.states.setValue("uModelMatrix", this.states.uModelMatrix.clone());
+    Matrix.prototype.rotate4x4.apply(this.states.uModelMatrix, arguments);
+    return this;
+  }
   _drawFills(geometry, { count, mode } = {}) {
     this._useVertexColor = geometry.vertexColors.length > 0 &&
       !geometry.vertexColors.isDefault;
@@ -623,206 +543,57 @@ export class Renderer3D extends Renderer {
 
     shader.unbindShader();
   }
+  // Buffers
+  drawShape(shape) {
+    const visitor = new PrimitiveToVerticesConverter({
+      curveDetail: this.states.curveDetail,
+    });
+    shape.accept(visitor);
+    this.shapeBuilder.constructFromContours(shape, visitor.contours);
 
-  _drawStrokes(geometry, { count } = {}) {
-
-    this._useLineColor = geometry.vertexStrokeColors.length > 0;
-
-    const shader = this._getStrokeShader();
-    shader.bindShader('stroke');
-    this._setGlobalUniforms(shader);
-    this._setStrokeUniforms(shader);
-    shader.bindTextures();
-
-    for (const buff of this.buffers.stroke) {
-      buff._prepareBuffer(geometry, shader);
+    if (this.geometryBuilder) {
+      this.geometryBuilder.addImmediate(
+        this.shapeBuilder.geometry,
+        this.shapeBuilder.shapeMode,
+        { validateFaces: this._validateFaces }
+      );
+    } else if (this.states.fillColor || this.states.strokeColor) {
+      this._drawGeometry(this.shapeBuilder.geometry, {
+        mode: this.shapeBuilder.shapeMode,
+        count: this.drawShapeCount
+      });
     }
-    this._prepareUserAttributes(geometry, shader);
-    this._disableRemainingAttributes(shader);
-
-    this._applyColorBlend(
-      this.states.curStrokeColor,
-      geometry.hasStrokeTransparency()
-    );
-
-    this._drawBuffers(geometry, {count})
-
-    shader.unbindShader();
+    this.drawShapeCount = 1;
   }
-
-  _prepareUserAttributes(geometry, shader) {
-    for (const buff of this.buffers.user) {
-      if (!this._pInst.constructor.disableFriendleErrors) {
-        // Check for the right data size
-        const prop = geometry.userVertexProperties[buff.attr];
-        if (prop) {
-          const adjustedLength = prop.getSrcArray().length / prop.getDataSize();
-          if (adjustedLength > geometry.vertices.length) {
-            this._pInst.constructor._friendlyError(
-              `One of the geometries has a custom vertex property '${prop.getName()}' with more values than vertices. This is probably caused by directly using the Geometry.vertexProperty() method.`,
-              "vertexProperty()"
-            );
-          } else if (adjustedLength < geometry.vertices.length) {
-            this._pInst.constructor._friendlyError(
-              `One of the geometries has a custom vertex property '${prop.getName()}' with fewer values than vertices. This is probably caused by directly using the Geometry.vertexProperty() method.`,
-              "vertexProperty()"
-            );
-          }
-        }
-      }
-      buff._prepareBuffer(geometry, shader);
-    }
-  }
-
-  _drawGeometryScaled(model, scaleX, scaleY, scaleZ) {
-    let originalModelMatrix = this.states.uModelMatrix;
-    this.states.setValue("uModelMatrix", this.states.uModelMatrix.clone());
-    try {
-      this.states.uModelMatrix.scale(scaleX, scaleY, scaleZ);
-
-      if (this.geometryBuilder) {
-        this.geometryBuilder.addRetained(model);
+  _getFillShader() {
+    // If drawing an image, check for user-defined image shader and filters
+    if (this._drawingImage) {
+      // Use user-defined image shader if available and no filter is applied
+      if (this.states.userImageShader && !this._drawingFilter) {
+        return this.states.userImageShader;
       } else {
-        this._drawGeometry(model);
+        return this._getLightShader(); // Fallback to light shader
       }
-    } finally {
-      this.states.setValue("uModelMatrix", originalModelMatrix);
     }
-  }
-
-  _update() {
-    // reset model view and apply initial camera transform
-    // (containing only look at info; no projection).
-    this.states.setValue("uModelMatrix", this.states.uModelMatrix.clone());
-    this.states.uModelMatrix.reset();
-    this.states.setValue("uViewMatrix", this.states.uViewMatrix.clone());
-    this.states.uViewMatrix.set(this.states.curCamera.cameraMatrix);
-
-    // reset light data for new frame.
-
-    this.states.setValue("ambientLightColors", []);
-    this.states.setValue("specularColors", [1, 1, 1]);
-
-    this.states.setValue("directionalLightDirections", []);
-    this.states.setValue("directionalLightDiffuseColors", []);
-    this.states.setValue("directionalLightSpecularColors", []);
-
-    this.states.setValue("pointLightPositions", []);
-    this.states.setValue("pointLightDiffuseColors", []);
-    this.states.setValue("pointLightSpecularColors", []);
-
-    this.states.setValue("spotLightPositions", []);
-    this.states.setValue("spotLightDirections", []);
-    this.states.setValue("spotLightDiffuseColors", []);
-    this.states.setValue("spotLightSpecularColors", []);
-    this.states.setValue("spotLightAngle", []);
-    this.states.setValue("spotLightConc", []);
-
-    this.states.setValue("enableLighting", false);
-
-    //reset tint value for new frame
-    this.states.setValue("tint", [255, 255, 255, 255]);
-
-    //Clear depth every frame
-    this._resetBuffersBeforeDraw()
-  }
-
-  background(...args) {
-    const a0 = args[0];
-
-    const isImageLike =
-      a0 != null &&
-      typeof a0 === 'object' &&
-      typeof a0.width === 'number' &&
-      typeof a0.height === 'number' &&
-      (a0.canvas != null || a0.elt != null);
-
-    // WEBGL / 3D: support background(image-like)
-    if (isImageLike) {
-      this._pInst.clear();
-      this._pInst.push();
-      this._pInst.resetMatrix();
-      this._pInst.imageMode(constants.CENTER);
-      this._pInst.image(a0, 0, 0, this._pInst.width, this._pInst.height);
-      this._pInst.pop();
-      return;
+    // If user has defined a fill shader, return that
+    else if (this.states.userFillShader) {
+      return this.states.userFillShader;
     }
-
-    // Default: background(color)
-    const _col = this._pInst.color(...args);
-    this.clear(..._col._getRGBA());
+    // Use normal shader if normal material is active
+    else if (this.states._useNormalMaterial) {
+      return this._getNormalShader();
+    }
+    // Use light shader if lighting or textures are enabled
+    else if (this.states.enableLighting || this.states._tex) {
+      return this._getLightShader();
+    }
+    // Default to color shader if no other conditions are met
+    return this._getColorShader();
   }
-
+  ///////////////////////////////
   //////////////////////////////////////////////
-  // Positioning
   //////////////////////////////////////////////
-
-  get uModelMatrix() {
-    return this.states.uModelMatrix;
-  }
-
-  get uViewMatrix() {
-    return this.states.uViewMatrix;
-  }
-
-  get uPMatrix() {
-    return this.states.uPMatrix;
-  }
-
-  get uMVMatrix() {
-    const m = this.uModelMatrix.copy();
-    m.mult(this.uViewMatrix);
-    return m;
-  }
-
-  /**
-   * Get a matrix from world-space to screen-space
-   */
-  getWorldToScreenMatrix() {
-    const modelMatrix = this.states.uModelMatrix;
-    const viewMatrix = this.states.uViewMatrix;
-    const projectionMatrix = this.states.uPMatrix;
-    const projectedToScreenMatrix = new Matrix(4);
-    projectedToScreenMatrix.scale(this.width, this.height, 1);
-    projectedToScreenMatrix.translate([0.5, 0.5, 0.5]);
-    projectedToScreenMatrix.scale(0.5, -0.5, 0.5);
-
-    const modelViewMatrix = modelMatrix.copy().mult(viewMatrix);
-    const modelViewProjectionMatrix = modelViewMatrix.mult(projectionMatrix);
-    const worldToScreenMatrix = modelViewProjectionMatrix
-      .mult(projectedToScreenMatrix);
-    return worldToScreenMatrix;
-  }
-
   //////////////////////////////////////////////
-  // COLOR
-  //////////////////////////////////////////////
-  /**
-   * Basic fill material for geometry with a given color
-   * @param  {Number|Number[]|String|p5.Color} v1  gray value,
-   * red or hue value (depending on the current color mode),
-   * or color Array, or CSS color string
-   * @param  {Number}            [v2] green or saturation value
-   * @param  {Number}            [v3] blue or brightness value
-   * @param  {Number}            [a]  opacity
-   * @chainable
-   * @example
-   * function setup() {
-   *   createCanvas(200, 200, WEBGL);
-   * }
-   *
-   * function draw() {
-   *   background(0);
-   *   noStroke();
-   *   fill(100, 100, 240);
-   *   rotateX(frameCount * 0.01);
-   *   rotateY(frameCount * 0.01);
-   *   box(75, 75, 75);
-   * }
-   *
-   * @alt
-   * black canvas with purple cube spinning
-   */
   fill(...args) {
     super.fill(...args);
     //see material.js for more info on color blending in webgl
@@ -832,84 +603,6 @@ export class Renderer3D extends Renderer {
     this.states.setValue('drawMode', constants.FILL);
     this.states.setValue('_useNormalMaterial', false);
     this.states.setValue('_tex', null);
-  }
-
-  /**
-   * Basic stroke material for geometry with a given color
-   * @param  {Number|Number[]|String|p5.Color} v1  gray value,
-   * red or hue value (depending on the current color mode),
-   * or color Array, or CSS color string
-   * @param  {Number}            [v2] green or saturation value
-   * @param  {Number}            [v3] blue or brightness value
-   * @param  {Number}            [a]  opacity
-   * @example
-   * function setup() {
-   *   createCanvas(200, 200, WEBGL);
-   * }
-   *
-   * function draw() {
-   *   background(0);
-   *   stroke(240, 150, 150);
-   *   fill(100, 100, 240);
-   *   rotateX(frameCount * 0.01);
-   *   rotateY(frameCount * 0.01);
-   *   box(75, 75, 75);
-   * }
-   *
-   * @alt
-   * black canvas with purple cube with pink outline spinning
-   */
-  stroke(...args) {
-    super.stroke(...args);
-    // const color = fn.color.apply(this._pInst, arguments);
-    this.states.setValue('curStrokeColor', this.states.strokeColor._array);
-  }
-
-  getCommonVertexProperties() {
-    return {
-      ...super.getCommonVertexProperties(),
-      stroke: this.states.strokeColor,
-      fill: this.states.fillColor,
-      normal: this.states._currentNormal,
-    };
-  }
-
-  getSupportedIndividualVertexProperties() {
-    return {
-      textureCoordinates: true,
-    };
-  }
-
-  strokeCap(cap) {
-    this.curStrokeCap = cap;
-  }
-
-  strokeJoin(join) {
-    this.curStrokeJoin = join;
-  }
-  getFilterLayer() {
-    if (!this.filterLayer) {
-      this.filterLayer = new Framebuffer(this);
-    }
-    return this.filterLayer;
-  }
-  getFilterLayerTemp() {
-    if (!this.filterLayerTemp) {
-      this.filterLayerTemp = new Framebuffer(this);
-    }
-    return this.filterLayerTemp;
-  }
-  matchSize(fboToMatch, target) {
-    if (
-      fboToMatch.width !== target.width ||
-      fboToMatch.height !== target.height
-    ) {
-      fboToMatch.resize(target.width, target.height);
-    }
-
-    if (fboToMatch.pixelDensity() !== target.pixelDensity()) {
-      fboToMatch.pixelDensity(target.pixelDensity());
-    }
   }
   filter(...args) {
     let fbo = this.getFilterLayer();
@@ -1046,91 +739,113 @@ export class Renderer3D extends Renderer {
     this.pop();
     this.pop();
   }
+  /**
+   * Basic fill material for geometry with a given color
+   * @param  {Number|Number[]|String|p5.Color} v1  gray value,
+   * red or hue value (depending on the current color mode),
+   * or color Array, or CSS color string
+   * @param  {Number}            [v2] green or saturation value
+   * @param  {Number}            [v3] blue or brightness value
+   * @param  {Number}            [a]  opacity
+   * @chainable
+   * @example
+   * function setup() {
+   *   createCanvas(200, 200, WEBGL);
+   * }
+   *
+   * function draw() {
+   *   background(0);
+   *   noStroke();
+   *   fill(100, 100, 240);
+   *   rotateX(frameCount * 0.01);
+   *   rotateY(frameCount * 0.01);
+   *   box(75, 75, 75);
+   * }
+   *
+   * @alt
+   * black canvas with purple cube spinning
+   */
+  // Rendering
+  // Rendering
+  //////////////////////////////////////////////
+  // SHADER
+  // Geometry Building
+  //////////////////////////////////////////////
+  _arraysEqual(a, b) {
+    const aLength = a.length;
+    if (aLength !== b.length) return false;
+    return a.every((ai, i) => ai === b[i]);
+  }
+  async _resetContext(options, callback, ctor = Renderer3D) {
+    const w = this.width;
+    const h = this.height;
+    const defaultId = this.canvas.id;
+    const isPGraphics = this._pInst instanceof Graphics;
 
-  // Pass this off to the host instance so that we can treat a renderer and a
-  // framebuffer the same in filter()
+    // Preserve existing position and styles before recreation
+    const prevStyle = {
+      position: this.canvas.style.position,
+      top: this.canvas.style.top,
+      left: this.canvas.style.left,
+    };
 
-  pixelDensity(newDensity) {
-    if (newDensity) {
-      return this._pInst.pixelDensity(newDensity);
+    if (isPGraphics) {
+      // Handle PGraphics: remove and recreate the canvas
+      const pg = this._pInst;
+      pg.canvas.parentNode.removeChild(pg.canvas);
+      pg.canvas = document.createElement("canvas");
+      const node = pg._pInst._userNode || document.body;
+      node.appendChild(pg.canvas);
+      Element.call(pg, pg.canvas, pg._pInst);
+      // Restore previous width and height
+      pg.width = w;
+      pg.height = h;
+    } else {
+      // Handle main canvas: remove and recreate it
+      let c = this.canvas;
+      if (c) {
+        c.parentNode.removeChild(c);
+      }
+      c = document.createElement("canvas");
+      c.id = defaultId;
+      // Attach the new canvas to the correct parent node
+      if (this._pInst._userNode) {
+        this._pInst._userNode.appendChild(c);
+      } else {
+        document.body.appendChild(c);
+      }
+      this._pInst.canvas = c;
+      this.canvas = c;
+
+      // Restore the saved position
+      this.canvas.style.position = prevStyle.position;
+      this.canvas.style.top = prevStyle.top;
+      this.canvas.style.left = prevStyle.left;
     }
-    return this._pInst.pixelDensity();
-  }
 
-  blendMode(mode) {
-    if (
-      mode === constants.DARKEST ||
-      mode === constants.LIGHTEST ||
-      mode === constants.ADD ||
-      mode === constants.BLEND ||
-      mode === constants.SUBTRACT ||
-      mode === constants.SCREEN ||
-      mode === constants.EXCLUSION ||
-      mode === constants.REPLACE ||
-      mode === constants.MULTIPLY ||
-      mode === constants.REMOVE
-    )
-      this.states.setValue('curBlendMode', mode);
-    else if (
-      mode === constants.BURN ||
-      mode === constants.OVERLAY ||
-      mode === constants.HARD_LIGHT ||
-      mode === constants.SOFT_LIGHT ||
-      mode === constants.DODGE
-    ) {
-      console.warn(
-        'BURN, OVERLAY, HARD_LIGHT, SOFT_LIGHT, and DODGE only work for blendMode in 2D mode.'
-      );
+    const renderer = new ctor(
+      this._pInst,
+      w,
+      h,
+      !isPGraphics,
+      this._pInst.canvas
+    );
+    this._pInst._renderer = renderer;
+
+    renderer._applyDefaults();
+
+    if (renderer.contextReady) {
+      await renderer.contextReady
+    }
+
+    if (typeof callback === "function") {
+      //setTimeout with 0 forces the task to the back of the queue, this ensures that
+      //we finish switching out the renderer
+      setTimeout(() => {
+        callback.apply(window._renderer, options);
+      }, 0);
     }
   }
-
-  erase(opacityFill, opacityStroke) {
-    if (!this._isErasing) {
-      this.preEraseBlend = this.states.curBlendMode;
-      this._isErasing = true;
-      this.blendMode(constants.REMOVE);
-      this._cachedFillStyle = this.states.curFillColor.slice();
-      this.states.setValue('curFillColor', [1, 1, 1, opacityFill / 255]);
-      this._cachedStrokeStyle = this.states.curStrokeColor.slice();
-      this.states.setValue('curStrokeColor', [1, 1, 1, opacityStroke / 255]);
-    }
-  }
-
-  noErase() {
-    if (this._isErasing) {
-      // Restore colors
-      this.states.setValue('curFillColor', this._cachedFillStyle.slice());
-      this.states.setValue('curStrokeColor', this._cachedStrokeStyle.slice());
-      // Restore blend mode
-      this.states.setValue('curBlendMode', this.preEraseBlend);
-      this.blendMode(this.preEraseBlend);
-      // Ensure that _applyBlendMode() sets preEraseBlend back to the original blend mode
-      this._isErasing = false;
-      this._applyBlendMode();
-    }
-  }
-
-  _applyBlendMode() {
-    // By default, a noop
-  }
-
-  drawTarget() {
-    return this.activeFramebuffers[this.activeFramebuffers.length - 1] || this;
-  }
-
-  beginClip(options = {}) {
-    super.beginClip(options);
-
-    this.drawTarget()._isClipApplied = true;
-
-    this._applyClip();
-
-    this.push();
-    this.resetShader();
-    if (this.states.fillColor) this.fill(0, 0);
-    if (this.states.strokeColor) this.stroke(0, 0);
-  }
-
   endClip() {
     this.pop();
 
@@ -1142,101 +857,33 @@ export class Renderer3D extends Renderer {
 
     super.endClip();
   }
-
-  _clearClip() {
-    this._clearClipBuffer();
-    if (this._clipDepths.length > 0) {
-      this._clipDepths.pop();
-    }
-    this.drawTarget()._isClipApplied = false;
-  }
-
+  // framebuffer the same in filter()
   /**
-   * @private
-   * @returns {p5.Framebuffer} A p5.Framebuffer set to match the size and settings
-   * of the renderer's canvas. It will be created if it does not yet exist, and
-   * reused if it does.
+   * Creates a new <a href="#/p5.Geometry">p5.Geometry</a> that contains all
+   * the shapes drawn in a provided callback function. The returned combined shape
+   * can then be drawn all at once using <a href="#/p5/model">model()</a>.
+   *
+   * If you need to draw complex shapes every frame which don't change over time,
+   * combining them with `buildGeometry()` once and then drawing that will run
+   * faster than repeatedly drawing the individual pieces.
+   *
+   * One can also draw shapes directly between
+   * <a href="#/p5/beginGeometry">beginGeometry()</a> and
+   * <a href="#/p5/endGeometry">endGeometry()</a> instead of using a callback
+   * function.
+   * @param {Function} callback A function that draws shapes.
+   * @returns {p5.Geometry} The model that was built from the callback function.
    */
-  _getTempFramebuffer() {
-    if (!this._tempFramebuffer) {
-      this._tempFramebuffer = new Framebuffer(this, {
-        format: constants.UNSIGNED_BYTE,
-        useDepth: this._pInst._glAttributes.depth,
-        depthFormat: constants.UNSIGNED_INT,
-        antialias: this._pInst._glAttributes.antialias,
-      });
+  translate(x, y, z) {
+    if (x instanceof Vector) {
+      z = x.z;
+      y = x.y;
+      x = x.x;
     }
-    return this._tempFramebuffer;
+    this.states.setValue("uModelMatrix", this.states.uModelMatrix.clone());
+    this.states.uModelMatrix.translate([x, y, z]);
+    return this;
   }
-
-  //////////////////////////////////////////////
-  // HASH | for geometry
-  //////////////////////////////////////////////
-
-  geometryInHash(gid) {
-    return this.geometryBufferCache.isCached(gid);
-  }
-
-  /**
-   * [resize description]
-   * @private
-   * @param  {Number} w [description]
-   * @param  {Number} h [description]
-   */
-  resize(w, h) {
-    super.resize(w, h);
-
-    // save canvas properties
-    const props = {};
-    for (const key in this.drawingContext) {
-      const val = this.drawingContext[key];
-      if (typeof val !== "object" && typeof val !== "function") {
-        props[key] = val;
-      }
-    }
-
-    const dimensions = this._adjustDimensions(w, h);
-    w = dimensions.adjustedWidth;
-    h = dimensions.adjustedHeight;
-
-    this.width = w;
-    this.height = h;
-
-    this.canvas.width = w * this._pixelDensity;
-    this.canvas.height = h * this._pixelDensity;
-    this.canvas.style.width = `${w}px`;
-    this.canvas.style.height = `${h}px`;
-    this._updateViewport();
-    this._updateSize();
-
-    this.mainCamera._resize();
-    if (this.states.curCamera !== this.mainCamera) {
-      this.states.curCamera._resize();
-    }
-
-    //resize pixels buffer
-    if (typeof this.pixels !== "undefined") {
-      this._createPixelsArray();
-    }
-
-    for (const framebuffer of this.framebuffers) {
-      // Notify framebuffers of the resize so that any auto-sized framebuffers
-      // can also update their size
-      this.flushDraw?.();
-      framebuffer._canvasSizeChanged();
-    }
-    this.flushDraw?.();
-
-    // reset canvas properties
-    for (const savedKey in props) {
-      try {
-        this.drawingContext[savedKey] = props[savedKey];
-      } catch (err) {
-        // ignore read-only property errors
-      }
-    }
-  }
-
   applyMatrix(a, b, c, d, e, f) {
     this.states.setValue("uModelMatrix", this.states.uModelMatrix.clone());
     if (arguments.length === 16) {
@@ -1263,65 +910,141 @@ export class Renderer3D extends Renderer {
       ]);
     }
   }
-
-  /**
-   * [translate description]
-   * @private
-   * @param  {Number} x [description]
-   * @param  {Number} y [description]
-   * @param  {Number} z [description]
-   * @chainable
-   * @todo implement handle for components or vector as args
-   */
-  translate(x, y, z) {
-    if (x instanceof Vector) {
-      z = x.z;
-      y = x.y;
-      x = x.x;
+  matchSize(fboToMatch, target) {
+    if (
+      fboToMatch.width !== target.width ||
+      fboToMatch.height !== target.height
+    ) {
+      fboToMatch.resize(target.width, target.height);
     }
-    this.states.setValue("uModelMatrix", this.states.uModelMatrix.clone());
-    this.states.uModelMatrix.translate([x, y, z]);
-    return this;
-  }
 
-  /**
-   * Scales the Model View Matrix by a vector
-   * @private
-   * @param  {Number | p5.Vector | Array} x [description]
-   * @param  {Number} [y] y-axis scalar
-   * @param  {Number} [z] z-axis scalar
-   * @chainable
-   */
-  scale(x, y, z) {
-    this.states.setValue("uModelMatrix", this.states.uModelMatrix.clone());
-    this.states.uModelMatrix.scale(x, y, z);
-    return this;
-  }
-
-  rotate(rad, axis) {
-    if (typeof axis === "undefined") {
-      return this.rotateZ(rad);
+    if (fboToMatch.pixelDensity() !== target.pixelDensity()) {
+      fboToMatch.pixelDensity(target.pixelDensity());
     }
-    this.states.setValue("uModelMatrix", this.states.uModelMatrix.clone());
-    Matrix.prototype.rotate4x4.apply(this.states.uModelMatrix, arguments);
-    return this;
   }
-
-  rotateX(rad) {
-    this.rotate(rad, 1, 0, 0);
-    return this;
+  // Pass this off to the host instance so that we can treat a renderer and a
+  // Pass this off to the host instance so that we can treat a renderer and a
+  get uViewMatrix() {
+    return this.states.uViewMatrix;
   }
+  drawTarget() {
+    return this.activeFramebuffers[this.activeFramebuffers.length - 1] || this;
+  }
+  beginGeometry() {
+    if (this.geometryBuilder) {
+      throw new Error(
+        "It looks like `beginGeometry()` is being called while another p5.Geometry is already being build."
+      );
+    }
+    this.geometryBuilder = new GeometryBuilder(this);
+    this.geometryBuilder.prevFillColor = this.states.fillColor;
+    this.fill(new Color([-1, -1, -1, -1]));
+  }
+  createFramebuffer(options) {
+    return new Framebuffer(this, options);
+  }
+  //This is helper function to reset the context anytime the attributes
+  // COLOR
+  pixelDensity(newDensity) {
+    if (newDensity) {
+      return this._pInst.pixelDensity(newDensity);
+    }
+    return this._pInst.pixelDensity();
+  }
+  background(...args) {
+    const a0 = args[0];
 
+    const isImageLike =
+      a0 != null &&
+      typeof a0 === 'object' &&
+      typeof a0.width === 'number' &&
+      typeof a0.height === 'number' &&
+      (a0.canvas != null || a0.elt != null);
+
+    // WEBGL / 3D: support background(image-like)
+    if (isImageLike) {
+      this._pInst.clear();
+      this._pInst.push();
+      this._pInst.resetMatrix();
+      this._pInst.imageMode(constants.CENTER);
+      this._pInst.image(a0, 0, 0, this._pInst.width, this._pInst.height);
+      this._pInst.pop();
+      return;
+    }
+
+    // Default: background(color)
+    const _col = this._pInst.color(...args);
+    this.clear(..._col._getRGBA());
+  }
+  //////////////////////////////////////////////
   rotateY(rad) {
     this.rotate(rad, 0, 1, 0);
     return this;
   }
-
-  rotateZ(rad) {
-    this.rotate(rad, 0, 0, 1);
-    return this;
+  /**
+   * @private
+   * Note: DO NOT CALL THIS while in the middle of binding another texture,
+   * since it will change the texture binding in order to allocate the empty
+   * texture! Grab its value beforehand!
+   */
+  //////////////////////////////////////////////
+  buildGeometry(callback) {
+    this.beginGeometry();
+    callback();
+    return this.endGeometry();
   }
+  //////////////////////////////////////////////
+  // COLOR
+  // Positioning
+  getWorldToScreenMatrix() {
+    const modelMatrix = this.states.uModelMatrix;
+    const viewMatrix = this.states.uViewMatrix;
+    const projectionMatrix = this.states.uPMatrix;
+    const projectedToScreenMatrix = new Matrix(4);
+    projectedToScreenMatrix.scale(this.width, this.height, 1);
+    projectedToScreenMatrix.translate([0.5, 0.5, 0.5]);
+    projectedToScreenMatrix.scale(0.5, -0.5, 0.5);
 
+    const modelViewMatrix = modelMatrix.copy().mult(viewMatrix);
+    const modelViewProjectionMatrix = modelViewMatrix.mult(projectionMatrix);
+    const worldToScreenMatrix = modelViewProjectionMatrix
+      .mult(projectedToScreenMatrix);
+    return worldToScreenMatrix;
+  }
+  _getStrokeShader() {
+    // select the stroke shader to use
+    const stroke = this.states.userStrokeShader;
+    if (stroke) {
+      return stroke;
+    }
+    return this._getLineShader();
+  }
+  blendMode(mode) {
+    if (
+      mode === constants.DARKEST ||
+      mode === constants.LIGHTEST ||
+      mode === constants.ADD ||
+      mode === constants.BLEND ||
+      mode === constants.SUBTRACT ||
+      mode === constants.SCREEN ||
+      mode === constants.EXCLUSION ||
+      mode === constants.REPLACE ||
+      mode === constants.MULTIPLY ||
+      mode === constants.REMOVE
+    )
+      this.states.setValue('curBlendMode', mode);
+    else if (
+      mode === constants.BURN ||
+      mode === constants.OVERLAY ||
+      mode === constants.HARD_LIGHT ||
+      mode === constants.SOFT_LIGHT ||
+      mode === constants.DODGE
+    ) {
+      console.warn(
+        'BURN, OVERLAY, HARD_LIGHT, SOFT_LIGHT, and DODGE only work for blendMode in 2D mode.'
+      );
+    }
+  }
   pop(...args) {
     if (
       this._clipDepths.length > 0 &&
@@ -1332,7 +1055,6 @@ export class Renderer3D extends Renderer {
     super.pop(...args);
     this._applyStencilTestIfClipping();
   }
-
   resetMatrix() {
     this.states.setValue("uModelMatrix", this.states.uModelMatrix.clone());
     this.states.uModelMatrix.reset();
@@ -1340,130 +1062,29 @@ export class Renderer3D extends Renderer {
     this.states.uViewMatrix.set(this.states.curCamera.cameraMatrix);
     return this;
   }
-
-  //////////////////////////////////////////////
-  // SHADER
-  //////////////////////////////////////////////
-
-  _getStrokeShader() {
-    // select the stroke shader to use
-    const stroke = this.states.userStrokeShader;
-    if (stroke) {
-      return stroke;
-    }
-    return this._getLineShader();
-  }
-
-  /*
-   * This method will handle both image shaders and
-   * fill shaders, returning the appropriate shader
-   * depending on the current context (image or shape).
-   */
-  _getFillShader() {
-    // If drawing an image, check for user-defined image shader and filters
-    if (this._drawingImage) {
-      // Use user-defined image shader if available and no filter is applied
-      if (this.states.userImageShader && !this._drawingFilter) {
-        return this.states.userImageShader;
-      } else {
-        return this._getLightShader(); // Fallback to light shader
-      }
-    }
-    // If user has defined a fill shader, return that
-    else if (this.states.userFillShader) {
-      return this.states.userFillShader;
-    }
-    // Use normal shader if normal material is active
-    else if (this.states._useNormalMaterial) {
-      return this._getNormalShader();
-    }
-    // Use light shader if lighting or textures are enabled
-    else if (this.states.enableLighting || this.states._tex) {
-      return this._getLightShader();
-    }
-    // Default to color shader if no other conditions are met
-    return this._getColorShader();
-  }
-
-  baseMaterialShader() {
-    return this._getLightShader();
-  }
-
-  baseNormalShader() {
-    return this._getNormalShader();
-  }
-
-  baseColorShader() {
-    return this._getColorShader();
-  }
-
-  baseStrokeShader() {
-    return this._getLineShader();
-  }
-
-  /**
-   * @private
-   * @returns {p5.Framebuffer|null} The currently active framebuffer, or null if
-   * the main canvas is the current draw target.
-   */
   activeFramebuffer() {
     return this.activeFramebuffers[this.activeFramebuffers.length - 1] || null;
   }
-
-  createFramebuffer(options) {
-    return new Framebuffer(this, options);
+  getCommonVertexProperties() {
+    return {
+      ...super.getCommonVertexProperties(),
+      stroke: this.states.strokeColor,
+      fill: this.states.fillColor,
+      normal: this.states._currentNormal,
+    };
   }
-
-  _setGlobalUniforms(shader) {
-    const modelMatrix = this.states.uModelMatrix;
-    const viewMatrix = this.states.uViewMatrix;
-    const projectionMatrix = this.states.uPMatrix;
-    const modelViewMatrix = modelMatrix.copy().mult(viewMatrix);
-
-    shader.setUniform(
-      "uPerspective",
-      this.states.curCamera.useLinePerspective ? 1 : 0
-    );
-    shader.setUniform("uViewMatrix", viewMatrix.mat4);
-    shader.setUniform("uProjectionMatrix", projectionMatrix.mat4);
-    shader.setUniform("uModelMatrix", modelMatrix.mat4);
-    shader.setUniform("uModelViewMatrix", modelViewMatrix.mat4);
-    if (shader.uniforms.uModelViewProjectionMatrix) {
-      const modelViewProjectionMatrix = modelViewMatrix.copy();
-      modelViewProjectionMatrix.mult(projectionMatrix);
-      shader.setUniform(
-        "uModelViewProjectionMatrix",
-        modelViewProjectionMatrix.mat4
-      );
+  _normalizeBufferData(values, type = Float32Array) {
+    if (!values) return null;
+    if (values instanceof DataArray) {
+      return values.dataArray();
     }
-    if (shader.uniforms.uNormalMatrix) {
-      this.scratchMat3.inverseTranspose4x4(modelViewMatrix);
-      shader.setUniform("uNormalMatrix", this.scratchMat3.mat3);
+    if (values instanceof type) {
+      return values;
     }
-    if (shader.uniforms.uModelNormalMatrix) {
-      this.scratchMat3.inverseTranspose4x4(this.states.uModelMatrix);
-      shader.setUniform("uModelNormalMatrix", this.scratchMat3.mat3);
-    }
-    if (shader.uniforms.uCameraNormalMatrix) {
-      this.scratchMat3.inverseTranspose4x4(this.states.uViewMatrix);
-      shader.setUniform("uCameraNormalMatrix", this.scratchMat3.mat3);
-    }
-    shader.setUniform("uViewport", this._viewport);
+    return new type(values);
   }
-
-  _setStrokeUniforms(strokeShader) {
-    // set the uniform values
-    strokeShader.setUniform("uSimpleLines", this._simpleLines);
-    strokeShader.setUniform("uUseLineColor", this._useLineColor);
-    strokeShader.setUniform("uMaterialColor", this.states.curStrokeColor);
-    strokeShader.setUniform("uStrokeWeight", this.states.strokeWeight);
-    strokeShader.setUniform("uStrokeCap", STROKE_CAP_ENUM[this.curStrokeCap]);
-    strokeShader.setUniform(
-      "uStrokeJoin",
-      STROKE_JOIN_ENUM[this.curStrokeJoin]
-    );
-  }
-
+  //are changed with setAttributes()
+  //////////////////////////////////////////////
   _setFillUniforms(fillShader) {
     this.mixedSpecularColor = [...this.states.curSpecularColor];
     const empty = this._getEmptyTexture();
@@ -1576,8 +1197,253 @@ export class Renderer3D extends Renderer {
       this.states.quadraticAttenuation
     );
   }
+  //////////////////////////////
+  ///////////////////////////////
+  /**
+   * Scales the Model View Matrix by a vector
+   * @private
+   * @param  {Number | p5.Vector | Array} x [description]
+   * @param  {Number} [y] y-axis scalar
+   * @param  {Number} [z] z-axis scalar
+   * @chainable
+   */
+  //////////////////////////////////////////////
+  erase(opacityFill, opacityStroke) {
+    if (!this._isErasing) {
+      this.preEraseBlend = this.states.curBlendMode;
+      this._isErasing = true;
+      this.blendMode(constants.REMOVE);
+      this._cachedFillStyle = this.states.curFillColor.slice();
+      this.states.setValue('curFillColor', [1, 1, 1, opacityFill / 255]);
+      this._cachedStrokeStyle = this.states.curStrokeColor.slice();
+      this.states.setValue('curStrokeColor', [1, 1, 1, opacityStroke / 255]);
+    }
+  }
+  //////////////////////////////////////////////
+  _getTempFramebuffer() {
+    if (!this._tempFramebuffer) {
+      this._tempFramebuffer = new Framebuffer(this, {
+        format: constants.UNSIGNED_BYTE,
+        useDepth: this._pInst._glAttributes.depth,
+        depthFormat: constants.UNSIGNED_INT,
+        antialias: this._pInst._glAttributes.antialias,
+      });
+    }
+    return this._tempFramebuffer;
+  }
+  normal(xorv, y, z) {
+    if (xorv instanceof Vector) {
+      this.states.setValue("_currentNormal", xorv);
+    } else {
+      this.states.setValue("_currentNormal", new Vector(xorv, y, z));
+    }
+    this.updateShapeVertexProperties();
+  }
+  //////////////////////////////////////////////
+  //////////////////////////////////////////////
+  /**
+   * Get a matrix from world-space to screen-space
+   */
+  /**
+   * Basic stroke material for geometry with a given color
+   * @param  {Number|Number[]|String|p5.Color} v1  gray value,
+   * red or hue value (depending on the current color mode),
+   * or color Array, or CSS color string
+   * @param  {Number}            [v2] green or saturation value
+   * @param  {Number}            [v3] blue or brightness value
+   * @param  {Number}            [a]  opacity
+   * @example
+   * function setup() {
+   *   createCanvas(200, 200, WEBGL);
+   * }
+   *
+   * function draw() {
+   *   background(0);
+   *   stroke(240, 150, 150);
+   *   fill(100, 100, 240);
+   *   rotateX(frameCount * 0.01);
+   *   rotateY(frameCount * 0.01);
+   *   box(75, 75, 75);
+   * }
+   *
+   * @alt
+   * black canvas with purple cube with pink outline spinning
+   */
+  _setGlobalUniforms(shader) {
+    const modelMatrix = this.states.uModelMatrix;
+    const viewMatrix = this.states.uViewMatrix;
+    const projectionMatrix = this.states.uPMatrix;
+    const modelViewMatrix = modelMatrix.copy().mult(viewMatrix);
 
-  // getting called from _setFillUniforms
+    shader.setUniform(
+      "uPerspective",
+      this.states.curCamera.useLinePerspective ? 1 : 0
+    );
+    shader.setUniform("uViewMatrix", viewMatrix.mat4);
+    shader.setUniform("uProjectionMatrix", projectionMatrix.mat4);
+    shader.setUniform("uModelMatrix", modelMatrix.mat4);
+    shader.setUniform("uModelViewMatrix", modelViewMatrix.mat4);
+    if (shader.uniforms.uModelViewProjectionMatrix) {
+      const modelViewProjectionMatrix = modelViewMatrix.copy();
+      modelViewProjectionMatrix.mult(projectionMatrix);
+      shader.setUniform(
+        "uModelViewProjectionMatrix",
+        modelViewProjectionMatrix.mat4
+      );
+    }
+    if (shader.uniforms.uNormalMatrix) {
+      this.scratchMat3.inverseTranspose4x4(modelViewMatrix);
+      shader.setUniform("uNormalMatrix", this.scratchMat3.mat3);
+    }
+    if (shader.uniforms.uModelNormalMatrix) {
+      this.scratchMat3.inverseTranspose4x4(this.states.uModelMatrix);
+      shader.setUniform("uModelNormalMatrix", this.scratchMat3.mat3);
+    }
+    if (shader.uniforms.uCameraNormalMatrix) {
+      this.scratchMat3.inverseTranspose4x4(this.states.uViewMatrix);
+      shader.setUniform("uCameraNormalMatrix", this.scratchMat3.mat3);
+    }
+    shader.setUniform("uViewport", this._viewport);
+  }
+  //// TEXT SUPPORT METHODS
+  /**
+   * turn a p5.Vector Array into a one dimensional number array
+   * @private
+   * @param  {p5.Vector[]} arr  an array of p5.Vector
+   * @return {Number[]}     a one dimensional array of numbers
+   * [p5.Vector(1, 2, 3), p5.Vector(4, 5, 6)] ->
+   * [1, 2, 3, 4, 5, 6]
+   */
+  // Geometry Building
+  // framebuffer the same in filter()
+  getFilterLayer() {
+    if (!this.filterLayer) {
+      this.filterLayer = new Framebuffer(this);
+    }
+    return this.filterLayer;
+  }
+  //////////////////////////////////////////////
+  /**
+   * [translate description]
+   * @private
+   * @param  {Number} x [description]
+   * @param  {Number} y [description]
+   * @param  {Number} z [description]
+   * @chainable
+   * @todo implement handle for components or vector as args
+   */
+  //////////////////////////////////////////////
+  _drawStrokes(geometry, { count } = {}) {
+
+    this._useLineColor = geometry.vertexStrokeColors.length > 0;
+
+    const shader = this._getStrokeShader();
+    shader.bindShader('stroke');
+    this._setGlobalUniforms(shader);
+    this._setStrokeUniforms(shader);
+    shader.bindTextures();
+
+    for (const buff of this.buffers.stroke) {
+      buff._prepareBuffer(geometry, shader);
+    }
+    this._prepareUserAttributes(geometry, shader);
+    this._disableRemainingAttributes(shader);
+
+    this._applyColorBlend(
+      this.states.curStrokeColor,
+      geometry.hasStrokeTransparency()
+    );
+
+    this._drawBuffers(geometry, {count})
+
+    shader.unbindShader();
+  }
+  //////////////////////////////////////////////
+  //////////////////////////////////////////////
+  //are changed with setAttributes()
+  //////////////////////////////////////////////
+  //////////////////////////////
+  get uPMatrix() {
+    return this.states.uPMatrix;
+  }
+  curveDetail(d) {
+    if (d === undefined) {
+      return this.states.curveDetail;
+    } else {
+      this.states.setValue("curveDetail", d);
+    }
+  }
+  //////////////////////////////////////////////
+  _update() {
+    // reset model view and apply initial camera transform
+    // (containing only look at info; no projection).
+    this.states.setValue("uModelMatrix", this.states.uModelMatrix.clone());
+    this.states.uModelMatrix.reset();
+    this.states.setValue("uViewMatrix", this.states.uViewMatrix.clone());
+    this.states.uViewMatrix.set(this.states.curCamera.cameraMatrix);
+
+    // reset light data for new frame.
+
+    this.states.setValue("ambientLightColors", []);
+    this.states.setValue("specularColors", [1, 1, 1]);
+
+    this.states.setValue("directionalLightDirections", []);
+    this.states.setValue("directionalLightDiffuseColors", []);
+    this.states.setValue("directionalLightSpecularColors", []);
+
+    this.states.setValue("pointLightPositions", []);
+    this.states.setValue("pointLightDiffuseColors", []);
+    this.states.setValue("pointLightSpecularColors", []);
+
+    this.states.setValue("spotLightPositions", []);
+    this.states.setValue("spotLightDirections", []);
+    this.states.setValue("spotLightDiffuseColors", []);
+    this.states.setValue("spotLightSpecularColors", []);
+    this.states.setValue("spotLightAngle", []);
+    this.states.setValue("spotLightConc", []);
+
+    this.states.setValue("enableLighting", false);
+
+    //reset tint value for new frame
+    this.states.setValue("tint", [255, 255, 255, 255]);
+
+    //Clear depth every frame
+    this._resetBuffersBeforeDraw()
+  }
+  //////////////////////////////////////////////
+  /**
+   * @private
+   * @returns {p5.Framebuffer} A p5.Framebuffer set to match the size and settings
+   * of the renderer's canvas. It will be created if it does not yet exist, and
+   * reused if it does.
+   */
+  scale(x, y, z) {
+    this.states.setValue("uModelMatrix", this.states.uModelMatrix.clone());
+    this.states.uModelMatrix.scale(x, y, z);
+    return this;
+  }
+  /*
+   * This method will handle both image shaders and
+   * fill shaders, returning the appropriate shader
+   * depending on the current context (image or shape).
+   */
+  ///////////////////////////////
+  remove() {
+    this.wrappedElt.remove();
+    this.wrappedElt = null;
+    this.canvas = null;
+    this.elt = null;
+  }
+
+  remove() {
+    if (this._textCanvas) {
+      this._textCanvas.parentElement.removeChild(this._textCanvas);
+    }
+    super.remove();
+  }
+  _vToNArray(arr) {
+    return arr.flatMap((item) => [item.x, item.y, item.z]);
+  }
   _setImageLightUniforms(shader) {
     //set uniform values
     shader.setUniform("uUseImageLight", this.states.activeImageLight != null);
@@ -1595,23 +1461,150 @@ export class Renderer3D extends Renderer {
       shader.setUniform("environmentMapSpecular", this._getEmptyTexture());
     }
   }
-
   /**
+   * [resize description]
    * @private
-   * Note: DO NOT CALL THIS while in the middle of binding another texture,
-   * since it will change the texture binding in order to allocate the empty
-   * texture! Grab its value beforehand!
+   * @param  {Number} w [description]
+   * @param  {Number} h [description]
    */
-  _getEmptyTexture() {
-    if (!this._emptyTexture) {
-      // a plain white texture RGBA, full alpha, single pixel.
-      const im = new Image(1, 1);
-      im.set(0, 0, 255);
-      this._emptyTexture = new Texture(this, im);
-    }
-    return this._emptyTexture;
+  //////////////////////////////
+  vertexProperty(...args) {
+    this.currentShape.vertexProperty(...args);
   }
+  _clearClip() {
+    this._clearClipBuffer();
+    if (this._clipDepths.length > 0) {
+      this._clipDepths.pop();
+    }
+    this.drawTarget()._isClipApplied = false;
+  }
+  strokeJoin(join) {
+    this.curStrokeJoin = join;
+  }
+  getSupportedIndividualVertexProperties() {
+    return {
+      textureCoordinates: true,
+    };
+  }
+  /**
+   * Finishes creating a new <a href="#/p5.Geometry">p5.Geometry</a> that was
+   * started using <a href="#/p5/beginGeometry">beginGeometry()</a>. One can also
+   * use <a href="#/p5/buildGeometry">buildGeometry()</a> to pass a function that
+   * draws shapes.
+   * @private
+   *
+   * @returns {p5.Geometry} The model that was built.
+   */
+  strokeCap(cap) {
+    this.curStrokeCap = cap;
+  }
+  //// UTILITY FUNCTIONS
+  //////////////////////////////////////////////
+  beginClip(options = {}) {
+    super.beginClip(options);
 
+    this.drawTarget()._isClipApplied = true;
+
+    this._applyClip();
+
+    this.push();
+    this.resetShader();
+    if (this.states.fillColor) this.fill(0, 0);
+    if (this.states.strokeColor) this.stroke(0, 0);
+  }
+  //////////////////////////////
+  resize(w, h) {
+    super.resize(w, h);
+
+    // save canvas properties
+    const props = {};
+    for (const key in this.drawingContext) {
+      const val = this.drawingContext[key];
+      if (typeof val !== "object" && typeof val !== "function") {
+        props[key] = val;
+      }
+    }
+
+    const dimensions = this._adjustDimensions(w, h);
+    w = dimensions.adjustedWidth;
+    h = dimensions.adjustedHeight;
+
+    this.width = w;
+    this.height = h;
+
+    this.canvas.width = w * this._pixelDensity;
+    this.canvas.height = h * this._pixelDensity;
+    this.canvas.style.width = `${w}px`;
+    this.canvas.style.height = `${h}px`;
+    this._updateViewport();
+    this._updateSize();
+
+    this.mainCamera._resize();
+    if (this.states.curCamera !== this.mainCamera) {
+      this.states.curCamera._resize();
+    }
+
+    //resize pixels buffer
+    if (typeof this.pixels !== "undefined") {
+      this._createPixelsArray();
+    }
+
+    for (const framebuffer of this.framebuffers) {
+      // Notify framebuffers of the resize so that any auto-sized framebuffers
+      // can also update their size
+      this.flushDraw?.();
+      framebuffer._canvasSizeChanged();
+    }
+    this.flushDraw?.();
+
+    // reset canvas properties
+    for (const savedKey in props) {
+      try {
+        this.drawingContext[savedKey] = props[savedKey];
+      } catch (err) {
+        // ignore read-only property errors
+      }
+    }
+  }
+  getFilterLayerTemp() {
+    if (!this.filterLayerTemp) {
+      this.filterLayerTemp = new Framebuffer(this);
+    }
+    return this.filterLayerTemp;
+  }
+  model(model, count = 1) {
+    if (model.vertices.length > 0) {
+      if (this.geometryBuilder) {
+        this.geometryBuilder.addRetained(model);
+      } else {
+        if (!this.geometryInHash(model.gid)) {
+          model._edgesToVertices();
+          this._getOrMakeCachedBuffers(model);
+        }
+
+        this._drawGeometry(model, { count });
+      }
+    }
+  }
+  baseStrokeShader() {
+    return this._getLineShader();
+  }
+  //////////////////////////////////////////////
+  // Buffers
+  _isTypedArray(arr) {
+    return [
+      Float32Array,
+      Float64Array,
+      Int16Array,
+      Uint16Array,
+      Uint32Array,
+    ].some((x) => arr instanceof x);
+  }
+  // Shape drawing
+  //This is helper function to reset the context anytime the attributes
+  baseNormalShader() {
+    return this._getNormalShader();
+  }
   getTexture(input) {
     let src = input;
     if (src instanceof Framebuffer) {
@@ -1627,56 +1620,26 @@ export class Renderer3D extends Renderer {
     this.textures.set(src, tex);
     return tex;
   }
-
+  rotateX(rad) {
+    this.rotate(rad, 1, 0, 0);
+    return this;
+  }
   //////////////////////////////////////////////
-  // Buffers
-  //////////////////////////////////////////////
-
-  _normalizeBufferData(values, type = Float32Array) {
-    if (!values) return null;
-    if (values instanceof DataArray) {
-      return values.dataArray();
+  endGeometry() {
+    if (!this.geometryBuilder) {
+      throw new Error(
+        "Make sure you call beginGeometry() before endGeometry()!"
+      );
     }
-    if (values instanceof type) {
-      return values;
+    const geometry = this.geometryBuilder.finish();
+    if (this.geometryBuilder.prevFillColor) {
+      this.fill(this.geometryBuilder.prevFillColor);
+    } else {
+      this.noFill();
     }
-    return new type(values);
+    this.geometryBuilder = undefined;
+    return geometry;
   }
-
-  ///////////////////////////////
-  //// UTILITY FUNCTIONS
-  //////////////////////////////
-  _arraysEqual(a, b) {
-    const aLength = a.length;
-    if (aLength !== b.length) return false;
-    return a.every((ai, i) => ai === b[i]);
-  }
-
-  _isTypedArray(arr) {
-    return [
-      Float32Array,
-      Float64Array,
-      Int16Array,
-      Uint16Array,
-      Uint32Array,
-    ].some((x) => arr instanceof x);
-  }
-
-  /**
-   * turn a p5.Vector Array into a one dimensional number array
-   * @private
-   * @param  {p5.Vector[]} arr  an array of p5.Vector
-   * @return {Number[]}     a one dimensional array of numbers
-   * [p5.Vector(1, 2, 3), p5.Vector(4, 5, 6)] ->
-   * [1, 2, 3, 4, 5, 6]
-   */
-  _vToNArray(arr) {
-    return arr.flatMap((item) => [item.x, item.y, item.z]);
-  }
-
-  ///////////////////////////////
-  //// TEXT SUPPORT METHODS
-  //////////////////////////////
 
   _beforeDrawText() {}
   _afterDrawText() {}
@@ -1975,13 +1938,6 @@ export class Renderer3D extends Renderer {
     throw new Error(
       "_finalizeMipmapTexture must be implemented by the renderer",
     );
-  }
-
-  remove() {
-    if (this._textCanvas) {
-      this._textCanvas.parentElement.removeChild(this._textCanvas);
-    }
-    super.remove();
   }
 }
 
