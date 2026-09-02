@@ -247,250 +247,6 @@ def normalize_resource_name(resource_name, allow_relative=True, relative_path=No
     return resource_name
 
 
-######################################################################
-# Path Pointers
-######################################################################
-
-
-class PathPointer(metaclass=ABCMeta):
-    """
-    An abstract base class for 'path pointers,' used by NLTK's data
-    package to identify specific paths.  Two subclasses exist:
-    ``FileSystemPathPointer`` identifies a file that can be accessed
-    directly via a given absolute path.  ``ZipFilePathPointer``
-    identifies a file contained within a zipfile, that can be accessed
-    by reading that zipfile.
-    """
-
-    @abstractmethod
-    def open(self, encoding=None):
-        """
-        Return a seekable read-only stream that can be used to read
-        the contents of the file identified by this path pointer.
-
-        :raise IOError: If the path specified by this pointer does
-            not contain a readable file.
-        """
-
-    @abstractmethod
-    def file_size(self):
-        """
-        Return the size of the file pointed to by this path pointer,
-        in bytes.
-
-        :raise IOError: If the path specified by this pointer does
-            not contain a readable file.
-        """
-
-    @abstractmethod
-    def join(self, fileid):
-        """
-        Return a new path pointer formed by starting at the path
-        identified by this pointer, and then following the relative
-        path given by ``fileid``.  The path components of ``fileid``
-        should be separated by forward slashes, regardless of
-        the underlying file system's path separator character.
-        """
-
-
-class FileSystemPathPointer(PathPointer, str):
-    """
-    A path pointer that identifies a file which can be accessed
-    directly via a given absolute path.
-    """
-
-    def __init__(self, _path):
-        """
-        Create a new path pointer for the given absolute path.
-
-        :raise IOError: If the given path does not exist.
-        """
-
-        _path = os.path.abspath(_path)
-        if not os.path.exists(_path):
-            raise OSError("No such file or directory: %r" % _path)
-        self._path = _path
-
-        # There's no need to call str.__init__(), since it's a no-op;
-        # str does all of its setup work in __new__.
-
-    @property
-    def path(self):
-        """The absolute path identified by this path pointer."""
-        return self._path
-
-    # ==============================
-    # SECURITY PATCH ENFORCING SANDBOX
-    # ==============================
-    def open(self, encoding=None):
-        """
-        Secure open — prevents absolute direct access outside pointer root.
-        """
-        path = os.path.normpath(self._path)
-
-        # Block raw absolute reads such as "/" "C:\\Windows" etc.
-        if os.path.isabs(path) and path != os.path.normpath(self._path):
-            raise ValueError(f"Direct absolute file access blocked: {path}")
-
-        stream = open(self._path, "rb")
-        if encoding is not None:
-            stream = SeekableUnicodeStreamReader(stream, encoding)
-        return stream
-
-    def file_size(self):
-        return os.stat(self._path).st_size
-
-    def join(self, fileid):
-        """
-        Harden join() to prevent traversal & ensure corpus-root sandbox.
-        """
-        fileid = str(fileid).replace("\\", "/")
-
-        # Block ../ traversal
-        if ".." in fileid.split("/"):
-            raise ValueError(f"Traversal blocked: {fileid}")
-
-        joined = os.path.normpath(os.path.join(self._path, fileid))
-        root = os.path.normpath(self._path)
-
-        # Enforce root boundary — must stay inside corpus root
-        if not (joined == root or joined.startswith(root + os.sep)):
-            raise ValueError(f"Escape outside root blocked: {joined}")
-
-        return FileSystemPathPointer(joined)
-
-    def __repr__(self):
-        return "FileSystemPathPointer(%r)" % self._path
-
-    def __str__(self):
-        return self._path
-
-
-@deprecated("Use gzip.GzipFile instead as it also uses a buffer.")
-class BufferedGzipFile(GzipFile):
-    """A ``GzipFile`` subclass for compatibility with older nltk releases.
-
-    Use ``GzipFile`` directly as it also buffers in all supported
-    Python versions.
-    """
-
-    def __init__(
-        self, filename=None, mode=None, compresslevel=9, fileobj=None, **kwargs
-    ):
-        """Return a buffered gzip file object."""
-        GzipFile.__init__(self, filename, mode, compresslevel, fileobj)
-
-    def write(self, data):
-        # This is identical to GzipFile.write but does not return
-        # the bytes written to retain compatibility.
-        super().write(data)
-
-
-class GzipFileSystemPathPointer(FileSystemPathPointer):
-    """
-    A subclass of ``FileSystemPathPointer`` that identifies a gzip-compressed
-    file located at a given absolute path.  ``GzipFileSystemPathPointer`` is
-    appropriate for loading large gzip-compressed pickle objects efficiently.
-    """
-
-    def open(self, encoding=None):
-        stream = GzipFile(self._path, "rb")
-        if encoding:
-            stream = SeekableUnicodeStreamReader(stream, encoding)
-        return stream
-
-
-class ZipFilePathPointer(PathPointer):
-    """
-    A path pointer that identifies a file contained within a zipfile,
-    which can be accessed by reading that zipfile.
-    """
-
-    def __init__(self, zipfile, entry=""):
-        """
-        Create a new path pointer pointing at the specified entry
-        in the given zipfile.
-
-        :raise IOError: If the given zipfile does not exist, or if it
-        does not contain the specified entry.
-        """
-        if isinstance(zipfile, str):
-            zipfile = OpenOnDemandZipFile(os.path.abspath(zipfile))
-
-        # Check that the entry exists:
-        if entry:
-            # Normalize the entry string, it should be relative:
-            entry = normalize_resource_name(entry, True, "/").lstrip("/")
-
-            try:
-                zipfile.getinfo(entry)
-            except Exception as e:
-                # Sometimes directories aren't explicitly listed in
-                # the zip file.  So if `entry` is a directory name,
-                # then check if the zipfile contains any files that
-                # are under the given directory.
-                if entry.endswith("/") and [
-                    n for n in zipfile.namelist() if n.startswith(entry)
-                ]:
-                    pass  # zipfile contains a file in that directory.
-                else:
-                    # Otherwise, complain.
-                    raise OSError(
-                        f"Zipfile {zipfile.filename!r} does not contain {entry!r}"
-                    ) from e
-        self._zipfile = zipfile
-        self._entry = entry
-
-    @property
-    def zipfile(self):
-        """
-        The zipfile.ZipFile object used to access the zip file
-        containing the entry identified by this path pointer.
-        """
-        return self._zipfile
-
-    @property
-    def entry(self):
-        """
-        The name of the file within zipfile that this path
-        pointer points to.
-        """
-        return self._entry
-
-    def open(self, encoding=None):
-        data = self._zipfile.read(self._entry)
-        stream = BytesIO(data)
-        if self._entry.endswith(".gz"):
-            stream = GzipFile(self._entry, fileobj=stream)
-        elif encoding is not None:
-            stream = SeekableUnicodeStreamReader(stream, encoding)
-        return stream
-
-    def file_size(self):
-        return self._zipfile.getinfo(self._entry).file_size
-
-    def join(self, fileid):
-        entry = f"{self._entry}/{fileid}"
-        return ZipFilePathPointer(self._zipfile, entry)
-
-    def __repr__(self):
-        return f"ZipFilePathPointer({self._zipfile.filename!r}, {self._entry!r})"
-
-    def __str__(self):
-        return os.path.normpath(os.path.join(self._zipfile.filename, self._entry))
-
-
-######################################################################
-# Access Functions
-######################################################################
-
-# Don't use a weak dictionary, because in the common case this
-# causes a lot more reloading that necessary.
-_resource_cache = {}
-"""A dictionary used to cache resources so that they won't
-   need to be loaded more than once."""
-
-
 def open_datafile(path, file_name="", encoding="utf-8"):
     """
     Open a data file using a PathPointer, supporting both filesystem and zip file paths.
@@ -672,44 +428,6 @@ def retrieve(resource_url, filename=None, verbose=True):
                 break
 
     infile.close()
-
-
-#: A dictionary describing the formats that are supported by NLTK's
-#: load() method.  Keys are format names, and values are format
-#: descriptions.
-FORMATS = {
-    "pickle": "A serialized python object, stored using the pickle module.",
-    "json": "A serialized python object, stored using the json module.",
-    "yaml": "A serialized python object, stored using the yaml module.",
-    "cfg": "A context free grammar.",
-    "pcfg": "A probabilistic CFG.",
-    "fcfg": "A feature CFG.",
-    "fol": "A list of first order logic expressions, parsed with "
-    "nltk.sem.logic.Expression.fromstring.",
-    "logic": "A list of first order logic expressions, parsed with "
-    "nltk.sem.logic.LogicParser.  Requires an additional logic_parser "
-    "parameter",
-    "val": "A semantic valuation, parsed by nltk.sem.Valuation.fromstring.",
-    "raw": "The raw (byte string) contents of a file.",
-    "text": "The raw (unicode string) contents of a file. ",
-}
-
-#: A dictionary mapping from file extensions to format names, used
-#: by load() when format="auto" to decide the format for a
-#: given resource url.
-AUTO_FORMATS = {
-    "pickle": "pickle",
-    "json": "json",
-    "yaml": "yaml",
-    "cfg": "cfg",
-    "pcfg": "pcfg",
-    "fcfg": "fcfg",
-    "fol": "fol",
-    "logic": "logic",
-    "val": "val",
-    "txt": "text",
-    "text": "text",
-}
 
 
 def restricted_pickle_load(string):
@@ -1025,6 +743,288 @@ def _open(resource_url):
 
 
 ######################################################################
+# Path Pointers
+######################################################################
+
+
+class PathPointer(metaclass=ABCMeta):
+    """
+    An abstract base class for 'path pointers,' used by NLTK's data
+    package to identify specific paths.  Two subclasses exist:
+    ``FileSystemPathPointer`` identifies a file that can be accessed
+    directly via a given absolute path.  ``ZipFilePathPointer``
+    identifies a file contained within a zipfile, that can be accessed
+    by reading that zipfile.
+    """
+
+    @abstractmethod
+    def open(self, encoding=None):
+        """
+        Return a seekable read-only stream that can be used to read
+        the contents of the file identified by this path pointer.
+
+        :raise IOError: If the path specified by this pointer does
+            not contain a readable file.
+        """
+
+    @abstractmethod
+    def file_size(self):
+        """
+        Return the size of the file pointed to by this path pointer,
+        in bytes.
+
+        :raise IOError: If the path specified by this pointer does
+            not contain a readable file.
+        """
+
+    @abstractmethod
+    def join(self, fileid):
+        """
+        Return a new path pointer formed by starting at the path
+        identified by this pointer, and then following the relative
+        path given by ``fileid``.  The path components of ``fileid``
+        should be separated by forward slashes, regardless of
+        the underlying file system's path separator character.
+        """
+
+
+class FileSystemPathPointer(PathPointer, str):
+    """
+    A path pointer that identifies a file which can be accessed
+    directly via a given absolute path.
+    """
+
+    def __init__(self, _path):
+        """
+        Create a new path pointer for the given absolute path.
+
+        :raise IOError: If the given path does not exist.
+        """
+
+        _path = os.path.abspath(_path)
+        if not os.path.exists(_path):
+            raise OSError("No such file or directory: %r" % _path)
+        self._path = _path
+
+        # There's no need to call str.__init__(), since it's a no-op;
+        # str does all of its setup work in __new__.
+
+    @property
+    def path(self):
+        """The absolute path identified by this path pointer."""
+        return self._path
+
+    # ==============================
+    # SECURITY PATCH ENFORCING SANDBOX
+    # ==============================
+    def open(self, encoding=None):
+        """
+        Secure open — prevents absolute direct access outside pointer root.
+        """
+        path = os.path.normpath(self._path)
+
+        # Block raw absolute reads such as "/" "C:\\Windows" etc.
+        if os.path.isabs(path) and path != os.path.normpath(self._path):
+            raise ValueError(f"Direct absolute file access blocked: {path}")
+
+        stream = open(self._path, "rb")
+        if encoding is not None:
+            stream = SeekableUnicodeStreamReader(stream, encoding)
+        return stream
+
+    def file_size(self):
+        return os.stat(self._path).st_size
+
+    def join(self, fileid):
+        """
+        Harden join() to prevent traversal & ensure corpus-root sandbox.
+        """
+        fileid = str(fileid).replace("\\", "/")
+
+        # Block ../ traversal
+        if ".." in fileid.split("/"):
+            raise ValueError(f"Traversal blocked: {fileid}")
+
+        joined = os.path.normpath(os.path.join(self._path, fileid))
+        root = os.path.normpath(self._path)
+
+        # Enforce root boundary — must stay inside corpus root
+        if not (joined == root or joined.startswith(root + os.sep)):
+            raise ValueError(f"Escape outside root blocked: {joined}")
+
+        return FileSystemPathPointer(joined)
+
+    def __repr__(self):
+        return "FileSystemPathPointer(%r)" % self._path
+
+    def __str__(self):
+        return self._path
+
+
+@deprecated("Use gzip.GzipFile instead as it also uses a buffer.")
+class BufferedGzipFile(GzipFile):
+    """A ``GzipFile`` subclass for compatibility with older nltk releases.
+
+    Use ``GzipFile`` directly as it also buffers in all supported
+    Python versions.
+    """
+
+    def __init__(
+        self, filename=None, mode=None, compresslevel=9, fileobj=None, **kwargs
+    ):
+        """Return a buffered gzip file object."""
+        GzipFile.__init__(self, filename, mode, compresslevel, fileobj)
+
+    def write(self, data):
+        # This is identical to GzipFile.write but does not return
+        # the bytes written to retain compatibility.
+        super().write(data)
+
+
+class GzipFileSystemPathPointer(FileSystemPathPointer):
+    """
+    A subclass of ``FileSystemPathPointer`` that identifies a gzip-compressed
+    file located at a given absolute path.  ``GzipFileSystemPathPointer`` is
+    appropriate for loading large gzip-compressed pickle objects efficiently.
+    """
+
+    def open(self, encoding=None):
+        stream = GzipFile(self._path, "rb")
+        if encoding:
+            stream = SeekableUnicodeStreamReader(stream, encoding)
+        return stream
+
+
+class ZipFilePathPointer(PathPointer):
+    """
+    A path pointer that identifies a file contained within a zipfile,
+    which can be accessed by reading that zipfile.
+    """
+
+    def __init__(self, zipfile, entry=""):
+        """
+        Create a new path pointer pointing at the specified entry
+        in the given zipfile.
+
+        :raise IOError: If the given zipfile does not exist, or if it
+        does not contain the specified entry.
+        """
+        if isinstance(zipfile, str):
+            zipfile = OpenOnDemandZipFile(os.path.abspath(zipfile))
+
+        # Check that the entry exists:
+        if entry:
+            # Normalize the entry string, it should be relative:
+            entry = normalize_resource_name(entry, True, "/").lstrip("/")
+
+            try:
+                zipfile.getinfo(entry)
+            except Exception as e:
+                # Sometimes directories aren't explicitly listed in
+                # the zip file.  So if `entry` is a directory name,
+                # then check if the zipfile contains any files that
+                # are under the given directory.
+                if entry.endswith("/") and [
+                    n for n in zipfile.namelist() if n.startswith(entry)
+                ]:
+                    pass  # zipfile contains a file in that directory.
+                else:
+                    # Otherwise, complain.
+                    raise OSError(
+                        f"Zipfile {zipfile.filename!r} does not contain {entry!r}"
+                    ) from e
+        self._zipfile = zipfile
+        self._entry = entry
+
+    @property
+    def zipfile(self):
+        """
+        The zipfile.ZipFile object used to access the zip file
+        containing the entry identified by this path pointer.
+        """
+        return self._zipfile
+
+    @property
+    def entry(self):
+        """
+        The name of the file within zipfile that this path
+        pointer points to.
+        """
+        return self._entry
+
+    def open(self, encoding=None):
+        data = self._zipfile.read(self._entry)
+        stream = BytesIO(data)
+        if self._entry.endswith(".gz"):
+            stream = GzipFile(self._entry, fileobj=stream)
+        elif encoding is not None:
+            stream = SeekableUnicodeStreamReader(stream, encoding)
+        return stream
+
+    def file_size(self):
+        return self._zipfile.getinfo(self._entry).file_size
+
+    def join(self, fileid):
+        entry = f"{self._entry}/{fileid}"
+        return ZipFilePathPointer(self._zipfile, entry)
+
+    def __repr__(self):
+        return f"ZipFilePathPointer({self._zipfile.filename!r}, {self._entry!r})"
+
+    def __str__(self):
+        return os.path.normpath(os.path.join(self._zipfile.filename, self._entry))
+
+
+######################################################################
+# Access Functions
+######################################################################
+
+# Don't use a weak dictionary, because in the common case this
+# causes a lot more reloading that necessary.
+_resource_cache = {}
+"""A dictionary used to cache resources so that they won't
+   need to be loaded more than once."""
+
+
+#: A dictionary describing the formats that are supported by NLTK's
+#: load() method.  Keys are format names, and values are format
+#: descriptions.
+FORMATS = {
+    "pickle": "A serialized python object, stored using the pickle module.",
+    "json": "A serialized python object, stored using the json module.",
+    "yaml": "A serialized python object, stored using the yaml module.",
+    "cfg": "A context free grammar.",
+    "pcfg": "A probabilistic CFG.",
+    "fcfg": "A feature CFG.",
+    "fol": "A list of first order logic expressions, parsed with "
+    "nltk.sem.logic.Expression.fromstring.",
+    "logic": "A list of first order logic expressions, parsed with "
+    "nltk.sem.logic.LogicParser.  Requires an additional logic_parser "
+    "parameter",
+    "val": "A semantic valuation, parsed by nltk.sem.Valuation.fromstring.",
+    "raw": "The raw (byte string) contents of a file.",
+    "text": "The raw (unicode string) contents of a file. ",
+}
+
+#: A dictionary mapping from file extensions to format names, used
+#: by load() when format="auto" to decide the format for a
+#: given resource url.
+AUTO_FORMATS = {
+    "pickle": "pickle",
+    "json": "json",
+    "yaml": "yaml",
+    "cfg": "cfg",
+    "pcfg": "pcfg",
+    "fcfg": "fcfg",
+    "fol": "fol",
+    "logic": "logic",
+    "val": "val",
+    "txt": "text",
+    "text": "text",
+}
+
+
+######################################################################
 # Lazy Resource Loader
 ######################################################################
 
@@ -1179,10 +1179,6 @@ class SeekableUnicodeStreamReader:
         """The length of the byte order marker at the beginning of
            the stream (or None for no byte order marker)."""
 
-    # /////////////////////////////////////////////////////////////////
-    # Read methods
-    # /////////////////////////////////////////////////////////////////
-
     def read(self, size=None):
         """
         Read up to ``size`` bytes, decode them using this reader's
@@ -1311,10 +1307,6 @@ class SeekableUnicodeStreamReader:
         """Return self"""
         return self
 
-    # /////////////////////////////////////////////////////////////////
-    # Pass-through methods & properties
-    # /////////////////////////////////////////////////////////////////
-
     @property
     def closed(self):
         """True if the underlying stream is closed."""
@@ -1335,10 +1327,6 @@ class SeekableUnicodeStreamReader:
         Close the underlying stream.
         """
         self.stream.close()
-
-    # /////////////////////////////////////////////////////////////////
-    # Seek and tell
-    # /////////////////////////////////////////////////////////////////
 
     def seek(self, offset, whence=0):
         """
@@ -1457,10 +1445,6 @@ class SeekableUnicodeStreamReader:
         # Return the calculated filepos
         return filepos
 
-    # /////////////////////////////////////////////////////////////////
-    # Helper methods
-    # /////////////////////////////////////////////////////////////////
-
     def _read(self, size=None):
         """
         Read up to ``size`` bytes from the underlying stream, decode
@@ -1529,16 +1513,6 @@ class SeekableUnicodeStreamReader:
                 else:
                     return self.decode(bytes, self.errors)
 
-    _BOM_TABLE = {
-        "utf8": [(codecs.BOM_UTF8, None)],
-        "utf16": [(codecs.BOM_UTF16_LE, "utf16-le"), (codecs.BOM_UTF16_BE, "utf16-be")],
-        "utf16le": [(codecs.BOM_UTF16_LE, None)],
-        "utf16be": [(codecs.BOM_UTF16_BE, None)],
-        "utf32": [(codecs.BOM_UTF32_LE, "utf32-le"), (codecs.BOM_UTF32_BE, "utf32-be")],
-        "utf32le": [(codecs.BOM_UTF32_LE, None)],
-        "utf32be": [(codecs.BOM_UTF32_BE, None)],
-    }
-
     def _check_bom(self):
         # Normalize our encoding name
         enc = re.sub("[ -]", "", self.encoding.lower())
@@ -1559,6 +1533,32 @@ class SeekableUnicodeStreamReader:
                     return len(bom)
 
         return None
+
+    # /////////////////////////////////////////////////////////////////
+    # Read methods
+    # /////////////////////////////////////////////////////////////////
+
+    # /////////////////////////////////////////////////////////////////
+    # Pass-through methods & properties
+    # /////////////////////////////////////////////////////////////////
+
+    # /////////////////////////////////////////////////////////////////
+    # Seek and tell
+    # /////////////////////////////////////////////////////////////////
+
+    # /////////////////////////////////////////////////////////////////
+    # Helper methods
+    # /////////////////////////////////////////////////////////////////
+
+    _BOM_TABLE = {
+        "utf8": [(codecs.BOM_UTF8, None)],
+        "utf16": [(codecs.BOM_UTF16_LE, "utf16-le"), (codecs.BOM_UTF16_BE, "utf16-be")],
+        "utf16le": [(codecs.BOM_UTF16_LE, None)],
+        "utf16be": [(codecs.BOM_UTF16_BE, None)],
+        "utf32": [(codecs.BOM_UTF32_LE, "utf32-le"), (codecs.BOM_UTF32_BE, "utf32-be")],
+        "utf32le": [(codecs.BOM_UTF32_LE, None)],
+        "utf32be": [(codecs.BOM_UTF32_BE, None)],
+    }
 
 
 __all__ = [
