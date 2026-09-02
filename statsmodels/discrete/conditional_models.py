@@ -1,21 +1,23 @@
 """
 Conditional logistic, Poisson, and multinomial logit regression
 """
-
-import collections
-import itertools
-import warnings
-
-import numpy as np
-
 import statsmodels.base.model as base
-import statsmodels.base.wrapper as wrap
+import collections
+from statsmodels.formula.formulatools import advance_eval_env
+import itertools
 from statsmodels.discrete.discrete_model import (
     MultinomialResults,
     MultinomialResultsWrapper,
 )
-from statsmodels.formula.formulatools import advance_eval_env
 import statsmodels.regression.linear_model as lm
+import warnings
+import numpy as np
+import statsmodels.base.wrapper as wrap
+import itertools
+import statsmodels.regression.linear_model as lm
+import collections
+import warnings
+from scipy.special import logsumexp
 
 
 class _ConditionalModel(base.LikelihoodModel):
@@ -191,8 +193,6 @@ class _ConditionalModel(base.LikelihoodModel):
                               start_params=start_params,
                               refit=refit,
                               **defaults)
-
-    # Override to allow groups to be passed as a variable name.
     @classmethod
     def from_formula(cls,
                      formula,
@@ -218,6 +218,8 @@ class _ConditionalModel(base.LikelihoodModel):
             formula, data=data, groups=groups, *args, **kwargs)
 
         return model
+
+    # Override to allow groups to be passed as a variable name.
 
 
 class ConditionalLogit(_ConditionalModel):
