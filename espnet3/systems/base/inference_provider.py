@@ -96,8 +96,6 @@ class InferenceProvider(EnvironmentProvider, ABC):
             return env
 
         return setup_fn
-
-    # Implement the following functions in the subclass
     @staticmethod
     @abstractmethod
     def build_dataset(config: DictConfig):
@@ -169,3 +167,5 @@ class InferenceProvider(EnvironmentProvider, ABC):
               setup only.
         """
         raise NotImplementedError("Implement build_model(self.config) in subclass.")
+
+    # Implement the following functions in the subclass
