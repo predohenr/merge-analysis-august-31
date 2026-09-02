@@ -44,5 +44,9 @@ def write_version(cargo_toml_path: Path, new_version: str) -> None:
     cargo_toml_path.write_text(content, encoding="utf-8")
 
 
-def update_lockfile() -> None:
-    cargo(rust_msrv(), ["update", "--workspace"])
+def update_lockfile(cargo_toml_path: Path) -> None:
+    subprocess.run(
+        ["cargo", "update", "--workspace"],
+        check=True,
+        cwd=cargo_toml_path.parent,
+    )
