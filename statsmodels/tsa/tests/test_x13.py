@@ -1,5 +1,7 @@
 from statsmodels.compat.pandas import MONTH_END
 
+import os
+import tempfile
 import tempfile
 
 import numpy as np
@@ -233,6 +235,7 @@ history {
         ft.seek(0)
 
         x13_arima_analysis(dataset, rawspec=ft.name)
+
 
 
 def test_x13_arima_invalid_rawspec(dataset):
