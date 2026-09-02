@@ -12,6 +12,7 @@ IPython Console plugin based on QtConsole.
 import sys
 from typing import List, Optional
 from functools import cached_property
+from typing import List
 
 # Third party imports
 from qtpy.QtCore import Signal
@@ -616,9 +617,6 @@ class IPythonConsole(SpyderDockablePlugin, RunExecutor):
                 self.create_client_for_kernel(cf_path, give_focus=False)
         else:
             self.create_new_client(give_focus=False)
-
-    # ---- Private methods
-    # -------------------------------------------------------------------------
     def _on_project_loaded(self, path):
         self.get_widget().update_active_project_path(path)
 
@@ -647,11 +645,6 @@ class IPythonConsole(SpyderDockablePlugin, RunExecutor):
             Path to the new current working directory.
         """
         self.get_widget().save_working_directory(dirname)
-
-    # ---- Public API
-    # -------------------------------------------------------------------------
-
-    # ---- Spyder Kernels handlers registry functionality
     def register_spyder_kernel_call_handler(self, handler_id, handler):
         """
         Register a callback for it to be available for the kernels of new
@@ -688,8 +681,6 @@ class IPythonConsole(SpyderDockablePlugin, RunExecutor):
         None.
         """
         self.get_widget().unregister_spyder_kernel_call_handler(handler_id)
-
-    # ---- For client widgets
     def get_clients(self):
         """Return clients list"""
         return self.get_widget().clients
@@ -849,8 +840,6 @@ class IPythonConsole(SpyderDockablePlugin, RunExecutor):
         """Close client tab from index or client (or close current tab)"""
         self.get_widget().close_client(index=index, client=client,
                                        ask_recursive=ask_recursive)
-
-    # ---- For execution
     @run_execute(context=RunContext.File)
     def exec_files(
         self,
@@ -918,8 +907,6 @@ class IPythonConsole(SpyderDockablePlugin, RunExecutor):
         run_method = params.get('run_method', 'runcell')
         self.run_cell(cell_text, cell_name, filename,
                       method=run_method)
-
-    # ---- For execution and debugging
     def run_script(self, filename, wdir, args='',
                    post_mortem=False, current_client=True,
                    clear_variables=False, console_namespace=False,
@@ -1017,8 +1004,6 @@ class IPythonConsole(SpyderDockablePlugin, RunExecutor):
         """Execute selected lines in the current console."""
         self.sig_unmaximize_plugin_requested.emit()
         self.get_widget().execute_code(lines)
-
-    # ---- For working directory and path management
     @qdebounced(timeout=100)
     def set_current_client_working_directory(
         self, directory: str, sender_plugin: Optional[str] = None
@@ -1061,8 +1046,6 @@ class IPythonConsole(SpyderDockablePlugin, RunExecutor):
         None.
         """
         self.get_widget().update_path(new_path, prioritize)
-
-    # ---- For restarts
     def restart(self):
         """
         Restart the console.
@@ -1081,8 +1064,6 @@ class IPythonConsole(SpyderDockablePlugin, RunExecutor):
         None.
         """
         self.get_widget().restart_kernel()
-
-    # ---- For documentation and help
     def show_intro(self):
         """Show intro to IPython help."""
         self.get_widget().show_intro()
@@ -1094,9 +1075,6 @@ class IPythonConsole(SpyderDockablePlugin, RunExecutor):
     def show_quickref(self):
         """Show IPython Cheat Sheet."""
         self.get_widget().show_quickref()
-
-    # ---- Remote plugin
-    # -------------------------------------------------------------------------
     @cached_property
     def _remote_client(self):
         return self.get_plugin(Plugins.RemoteClient)
@@ -1128,3 +1106,26 @@ class IPythonConsole(SpyderDockablePlugin, RunExecutor):
     @Slot()
     def _on_remote_server_changed(self):
         self.get_widget().setup_remote_consoles_submenu()
+
+    # ---- Private methods
+    # -------------------------------------------------------------------------
+
+    # ---- Public API
+    # -------------------------------------------------------------------------
+
+    # ---- Spyder Kernels handlers registry functionality
+
+    # ---- For client widgets
+
+    # ---- For execution
+
+    # ---- For execution and debugging
+
+    # ---- For working directory and path management
+
+    # ---- For restarts
+
+    # ---- For documentation and help
+
+    # ---- Remote plugin
+    # -------------------------------------------------------------------------
