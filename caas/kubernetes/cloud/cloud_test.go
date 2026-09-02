@@ -111,7 +111,7 @@ users:
 	c.Assert(foundCloud2, tc.IsTrue)
 }
 
-func (s *cloudSuite) TestCloudsFromKubeConfigContextsFiltersInvalidNames(c *tc.C) {
+func (s *cloudSuite) TestCloudsFromKubeConfigContextsFiltersInvalidNames(c *gc.C) {
 	rawConf := `
 apiVersion: v1
 clusters:
@@ -146,9 +146,9 @@ users:
 	c.Assert(err, jc.ErrorIsNil)
 	clouds, err := k8scloud.CloudsFromKubeConfigContexts(conf)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(len(clouds), tc.Equals, 1)
+	c.Assert(len(clouds), gc.Equals, 1)
 
-	c.Assert(clouds[0].Name, tc.Equals, "jujukube")
+	c.Assert(clouds[0].Name, gc.Equals, "jujukube")
 }
 
 func (s *cloudSuite) TestCloudFromKubeConfigContext(c *tc.C) {
