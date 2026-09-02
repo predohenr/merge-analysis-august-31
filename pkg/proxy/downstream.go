@@ -56,11 +56,7 @@ type downStream struct {
 	route   types.Route
 	cluster types.ClusterInfo
 	element *list.Element
-
-	// flow control
 	bufferLimit uint32
-
-	// ~~~ control args
 	timeout    Timeout
 	retryState *retryState
 
@@ -69,36 +65,19 @@ type downStream struct {
 	upstreamRequest *upstreamRequest
 	perRetryTimer   *utils.Timer
 	responseTimer   *utils.Timer
-
-	// ~~~ downstream request buf
 	downstreamReqHeaders  types.HeaderMap
 	downstreamReqDataBuf  types.IoBuffer
 	downstreamReqTrailers types.HeaderMap
-
-	// ~~~ downstream response buf
 	downstreamRespHeaders  types.HeaderMap
 	downstreamRespDataBuf  types.IoBuffer
 	downstreamRespTrailers types.HeaderMap
-
-	// ~~~ state
-	// if upstreamResponseReceived == 1 means response is received
-	// 1. upstream response is received
-	// 2. timeout / terminate triggered
-	// the flag will be reset when do a retry
 	upstreamResponseReceived uint32
-	// starts to send back downstream response
 	downstreamResponseStarted bool
-	// downstream request received done
 	downstreamRecvDone bool
-	// upstream req sent
 	upstreamRequestSent bool
-	// 1. at the end of upstream response 2. by a upstream reset due to exceptions, such as no healthy upstream, connection close, etc.
 	upstreamProcessDone bool
-	// don't convert headers, data and trailers.  e.g. activeStreamReceiverFilter.Appendxx
 	noConvert bool
-	// direct response.  e.g. sendHijack
 	directResponse bool
-	// oneway
 	oneway bool
 
 	notify chan struct{}
@@ -109,18 +88,39 @@ type downStream struct {
 	reuseBuffer       uint32
 
 	resetReason types.StreamResetReason
-
-	// filters
 	proxyStreamFilterManager
 
 	context context.Context
-
-	// stream access logs
 	logDone          uint32
 
 	snapshot types.ClusterSnapshot
 
 	phase types.Phase
+
+	// flow control
+
+	// ~~~ control args
+
+	// ~~~ downstream request buf
+
+	// ~~~ downstream response buf
+
+	// ~~~ state
+	// if upstreamResponseReceived == 1 means response is received
+	// 1. upstream response is received
+	// 2. timeout / terminate triggered
+	// the flag will be reset when do a retry
+	// starts to send back downstream response
+	// downstream request received done
+	// upstream req sent
+	// 1. at the end of upstream response 2. by a upstream reset due to exceptions, such as no healthy upstream, connection close, etc.
+	// don't convert headers, data and trailers.  e.g. activeStreamReceiverFilter.Appendxx
+	// direct response.  e.g. sendHijack
+	// oneway
+
+	// filters
+
+	// stream access logs
 }
 
 func newActiveStream(ctx context.Context, proxy *proxy, responseSender types.StreamSender, span types.Span) *downStream {
@@ -178,6 +178,12 @@ func newActiveStream(ctx context.Context, proxy *proxy, responseSender types.Str
 	}
 	return stream
 }
+func getStringOr(s string, defVal string) string {
+	if len(s) != 0 {
+		return s
+	}
+	return defVal
+}
 
 // downstream's lifecycle ends normally
 func (s *downStream) endStream() {
@@ -190,13 +196,6 @@ func (s *downStream) endStream() {
 	// note: if proxy logic resets the stream, there maybe some underlying data in the conn.
 	// we ignore this for now, fix as a todo
 }
-
-// Clean up on the very end of the stream: end stream or reset stream
-// Resources to clean up / reset:
-// 	+ upstream request
-// 	+ all timers
-// 	+ all filters
-//  + remove stream in proxy context
 func (s *downStream) cleanStream() {
 	if !atomic.CompareAndSwapUint32(&s.downstreamCleaned, 0, 1) {
 		return
@@ -239,8 +238,6 @@ func (s *downStream) cleanStream() {
 	// recycle if no reset events
 	s.giveStream()
 }
-
-// requestMetrics records the request metrics when cleanStream
 func (s *downStream) requestMetrics() {
 	streamDurationNs := s.requestInfo.RequestFinishedDuration().Nanoseconds()
 	responseReceivedNs := s.requestInfo.ResponseReceivedDuration().Nanoseconds()
@@ -282,10 +279,6 @@ func (s *downStream) requestMetrics() {
 	s.proxy.stats.DownstreamRequestActive.Dec(1)
 	s.proxy.listenerStats.DownstreamRequestActive.Dec(1)
 }
-
-const mosnProcessFailed = api.NoHealthyUpstream | api.NoRouteFound | api.FaultInjected | api.RateLimited
-
-// isRequestFailed marks request failed due to mosn process
 func (s *downStream) isRequestFailed() bool {
 	return s.requestInfo.GetResponseFlag(mosnProcessFailed)
 }
@@ -317,9 +310,6 @@ func (s *downStream) delete() {
 		s.proxy.deleteActiveStream(s)
 	}
 }
-
-// types.StreamEventListener
-// Called by stream layer normally
 func (s *downStream) OnResetStream(reason types.StreamResetReason) {
 	if !atomic.CompareAndSwapUint32(&s.downstreamReset, 0, 1) {
 		return
@@ -339,8 +329,6 @@ func (s *downStream) ResetStream(reason types.StreamResetReason) {
 }
 
 func (s *downStream) OnDestroyStream() {}
-
-// types.StreamReceiveListener
 func (s *downStream) OnReceive(ctx context.Context, headers types.HeaderMap, data types.IoBuffer, trailers types.HeaderMap) {
 	s.downstreamReqHeaders = headers
 	s.context = mosnctx.WithValue(s.context, types.ContextKeyDownStreamHeaders, headers)
@@ -703,14 +691,6 @@ func (s *downStream) getUpstreamProtocol() (currentProtocol types.ProtocolName) 
 	return currentProtocol
 }
 
-// getStringOr returns the first argument if it is not empty, otherwise the second.
-func getStringOr(s string, defVal string) string {
-	if len(s) != 0 {
-		return s
-	}
-	return defVal
-}
-
 func (s *downStream) chooseHost(endStream bool) {
 
 	s.downstreamRecvDone = endStream
@@ -934,8 +914,6 @@ func (s *downStream) onUpstreamRequestSent() {
 		}
 	}
 }
-
-// Note: global-timer MUST be stopped before active stream got recycled, otherwise resetting stream's properties will cause panic here
 func (s *downStream) onResponseTimeout() {
 	defer func() {
 		if r := recover(); r != nil {
@@ -989,8 +967,6 @@ func (s *downStream) setupPerReqTimeout() {
 			})
 	}
 }
-
-// Note: per-try-timer MUST be stopped before active stream got recycled, otherwise resetting stream's properties will cause panic here
 func (s *downStream) onPerReqTimeout() {
 	defer func() {
 		if r := recover(); r != nil {
@@ -1033,8 +1009,6 @@ func (s *downStream) initializeUpstreamConnectionPool(lbCtx types.LoadBalancerCo
 
 	return connPool, nil
 }
-
-// ~~~ active stream sender wrapper
 
 func (s *downStream) appendHeaders(endStream bool) {
 	s.upstreamProcessDone = endStream
@@ -1121,8 +1095,6 @@ func (s *downStream) convertTrailer(trailers types.HeaderMap) types.HeaderMap {
 	}
 	return trailers
 }
-
-// ~~~ upstream event handler
 func (s *downStream) onUpstreamReset(reason types.StreamResetReason) {
 	// todo: update stats
 	// see if we need a retry
@@ -1286,8 +1258,6 @@ func (s *downStream) setupRetry(endStream bool) bool {
 
 	return true
 }
-
-// Note: retry-timer MUST be stopped before active stream got recycled, otherwise resetting stream's properties will cause panic here
 func (s *downStream) doRetry() {
 	// retry interval
 	time.Sleep(10 * time.Millisecond)
@@ -1328,10 +1298,6 @@ func (s *downStream) doRetry() {
 	s.upstreamRequestSent = true
 	s.downstreamRecvDone = true
 }
-
-// Downstream got reset in proxy context on scenario below:
-// 1. downstream filter reset downstream
-// 2. corresponding upstream got reset
 func (s *downStream) resetStream() {
 	if s.responseSender != nil && !s.upstreamProcessDone {
 		// if downstream req received not done, or local proxy process not done by handle upstream response,
@@ -1359,9 +1325,6 @@ func (s *downStream) sendHijackReply(code int, headers types.HeaderMap) {
 	s.downstreamRespTrailers = nil
 	s.directResponse = true
 }
-
-// TODO: rpc status code may be not matched
-// TODO: rpc content(body) is not matched the headers, rpc should not hijack with body, use sendHijackReply instead
 func (s *downStream) sendHijackReplyWithBody(code int, headers types.HeaderMap, body string) {
 	log.Proxy.Warnf(s.context, "[proxy] [downstream] set hijack reply with body, proxyId = %d, code = %d, with headers = %t", s.ID, code, headers == nil)
 	if headers == nil {
@@ -1406,7 +1369,26 @@ func (s *downStream) setBufferLimit(bufferLimit uint32) {
 	// todo
 }
 
-// types.LoadBalancerContext
+func (s *downStream) AddStreamSenderFilter(filter api.StreamSenderFilter, p api.SenderFilterPhase) {
+	sf := newActiveStreamSenderFilter(s, filter)
+	s.senderFilters = append(s.senderFilters, sf)
+}
+
+func (s *downStream) AddStreamReceiverFilter(filter api.StreamReceiverFilter, p api.ReceiverFilterPhase) {
+	var phase types.Phase
+	switch p {
+	case api.BeforeRoute:
+		phase = types.DownFilter
+	case api.AfterRoute:
+		phase = types.DownFilterAfterRoute
+	case api.AfterChooseHost:
+		phase = types.DownFilterAfterChooseHost
+	default:
+		phase = types.DownFilterAfterRoute
+	}
+	sf := newActiveStreamReceiverFilter(s, filter, phase)
+	s.receiverFilters = append(s.receiverFilters, sf)
+}
 func (s *downStream) MetadataMatchCriteria() api.MetadataMatchCriteria {
 	if nil != s.requestInfo.RouteEntry() {
 		return s.requestInfo.RouteEntry().MetadataMatchCriteria(s.cluster.Name())
@@ -1459,8 +1441,6 @@ func (s *downStream) giveStream() {
 		ctx.Give()
 	}
 }
-
-// check if proxy process done
 func (s *downStream) processDone() bool {
 	return s.upstreamProcessDone || atomic.LoadUint32(&s.downstreamReset) == 1 || atomic.LoadUint32(&s.upstreamReset) == 1
 }
@@ -1561,3 +1541,44 @@ func (s *downStream) processError(id uint32) (phase types.Phase, err error) {
 
 	return
 }
+
+// Clean up on the very end of the stream: end stream or reset stream
+// Resources to clean up / reset:
+// 	+ upstream request
+// 	+ all timers
+// 	+ all filters
+//  + remove stream in proxy context
+
+// requestMetrics records the request metrics when cleanStream
+
+const mosnProcessFailed = api.NoHealthyUpstream | api.NoRouteFound | api.FaultInjected | api.RateLimited
+
+// isRequestFailed marks request failed due to mosn process
+
+// types.StreamEventListener
+// Called by stream layer normally
+
+// types.StreamReceiveListener
+
+// getStringOr returns the first argument if it is not empty, otherwise the second.
+
+// Note: global-timer MUST be stopped before active stream got recycled, otherwise resetting stream's properties will cause panic here
+
+// Note: per-try-timer MUST be stopped before active stream got recycled, otherwise resetting stream's properties will cause panic here
+
+// ~~~ active stream sender wrapper
+
+// ~~~ upstream event handler
+
+// Note: retry-timer MUST be stopped before active stream got recycled, otherwise resetting stream's properties will cause panic here
+
+// Downstream got reset in proxy context on scenario below:
+// 1. downstream filter reset downstream
+// 2. corresponding upstream got reset
+
+// TODO: rpc status code may be not matched
+// TODO: rpc content(body) is not matched the headers, rpc should not hijack with body, use sendHijackReply instead
+
+// types.LoadBalancerContext
+
+// check if proxy process done
