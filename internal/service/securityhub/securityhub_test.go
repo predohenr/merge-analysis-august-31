@@ -27,19 +27,18 @@ func TestAccSecurityHub_serial(t *testing.T) {
 			"tags":               testAccAccountV2_tags,
 			"Identity":           testAccSecurityHubAccountV2_identitySerial,
 		},
+		"AutomationRuleV2": {
+			acctest.CtBasic:      testAccAutomationRuleV2_basic,
+			acctest.CtDisappears: testAccAutomationRuleV2_disappears,
+			"update":             testAccAutomationRuleV2_update,
+			"tags":               testAccAutomationRuleV2_tags,
+		},
 		"AggregatorV2": {
 			acctest.CtBasic:      testAccAggregatorV2_basic,
 			acctest.CtDisappears: testAccAggregatorV2_disappears,
 			"specifiedRegions":   testAccAggregatorV2_specifiedRegions,
 			"tags":               testAccAggregatorV2_tags,
 			"Identity":           testAccSecurityHubAggregatorV2_identitySerial,
-		},
-		"AutomationRuleV2": {
-			acctest.CtBasic:      testAccAutomationRuleV2_basic,
-			acctest.CtDisappears: testAccAutomationRuleV2_disappears,
-			"update":             testAccAutomationRuleV2_update,
-			"tags":               testAccAutomationRuleV2_tags,
-			"Identity":           testAccSecurityHubAutomationRuleV2_identitySerial,
 		},
 		"AutomationRule": {
 			acctest.CtBasic:      testAccAutomationRule_basic,
