@@ -28,12 +28,6 @@ def value_unit(val):
     return ty.unit
 
 
-date_units = ('Y', 'M')
-time_units = ('W', 'D', 'h', 'm', 's', 'ms', 'us', 'ns', 'ps', 'fs', 'as')
-# All except generic ("")
-all_units = date_units + time_units
-
-
 def add_usecase(x, y):
     return x + y
 
@@ -92,6 +86,12 @@ def make_add_constant(const):
     def add_constant(x):
         return x + const
     return add_constant
+
+
+date_units = ('Y', 'M')
+time_units = ('W', 'D', 'h', 'm', 's', 'ms', 'us', 'ns', 'ps', 'fs', 'as')
+# All except generic ("")
+all_units = date_units + time_units
 
 
 class TestModuleHelpers(TestCase):
