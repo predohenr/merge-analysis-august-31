@@ -9,7 +9,13 @@ from hydra.utils import instantiate
 from omegaconf import OmegaConf
 
 # Import the functions under test (adjust import path if your file/module path differs)
+from espnet3.collect_stats import collect_stats, collect_stats_multiple_iterator
+from espnet3.utils.collect_stats_parallel import (
+    collect_stats_multiple_iterator,
+    collect_stats_parallel,
+)
 from espnet3.base.collect_stats import collect_stats
+from espnet3.utils.collect_stats_local import collect_stats_local
 
 mp.set_start_method("fork", force=True)
 
@@ -62,8 +68,6 @@ class DummyDataset:
         # Shape: [T, D]
         x = torch.full((T, self.dim), float(idx), dtype=torch.float32)
         return uid, {"x": x, "length": T}
-
-    # For multiple-iterator tests: split items into shards round-robin
     def shard(self, shard_idx: int, num_shards: int = 2):
         shard = DummyDataset(n=0, base_len=self.base_len, dim=self.dim)
         indices = [i for i in range(self.n) if i % num_shards == shard_idx]
@@ -81,6 +85,8 @@ class DummyDataset:
 
         shard.__getitem__ = _getitem  # type: ignore
         return shard
+
+    # For multiple-iterator tests: split items into shards round-robin
 
 
 class DummyOrganizer:
@@ -207,11 +213,6 @@ def make_parallel_cfg(n_workers=2):
     return OmegaConf.create({"env": "local", "n_workers": n_workers, "options": {}})
 
 
-# -----------------
-# Helper assertions
-# -----------------
-
-
 def _expected_total_count(dataset):
     # Sum of all per-utterance time lengths
     return sum(dataset.lengths)
@@ -222,11 +223,6 @@ def _load_npz_counts(dirpath: Path, feat_key: str):
     assert p.exists(), f"Expected stats file not found: {p}"
     data = np.load(p)
     return data["count"], data["sum"], data["sum_square"]
-
-
-# ------------
-# The tests
-# ------------
 @pytest.mark.execution_timeout(30)
 @pytest.mark.parametrize("use_parallel", [False, True])
 def test_collect_stats_local_basic(tmp_path: Path, use_parallel):
@@ -326,11 +322,6 @@ def test_collect_stats_multiple_iterator(tmp_path: Path):
     if not shard_shape_files:
         shard_shape_files = list(mode_dir.glob("mel_shape.shard.*"))
     assert shard_shape_files != [], "No shard shape files found"
-
-
-# ----------------------------
-# Entry-point level smoke tests
-# ----------------------------
 
 
 @pytest.mark.execution_timeout(30)
@@ -455,3 +446,18 @@ def test_collect_stats_entrypoint_multiple_iterator(tmp_path: Path):
     assert (
         shard_shape_files
     ), "Shard shape files were not written in entrypoint(multiple_iterator)"
+
+
+# -----------------
+# Helper assertions
+# -----------------
+
+
+# ------------
+# The tests
+# ------------
+
+
+# ----------------------------
+# Entry-point level smoke tests
+# ----------------------------
