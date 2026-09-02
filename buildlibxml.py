@@ -3,6 +3,7 @@ import os, re, sys, platform
 import tarfile
 import time
 from contextlib import closing
+from distutils import log
 from ftplib import FTP
 
 import urllib.error
@@ -151,15 +152,6 @@ def get_prebuilt_libxml2xslt(download_dir, static_include_dirs, static_library_d
         assert os.path.exists(l), 'does not exist: %s' % l
         static_include_dirs.append(i)
         static_library_dirs.append(l)
-
-
-## Routines to download and build libxml2/xslt from sources:
-
-LIBXML2_LOCATION = 'https://download.gnome.org/sources/libxml2/'
-LIBXSLT_LOCATION = 'https://download.gnome.org/sources/libxslt/'
-LIBICONV_LOCATION = 'https://ftp.gnu.org/pub/gnu/libiconv/'
-ZLIB_LOCATION = 'https://zlib.net/'
-match_libfile_version = re.compile('^[^-]*-([.0-9-]+)[.].*').match
 
 
 def _find_content_encoding(response, default='iso8859-1'):
@@ -632,6 +624,15 @@ def main():
             static_cflags=[],
             static_binaries=[]
         )
+
+
+## Routines to download and build libxml2/xslt from sources:
+
+LIBXML2_LOCATION = 'https://download.gnome.org/sources/libxml2/'
+LIBXSLT_LOCATION = 'https://download.gnome.org/sources/libxslt/'
+LIBICONV_LOCATION = 'https://ftp.gnu.org/pub/gnu/libiconv/'
+ZLIB_LOCATION = 'https://zlib.net/'
+match_libfile_version = re.compile('^[^-]*-([.0-9-]+)[.].*').match
 
 
 if __name__ == '__main__':
