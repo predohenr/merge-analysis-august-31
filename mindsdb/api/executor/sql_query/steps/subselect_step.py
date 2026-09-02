@@ -186,6 +186,8 @@ class QueryStepCall(BaseStepCall):
 
                 key, column_quoted = (), False
 
+                key, column_quoted = (), False
+
                 match node.parts, node.is_quoted:
                     case [column_name], [column_quoted]:
                         if column_name in aliases:
