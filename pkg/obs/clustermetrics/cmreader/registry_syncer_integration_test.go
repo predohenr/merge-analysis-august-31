@@ -13,9 +13,30 @@ import (
 
 	"github.com/cockroachdb/cockroach/pkg/base"
 	"github.com/cockroachdb/cockroach/pkg/obs/clustermetrics"
-	"github.com/cockroachdb/cockroach/pkg/obs/clustermetrics/cmmetrics"
 	clustermetricutils "github.com/cockroachdb/cockroach/pkg/obs/clustermetrics/utils"
 	"github.com/cockroachdb/cockroach/pkg/roachpb"
+	"github.com/cockroachdb/cockroach/pkg/server/apiconstants"
+	"github.com/cockroachdb/cockroach/pkg/server/srvtestutils"
+	"github.com/cockroachdb/cockroach/pkg/sql"
+	"github.com/cockroachdb/cockroach/pkg/testutils"
+	"github.com/cockroachdb/cockroach/pkg/testutils/serverutils"
+	"github.com/cockroachdb/cockroach/pkg/testutils/skip"
+	"github.com/cockroachdb/cockroach/pkg/testutils/sqlutils"
+	"github.com/cockroachdb/cockroach/pkg/util/leaktest"
+	"github.com/cockroachdb/cockroach/pkg/util/log"
+	"github.com/cockroachdb/cockroach/pkg/util/metric"
+	"github.com/prometheus/common/expfmt"
+	"github.com/stretchr/testify/require"
+)
+import (
+	"context"
+	"fmt"
+	"strings"
+	"testing"
+
+	"github.com/cockroachdb/cockroach/pkg/base"
+	"github.com/cockroachdb/cockroach/pkg/obs/clustermetrics/cmmetrics"
+	"github.com/cockroachdb/cockroach/pkg/obs/clustermetrics/cmreader"
 	"github.com/cockroachdb/cockroach/pkg/server/apiconstants"
 	"github.com/cockroachdb/cockroach/pkg/server/srvtestutils"
 	"github.com/cockroachdb/cockroach/pkg/sql"
@@ -255,9 +276,6 @@ func TestRegistrySyncerIntegration(t *testing.T) {
 	require.Contains(t, tsNames, "cr.cluster.test.scalar")
 	require.Contains(t, tsNames, "cr.cluster.test.newgauge")
 }
-
-// requireMetricExists asserts that a metric with the given name is present
-// in the registry.
 func requireMetricExists(t *testing.T, reg metric.RegistryReader, name string) {
 	t.Helper()
 	var found bool
@@ -281,9 +299,6 @@ func checkMetricAbsent(reg metric.RegistryReader, name string) error {
 	}
 	return nil
 }
-
-// requireScalarGaugeValue asserts that a scalar *metric.Gauge has the expected
-// value.
 func requireScalarGaugeValue(t *testing.T, reg metric.RegistryReader, name string, expected int64) {
 	t.Helper()
 	err := checkScalarGaugeValue(reg, name, expected)
@@ -307,9 +322,6 @@ func checkScalarGaugeValue(reg metric.RegistryReader, name string, expected int6
 	}
 	return nil
 }
-
-// requireCounterValue asserts that a scalar *metric.Counter has the expected
-// value.
 func requireCounterValue(t *testing.T, reg metric.RegistryReader, name string, expected int64) {
 	t.Helper()
 	var c *metric.Counter
@@ -323,10 +335,6 @@ func requireCounterValue(t *testing.T, reg metric.RegistryReader, name string, e
 	require.NotNilf(t, c, "counter %q not found in registry", name)
 	require.Equal(t, expected, c.Count())
 }
-
-// requireGaugeVecValue asserts that a *metric.GaugeVec has the expected value
-// for the given label set. Uses the prometheus exporter to read individual
-// label values.
 func requireGaugeVecValue(
 	t *testing.T, reg metric.RegistryReader, name string, labels map[string]string, expected int64,
 ) {
@@ -399,10 +407,6 @@ func checkGaugeVecValue(
 	}
 	return fmt.Errorf("gauge vec %q: no metric found with labels %v", name, labels)
 }
-
-// checkGaugeVecLabelAbsent returns nil if the given label set is NOT present
-// in the prometheus output for the named metric. Returns an error if the label
-// set is still found.
 func checkGaugeVecLabelAbsent(
 	reg metric.RegistryReader, name string, labels map[string]string,
 ) error {
@@ -448,12 +452,6 @@ func checkGaugeVecLabelAbsent(
 	}
 	return nil
 }
-
-// TestRegistrySyncerMultiTenant starts a system tenant and a shared-process
-// secondary tenant, inserts metrics with the same name into each tenant's
-// system.cluster_metrics table with different values, and verifies that each
-// tenant's cluster metric registry is fully isolated. Updates and deletes
-// in one tenant do not affect the other.
 func TestRegistrySyncerMultiTenant(t *testing.T) {
 	defer leaktest.AfterTest(t)()
 	defer log.Scope(t).Close(t)
@@ -562,3 +560,26 @@ func TestRegistrySyncerMultiTenant(t *testing.T) {
 	// App tenant's metric should still be present.
 	requireScalarGaugeValue(t, tenantReg, "test.mt_gauge", 200)
 }
+
+// requireMetricExists asserts that a metric with the given name is present
+// in the registry.
+
+// requireScalarGaugeValue asserts that a scalar *metric.Gauge has the expected
+// value.
+
+// requireCounterValue asserts that a scalar *metric.Counter has the expected
+// value.
+
+// requireGaugeVecValue asserts that a *metric.GaugeVec has the expected value
+// for the given label set. Uses the prometheus exporter to read individual
+// label values.
+
+// checkGaugeVecLabelAbsent returns nil if the given label set is NOT present
+// in the prometheus output for the named metric. Returns an error if the label
+// set is still found.
+
+// TestRegistrySyncerMultiTenant starts a system tenant and a shared-process
+// secondary tenant, inserts metrics with the same name into each tenant's
+// system.cluster_metrics table with different values, and verifies that each
+// tenant's cluster metric registry is fully isolated. Updates and deletes
+// in one tenant do not affect the other.
