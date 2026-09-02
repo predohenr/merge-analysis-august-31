@@ -3,9 +3,8 @@
 
 import unittest
 from unittest.mock import MagicMock
-
-from calibre.gui2.library.annotations import get_group_key, get_group_keys_list
 from calibre.utils.icu import primary_sort_key
+from calibre.gui2.library.annotations import get_group_key, get_group_keys_list
 
 
 def _make_result(book_id=1, annot_id=1, **extra):
@@ -37,6 +36,14 @@ def _make_mock_db(field_for_map=None, field_metadata=None):
     db.field_for.side_effect = _field_for
     db.field_metadata = field_metadata or {}
     return db
+
+
+def find_tests():
+    loader = unittest.defaultTestLoader
+    suite = unittest.TestSuite()
+    suite.addTests(loader.loadTestsFromTestCase(GroupKeyTest))
+    suite.addTests(loader.loadTestsFromTestCase(GroupKeysListTest))
+    return suite
 
 
 class GroupKeyTest(unittest.TestCase):
@@ -263,11 +270,3 @@ class GroupKeysListTest(unittest.TestCase):
         entries = get_group_keys_list(_make_result(), 'authors', db)
         labels = [label for _, label in entries]
         self.assertEqual(sorted(labels), ['Alice', 'Bob'])
-
-
-def find_tests():
-    loader = unittest.defaultTestLoader
-    suite = unittest.TestSuite()
-    suite.addTests(loader.loadTestsFromTestCase(GroupKeyTest))
-    suite.addTests(loader.loadTestsFromTestCase(GroupKeysListTest))
-    return suite
