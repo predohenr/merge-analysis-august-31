@@ -97,6 +97,10 @@ def _iter_symbols(sec):
         sec._symbols = list(sec.iter_symbols())
     return iter(sec._symbols)
 
+def load(*args, **kwargs):
+    """Compatibility wrapper for pwntools v1"""
+    return ELF(*args, **kwargs)
+
 class Function(object):
     """Encapsulates information about a function in an :class:`.ELF` binary.
 
@@ -133,10 +137,6 @@ class Function(object):
 
     def disasm(self):
         return self.elf.disasm(self.address, self.size)
-
-def load(*args, **kwargs):
-    """Compatibility wrapper for pwntools v1"""
-    return ELF(*args, **kwargs)
 
 class dotdict(dict):
     """Wrapper to allow dotted access to dictionary elements.
@@ -2199,7 +2199,7 @@ class ELF(ELFFile):
         """:class:`bool`: Whether the current binary was built with
         Undefined Behavior Sanitizer (``UBSAN``)."""
         return any(s.startswith('__ubsan_') for s in self.symbols)
-    
+
     @property
     def shadowstack(self):
         """:class:`bool`: Whether the current binary was built with	
@@ -2354,7 +2354,7 @@ class ELF(ELFFile):
                 return
 
         log.error("Could not find PT_GNU_STACK, stack should already be executable")
-    
+
     @staticmethod
     def set_runpath(exepath, runpath):
         r"""set_runpath(exepath, runpath) -> ELF
