@@ -58,7 +58,7 @@ func (p *servicePackage) FrameworkResources(ctx context.Context) []*inttypes.Ser
 			Factory:  newScraperLoggingConfigurationResource,
 			TypeName: "aws_prometheus_scraper_logging_configuration",
 			Name:     "ScraperLoggingConfiguration",
-			Region:   inttypes.ResourceRegionDefault(),
+			Region:   unique.Make(inttypes.ResourceRegionDefault()),
 		},
 		{
 			Factory:  newWorkspaceConfigurationResource,
