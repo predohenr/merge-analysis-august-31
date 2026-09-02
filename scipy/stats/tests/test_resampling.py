@@ -205,10 +205,6 @@ class TestBootstrap:
         xp_assert_close(res.confidence_interval.low,
                         xp.asarray(dist.ppf(1-alpha)), rtol=5e-4)
 
-    tests_R = [("basic", 23.77, 79.12),
-               ("percentile", 28.86, 84.21),
-               ("BCa", 32.31, 91.43)]
-
     @pytest.mark.parametrize("method, ref_low, ref_high", tests_R)
     def test_bootstrap_against_R(self, method, ref_low, ref_high, xp):
         # Compare against R's "boot" library
@@ -313,10 +309,6 @@ class TestBootstrap:
                                                 theta_hat_b, batch, xp)
         xp_assert_close(a_hat, xp.asarray(0.011008228344026734))
 
-    tests_against_itself_1samp = {"basic": 1789,
-                                  "percentile": 1790,
-                                  "BCa": 1789}
-
     @pytest.mark.slow
     @pytest.mark.parametrize("method, expected",
                              tests_against_itself_1samp.items())
@@ -356,9 +348,6 @@ class TestBootstrap:
         pvalue = stats.binomtest(int(ci_contains_true), n_replications,
                                  confidence_level).pvalue
         assert pvalue > 0.1
-
-    tests_against_itself_2samp = {"basic": 892,
-                                  "percentile": 890}
 
     @pytest.mark.slow
     @pytest.mark.parametrize("method, expected",
@@ -726,8 +715,6 @@ class TestBootstrap:
                         ref.confidence_interval.low, atol=1e-15)
         assert_allclose(res.confidence_interval.high[0],
                         ref.confidence_interval.high, atol=1e-15)
-
-    # torch doesn't have T distribution CDF and can't fall back to NumPy on GPU
     @pytest.mark.skip_xp_backends(np_only=True, exceptions=['cupy'])
     def test_gh_20850(self, xp):
         rng = np.random.default_rng(2085020850)
@@ -746,6 +733,19 @@ class TestBootstrap:
             stats.bootstrap((x, y[:10, 0]), statistic)  # this won't work after 1.16
         stats.bootstrap((x, y[:10, 0:1]), statistic)  # this will
         stats.bootstrap((x.T, y.T[0:1, :10]), statistic, axis=1)  # this will
+
+    tests_R = [("basic", 23.77, 79.12),
+               ("percentile", 28.86, 84.21),
+               ("BCa", 32.31, 91.43)]
+
+    tests_against_itself_1samp = {"basic": 1789,
+                                  "percentile": 1790,
+                                  "BCa": 1789}
+
+    tests_against_itself_2samp = {"basic": 892,
+                                  "percentile": 890}
+
+    # torch doesn't have T distribution CDF and can't fall back to NumPy on GPU
 
 # --- Test Monte Carlo Hypothesis Test --- #
 
@@ -934,10 +934,6 @@ class TestMonteCarloHypothesisTest:
 
         xp_assert_close(res.statistic, xp.asarray(ref.statistic))
         xp_assert_close(res.pvalue, xp.asarray(ref.pvalue), atol=self.atol)
-
-
-    # Tests below involve statistics that are not yet array-API compatible.
-    # They can be converted when the statistics are converted.
     @pytest.mark.slow
     @pytest.mark.parametrize('alternative', ("less", "greater"))
     @pytest.mark.parametrize('a', np.linspace(-0.5, 0.5, 5))  # skewness
@@ -1121,6 +1117,10 @@ class TestMonteCarloHypothesisTest:
         c1 = np.sum(res.null_distribution <= res.statistic*(1+1e-15))
         assert c0 != c1
         assert res.pvalue == (c1 + 1)/(n_resamples + 1)
+
+
+    # Tests below involve statistics that are not yet array-API compatible.
+    # They can be converted when the statistics are converted.
 
 
 @make_xp_test_case(power)
@@ -1323,8 +1323,6 @@ class TestPermutationTest:
 
     def setup_method(self):
         self.rng = np.random.default_rng(7170559330470561044)
-
-    # -- Input validation -- #
     def test_permutation_test_iv(self, xp):
 
         def stat(x, y, axis):
@@ -1378,9 +1376,6 @@ class TestPermutationTest:
         message = "SeedSequence expects int or sequence of ints"
         with pytest.raises(TypeError, match=message):
             permutation_test(data, stat, rng='herring')
-
-    # -- Test Parameters -- #
-    # SPEC-007 leave one call with seed to check it still works
     @pytest.mark.parametrize('random_state', [np.random.RandomState,
                                               np.random.default_rng])
     @pytest.mark.parametrize('permutation_type',
@@ -1420,8 +1415,6 @@ class TestPermutationTest:
 
         xp_assert_equal(res1.pvalue, res3.pvalue)
         xp_assert_equal(res2.pvalue, res3.pvalue)
-
-    # SPEC-007 leave at least one call with seed to check it still works
     @pytest.mark.parametrize('random_state', [np.random.RandomState,
                                               np.random.default_rng])
     @pytest.mark.parametrize('permutation_type, exact_size',
@@ -1445,14 +1438,6 @@ class TestPermutationTest:
 
         res = stats.permutation_test((x, y), statistic, **kwds)
         assert xp_size(res.null_distribution) == exact_size
-
-    # -- Randomized Permutation Tests -- #
-
-    # To get reasonable accuracy, these next three tests are somewhat slow.
-    # Originally, I had them passing for all combinations of permutation type,
-    # alternative, and RNG, but that takes too long for CI. Instead, split
-    # into three tests, each testing a particular combination of the three
-    # parameters.
 
     def test_randomized_test_against_exact_both(self, xp):
         # check that the randomized and exact tests agree to reasonable
@@ -1504,8 +1489,6 @@ class TestPermutationTest:
 
         assert res.statistic == res2.statistic
         xp_assert_close(res.pvalue, res2.pvalue, atol=1e-2)
-
-    # I only need to skip torch on GPU because it doesn't have betaincc for pearsonr
     @pytest.mark.skip_xp_backends(cpu_only=True, exceptions=['cupy', 'jax.numpy'])
     def test_randomized_test_against_exact_pairings(self, xp):
         # check that the randomized and exact tests agree to reasonable
@@ -1531,8 +1514,6 @@ class TestPermutationTest:
 
         assert res.statistic == res2.statistic
         xp_assert_close(res.pvalue, res2.pvalue, atol=1e-2)
-
-    # -- Independent (Unpaired) Sample Tests -- #
 
     @pytest.mark.skip_xp_backends(eager_only=True)  # TODO: change to jax_jit=False
     @pytest.mark.parametrize('alternative', ("less", "greater", "two-sided"))
@@ -1665,8 +1646,6 @@ class TestPermutationTest:
         xp_assert_close(res.pvalue, xp.asarray(expected.pvalue), atol=6e-2)
         xp_assert_close(res.pvalue, res2.pvalue, atol=3e-2)
 
-    # -- Paired-Sample Tests -- #
-
     @pytest.mark.skip_xp_backends(eager_only=True)  # TODO: change to jax_jit=False
     @pytest.mark.parametrize('alternative', ("less", "greater", "two-sided"))
     def test_against_wilcoxon(self, alternative, xp):
@@ -1727,8 +1706,6 @@ class TestPermutationTest:
                                      permutation_type='samples', n_resamples=xp.inf,
                                      rng=self.rng, alternative=alternative)
         xp_assert_close(res.pvalue, xp.asarray(expected.pvalue), rtol=self.rtol)
-
-    # -- Exact Association Tests -- #
 
     @pytest.mark.skip_xp_backends(eager_only=True)  # TODO: change to jax_jit=False
     def test_against_kendalltau(self, xp):
@@ -1815,22 +1792,6 @@ class TestPermutationTest:
         assert_allclose(res.statistic, res2.statistic, rtol=self.rtol)
         assert_allclose(res.pvalue, expected_pvalue, rtol=self.rtol)
         assert_allclose(res.pvalue, res2.pvalue, atol=3e-2)
-
-    # -- Test Against External References -- #
-
-    tie_case_1 = {'x': [1, 2, 3, 4], 'y': [1.5, 2, 2.5],
-                  'expected_less': 0.2000000000,
-                  'expected_2sided': 0.4,  # 2*expected_less
-                  'expected_Pr_gte_S_mean': 0.3428571429,  # see note below
-                  'expected_statistic': 7.5,
-                  'expected_avg': 9.142857, 'expected_std': 1.40698}
-    tie_case_2 = {'x': [111, 107, 100, 99, 102, 106, 109, 108],
-                  'y': [107, 108, 106, 98, 105, 103, 110, 105, 104],
-                  'expected_less': 0.1555738379,
-                  'expected_2sided': 0.3111476758,
-                  'expected_Pr_gte_S_mean': 0.2969971205,  # see note below
-                  'expected_statistic': 32.5,
-                  'expected_avg': 38.117647, 'expected_std': 5.172124}
 
     @pytest.mark.skip_xp_backends(eager_only=True)  # TODO: change to jax_jit=False
     @pytest.mark.xslow()  # only the second case is slow, really
@@ -1950,10 +1911,6 @@ class TestPermutationTest:
         with pytest.raises(ValueError, match="`batch` must be positive."):
             list(_resampling._batch_generator([1, 2, 3], batch))
 
-    batch_generator_cases = [(range(0), 3, []),
-                             (range(6), 3, [[0, 1, 2], [3, 4, 5]]),
-                             (range(8), 3, [[0, 1, 2], [3, 4, 5], [6, 7]])]
-
     @pytest.mark.parametrize("iterable, batch, expected",
                              batch_generator_cases)
     def test_batch_generator(self, iterable, batch, expected):
@@ -1985,6 +1942,49 @@ class TestPermutationTest:
         # y = c(2, 4, 6, 8)
         # cor.test(x, y, alternative = "t", method = "spearman")  # 0.333333333
         # cor.test(x, y, alternative = "t", method = "kendall")  # 0.333333333
+
+    # -- Input validation -- #
+
+    # -- Test Parameters -- #
+    # SPEC-007 leave one call with seed to check it still works
+
+    # SPEC-007 leave at least one call with seed to check it still works
+
+    # -- Randomized Permutation Tests -- #
+
+    # To get reasonable accuracy, these next three tests are somewhat slow.
+    # Originally, I had them passing for all combinations of permutation type,
+    # alternative, and RNG, but that takes too long for CI. Instead, split
+    # into three tests, each testing a particular combination of the three
+    # parameters.
+
+    # I only need to skip torch on GPU because it doesn't have betaincc for pearsonr
+
+    # -- Independent (Unpaired) Sample Tests -- #
+
+    # -- Paired-Sample Tests -- #
+
+    # -- Exact Association Tests -- #
+
+    # -- Test Against External References -- #
+
+    tie_case_1 = {'x': [1, 2, 3, 4], 'y': [1.5, 2, 2.5],
+                  'expected_less': 0.2000000000,
+                  'expected_2sided': 0.4,  # 2*expected_less
+                  'expected_Pr_gte_S_mean': 0.3428571429,  # see note below
+                  'expected_statistic': 7.5,
+                  'expected_avg': 9.142857, 'expected_std': 1.40698}
+    tie_case_2 = {'x': [111, 107, 100, 99, 102, 106, 109, 108],
+                  'y': [107, 108, 106, 98, 105, 103, 110, 105, 104],
+                  'expected_less': 0.1555738379,
+                  'expected_2sided': 0.3111476758,
+                  'expected_Pr_gte_S_mean': 0.2969971205,  # see note below
+                  'expected_statistic': 32.5,
+                  'expected_avg': 38.117647, 'expected_std': 5.172124}
+
+    batch_generator_cases = [(range(0), 3, []),
+                             (range(6), 3, [[0, 1, 2], [3, 4, 5]]),
+                             (range(8), 3, [[0, 1, 2], [3, 4, 5], [6, 7]])]
 
 
 def test_all_partitions_concatenated():
