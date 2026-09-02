@@ -245,6 +245,20 @@ class BeatsEncoder(AbsEncoder):
             stride=160,
             bias=False,
         )
+        self.patch_embedding_pad = nn.Conv2d(
+            1,
+            1,
+            kernel_size=self.input_patch_size,
+            stride=self.input_patch_size,
+            bias=False,
+        )
+        self.raw2fbank_pad = nn.Conv1d(
+            1,
+            1,
+            kernel_size=400,
+            stride=160,
+            bias=False,
+        )
         self.dropout_input = nn.Dropout(config.dropout_input)
         assert not config.deep_norm or not config.layer_norm_first
 
