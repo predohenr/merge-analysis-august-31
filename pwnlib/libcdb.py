@@ -8,8 +8,8 @@ import os
 import time
 import six
 import tempfile
-import struct
 import sys
+import struct
 
 from pwnlib.context import context
 from pwnlib.elf import ELF
@@ -49,39 +49,6 @@ def _turbofast_extract_build_id(path):
         return enhex(ELF(path, checksec=False).buildid or b'')
     descsz, = struct.unpack("<L", data[idx-4: idx])
     return enhex(data[idx+8: idx+8+descsz])
-
-
-TYPES = {
-    'libs_id': None,
-    'build_id': _turbofast_extract_build_id,
-    'sha1': sha1filehex,
-    'sha256': sha256filehex,
-    'md5': md5filehex,
-}
-
-# mapping for search result (same as libc.rip)
-MAP_TYPES = {
-    'libs_id': 'id',
-    'build_id': 'buildid'
-}
-
-DEBUGINFOD_SERVERS = [
-    'https://debuginfod.elfutils.org/',
-]
-
-if 'DEBUGINFOD_URLS' in os.environ:
-    urls = os.environ['DEBUGINFOD_URLS'].split(' ')
-    DEBUGINFOD_SERVERS = urls + DEBUGINFOD_SERVERS
-
-# Allow to override url with a caching proxy in CI
-LIBC_RIP_URL = os.environ.get("PWN_LIBCRIP_URL", "https://libc.rip").rstrip("/")
-GITLAB_LIBCDB_URL = os.environ.get("PWN_GITLAB_LIBCDB_URL", "https://gitlab.com").rstrip("/")
-
-# Retry failed lookups after some time
-NEGATIVE_CACHE_EXPIRY = 60 * 60 * 24 * 7 # 1 week
-
-# https://gitlab.com/libcdb/libcdb wasn't updated after 2019,
-# but still is a massive database of older libc binaries.
 def provider_libcdb(hex_encoded_id, search_type):
     if search_type == 'libs_id':
         return None
@@ -127,8 +94,6 @@ def query_libc_rip(params):
     except requests.RequestException as e:
         log.warn_once("Failed to fetch libc info from libc.rip: %s", e)
         return None
-
-# https://libc.rip/
 def provider_libc_rip(search_target, search_type):
     # Build the request for the hash type
     # https://github.com/niklasb/libc-database/blob/master/searchengine/api.yml
@@ -155,8 +120,6 @@ def provider_libc_rip(search_target, search_type):
         log.warn_once("Could not fetch libc binary for %s %s from libc.rip", search_type, search_target)
         return None
     return data
-
-# Check if the local system libc matches the requested hash.
 def provider_local_system(hex_encoded_id, search_type):
     if search_type == 'libs_id':
         return None
@@ -171,8 +134,6 @@ def provider_local_system(hex_encoded_id, search_type):
     if TYPES[search_type](local_libc.path) == hex_encoded_id:
         return local_libc.data
     return None
-
-# Offline search https://github.com/niklasb/libc-database for hash type
 def provider_local_database(search_target, search_type):
     if not context.local_libcdb:
         return None
@@ -231,11 +192,6 @@ def query_local_database(params):
             res.append(_pack_libs_info(libc_path, libs_id, libs_url, libc_syms))
 
     return res
-
-PROVIDERS = {
-    "offline": [provider_local_system, provider_local_database],
-    "online": [provider_libcdb, provider_libc_rip]
-}
 
 def search_by_hash(search_target, search_type='build_id', unstrip=True, offline_only=False):
     """search_by_hash(str, str, bool, bool) -> str
@@ -1010,6 +966,50 @@ def get_build_id_offsets():
     #      33 Displaying notes found at file offset 0x00000270 with length 0x00000024:
         'sparc64': [0x270]
     }.get(context.arch, [])
+
+
+TYPES = {
+    'libs_id': None,
+    'build_id': _turbofast_extract_build_id,
+    'sha1': sha1filehex,
+    'sha256': sha256filehex,
+    'md5': md5filehex,
+}
+
+# mapping for search result (same as libc.rip)
+MAP_TYPES = {
+    'libs_id': 'id',
+    'build_id': 'buildid'
+}
+
+DEBUGINFOD_SERVERS = [
+    'https://debuginfod.elfutils.org/',
+]
+
+if 'DEBUGINFOD_URLS' in os.environ:
+    urls = os.environ['DEBUGINFOD_URLS'].split(' ')
+    DEBUGINFOD_SERVERS = urls + DEBUGINFOD_SERVERS
+
+# Allow to override url with a caching proxy in CI
+LIBC_RIP_URL = os.environ.get("PWN_LIBCRIP_URL", "https://libc.rip").rstrip("/")
+GITLAB_LIBCDB_URL = os.environ.get("PWN_GITLAB_LIBCDB_URL", "https://gitlab.com").rstrip("/")
+
+# Retry failed lookups after some time
+NEGATIVE_CACHE_EXPIRY = 60 * 60 * 24 * 7 # 1 week
+
+# https://gitlab.com/libcdb/libcdb wasn't updated after 2019,
+# but still is a massive database of older libc binaries.
+
+# https://libc.rip/
+
+# Check if the local system libc matches the requested hash.
+
+# Offline search https://github.com/niklasb/libc-database for hash type
+
+PROVIDERS = {
+    "offline": [provider_local_system, provider_local_database],
+    "online": [provider_libcdb, provider_libc_rip]
+}
 
 
 __all__ = ['get_build_id_offsets', 'search_by_build_id', 'search_by_sha1', 'search_by_sha256', 'search_by_md5', 'search_by_libs_id', 'unstrip_libc', 'search_by_symbol_offsets', 'download_libraries']
