@@ -961,9 +961,6 @@ def test_serializing_slice():
 
     serialized = ValueSchema(many=True).dump(slice)
     assert serialized == values
-
-
-# https://github.com/marshmallow-code/marshmallow/issues/1163
 def test_nested_field_many_serializing_generator():
     class MySchema(Schema):
         name = fields.Str()
@@ -979,3 +976,6 @@ def test_nested_field_many_serializing_generator():
     data = OtherSchema().dump(obj)
 
     assert data.get("objects") == [{"name": "foo"}, {"name": "bar"}]
+
+
+# https://github.com/marshmallow-code/marshmallow/issues/1163
