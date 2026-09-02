@@ -2605,11 +2605,6 @@ class XAxis(Axis):
                 "default": "default", "unknown": "unknown"}[
                     self._get_ticks_position()]
 
-    get_view_interval, set_view_interval = _make_getset_interval(
-        "view", "viewLim", "intervalx")
-    get_data_interval, set_data_interval = _make_getset_interval(
-        "data", "dataLim", "intervalx")
-
     def get_minpos(self):
         return self.axes.dataLim.minposx
 
@@ -2637,6 +2632,11 @@ class XAxis(Axis):
             return int(np.floor(length / size))
         else:
             return 2**31 - 1
+
+    get_view_interval, set_view_interval = _make_getset_interval(
+        "view", "viewLim", "intervalx")
+    get_data_interval, set_data_interval = _make_getset_interval(
+        "data", "dataLim", "intervalx")
 
 
 class YAxis(Axis):
@@ -2835,11 +2835,6 @@ class YAxis(Axis):
                 "default": "default", "unknown": "unknown"}[
                     self._get_ticks_position()]
 
-    get_view_interval, set_view_interval = _make_getset_interval(
-        "view", "viewLim", "intervaly")
-    get_data_interval, set_data_interval = _make_getset_interval(
-        "data", "dataLim", "intervaly")
-
     def get_minpos(self):
         return self.axes.dataLim.minposy
 
@@ -2866,3 +2861,8 @@ class YAxis(Axis):
             return int(np.floor(length / size))
         else:
             return 2**31 - 1
+
+    get_view_interval, set_view_interval = _make_getset_interval(
+        "view", "viewLim", "intervaly")
+    get_data_interval, set_data_interval = _make_getset_interval(
+        "data", "dataLim", "intervaly")
