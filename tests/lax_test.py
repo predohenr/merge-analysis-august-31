@@ -87,6 +87,60 @@ def _reduce_custom_min(x, y):
 def _reduce_custom_max(x, y):
   return jnp.maximum(x, y)
 
+def make(shape): return make_p.bind(shape=tuple(shape))
+def bake(k):     return bake_p.bind(k)
+def take(k):     return take_p.bind(k)
+def jake(k):     return jake_p.bind(k)
+
+@make_p.def_abstract_eval
+def make_abstract_eval(*, shape):
+  return core.ShapedArray(shape, FooTy())
+
+@bake_p.def_abstract_eval
+def bake_abstract_eval(x):
+  if type(x.dtype) != FooTy: raise TypeError
+  return core.ShapedArray(tuple(reversed(x.shape)), FooTy())
+
+@take_p.def_abstract_eval
+def take_abstract_eval(x):
+  return core.ShapedArray(x.shape, jnp.dtype('float32'))
+
+@jake_p.def_abstract_eval
+def jake_abstract_eval(x):
+  return x
+
+def shard_foo_array_handler(xs, shardings, layouts, copy_semantics):
+  results = []
+  for x, sharding in safe_zip(xs, shardings):
+    device, = sharding._addressable_device_assignment
+    aval = core.get_aval(x.data)
+    results.append(pxla.batched_device_put(
+        aval, jax.sharding.SingleDeviceSharding(device), [x.data], [device]))
+  return results
+
+def foo_array_constant_handler(x, aval):
+  return array._array_mlir_constant_handler(x.data, aval)
+
+def make_lowering(*, shape):
+  return jnp.zeros((*shape, 2), 'uint32')
+
+def bake_lowering(k):
+  return k.T
+
+def take_lowering(k):
+  return jnp.broadcast_to(jnp.float32(k.size), k.shape)
+
+def jake_lowering(k):
+  return jnp.ones((*k.shape, 2), 'uint32')
+
+def bake_vmap(batched_args, batch_dims):
+  xs, = batched_args
+  bdim_in, = batch_dims
+  ys = bake(xs)
+  perm = list(reversed(range(xs.ndim)))
+  bdim_out = perm[bdim_in]
+  return ys, bdim_out
+
 
 class LaxTest(jtu.JaxTestCase):
   """Numerical tests for LAX operations."""
@@ -3741,7 +3795,6 @@ class LaxTest(jtu.JaxTestCase):
     if expected.dtype == 'int8':
       expected = expected.astype(dtype)
     self.assertArraysEqual(actual, expected, check_dtypes=True)
-
   def test_gather_with_asymmetric_dtype(self):
     @jax.custom_vjp
     def f(x):
@@ -3911,12 +3964,6 @@ class LazyConstantTest(jtu.JaxTestCase):
     self.assertEqual(lax.argmax(np.array([0., np.nan]), axis=0,
                                 index_dtype=np.int32), 1)
 
-  unary_op_types = {}
-  for r in lax_test_util.lax_ops():
-    if r.nargs == 1:
-      unary_op_types[r.op] = (unary_op_types.get(r.op, set()) |
-                              {np.dtype(t) for t in r.dtypes})
-
   @parameterized.named_parameters(
       {"testcase_name": f"_{op}", "op_name": op, "rec_dtypes": dtypes}
       for op, dtypes in unary_op_types.items())
@@ -3958,6 +4005,12 @@ class LazyConstantTest(jtu.JaxTestCase):
         expected.astype(np.float32), lax.log1p(np.float32(1e-5)))
     np.testing.assert_array_almost_equal_nulp(
         expected.astype(np.complex64), lax.log1p(np.complex64(1e-5)))
+
+  unary_op_types = {}
+  for r in lax_test_util.lax_ops():
+    if r.nargs == 1:
+      unary_op_types[r.op] = (unary_op_types.get(r.op, set()) |
+                              {np.dtype(t) for t in r.dtypes})
 
 
 class FooTyRules:
@@ -4006,28 +4059,6 @@ bake_p = core.Primitive('bake')
 take_p = core.Primitive('take')
 jake_p = core.Primitive('jake')
 
-def make(shape): return make_p.bind(shape=tuple(shape))
-def bake(k):     return bake_p.bind(k)
-def take(k):     return take_p.bind(k)
-def jake(k):     return jake_p.bind(k)
-
-@make_p.def_abstract_eval
-def make_abstract_eval(*, shape):
-  return core.ShapedArray(shape, FooTy())
-
-@bake_p.def_abstract_eval
-def bake_abstract_eval(x):
-  if type(x.dtype) != FooTy: raise TypeError
-  return core.ShapedArray(tuple(reversed(x.shape)), FooTy())
-
-@take_p.def_abstract_eval
-def take_abstract_eval(x):
-  return core.ShapedArray(x.shape, jnp.dtype('float32'))
-
-@jake_p.def_abstract_eval
-def jake_abstract_eval(x):
-  return x
-
 # runtime ('outside jit') data types
 
 class FooArray:
@@ -4045,38 +4076,6 @@ class FooArray:
 
   size = property(lambda self: self.data.size // 2)
   ndim = property(lambda self: self.data.ndim - 1)
-
-def shard_foo_array_handler(xs, shardings, layouts, copy_semantics):
-  results = []
-  for x, sharding in safe_zip(xs, shardings):
-    device, = sharding._addressable_device_assignment
-    aval = core.get_aval(x.data)
-    results.append(pxla.batched_device_put(
-        aval, jax.sharding.SingleDeviceSharding(device), [x.data], [device]))
-  return results
-
-def foo_array_constant_handler(x, aval):
-  return array._array_mlir_constant_handler(x.data, aval)
-
-def make_lowering(*, shape):
-  return jnp.zeros((*shape, 2), 'uint32')
-
-def bake_lowering(k):
-  return k.T
-
-def take_lowering(k):
-  return jnp.broadcast_to(jnp.float32(k.size), k.shape)
-
-def jake_lowering(k):
-  return jnp.ones((*k.shape, 2), 'uint32')
-
-def bake_vmap(batched_args, batch_dims):
-  xs, = batched_args
-  bdim_in, = batch_dims
-  ys = bake(xs)
-  perm = list(reversed(range(xs.ndim)))
-  bdim_out = perm[bdim_in]
-  return ys, bdim_out
 
 
 # All tests in this test class are thread-hostile because they add and remove
@@ -4124,8 +4123,6 @@ class CustomElementTypesTest(jtu.JaxTestCase):
     a, = jaxpr.outvars
     self.assertEqual(a.aval, core.ShapedArray((3,), FooTy()))
 
-  # tests after here need the primitives
-
   def test_make_jaxpr_with_primitives(self):
     def f():
       k1 = make((3, 4))
@@ -4157,8 +4154,6 @@ class CustomElementTypesTest(jtu.JaxTestCase):
     self.assertLen(e3.outvars, 1)
     c, = e3.outvars
     self.assertEqual(c.aval, core.ShapedArray((4, 3), np.dtype('float32')))
-
-  # tests after here need FooArray and lowerings
 
   def test_jit_closure(self):
     k = FooArray((), jnp.arange(2, dtype='uint32'))
@@ -4374,6 +4369,10 @@ class CustomElementTypesTest(jtu.JaxTestCase):
     x = jnp.array([1, 2])
     self.assertArraysEqual(f(x), jax.jit(f)(x))
 
+  # tests after here need the primitives
+
+  # tests after here need FooArray and lowerings
+
   # TODO(frostig,mattjj): more polymorphic primitives tests
 
 
@@ -4421,15 +4420,6 @@ class FunctionAccuracyTest(jtu.JaxTestCase):
       mnp = jtu.numpy_with_mpmath(mpmath, extra_prec=1)
       nr, nv = mnp.normalize(r, r, v)
       self.assertAllClose(nr, nv)
-
-  _functions_on_complex_plane = [
-    'arccos', 'arccosh', 'arcsin', 'arcsinh',
-    'arctan', 'arctanh', 'conjugate', 'cos',
-    'cosh', 'exp', 'exp2', 'expm1', 'log',
-    'log10', 'log1p', 'sin', 'sinh', 'sqrt',
-    'square', 'tan', 'tanh', 'sinc', 'positive',
-    'negative', 'absolute', 'sign'
-  ]
 
   @parameterized.named_parameters(
     dict(testcase_name=f"_{name}_{dtype.__name__}", name=name, dtype=dtype)
@@ -4703,6 +4693,15 @@ class FunctionAccuracyTest(jtu.JaxTestCase):
         raise unittest.SkipTest(
           f"detected success in regions {', '.join(unexpected_success_regions)}, please update regions_with_inaccuracies!"
         )
+
+  _functions_on_complex_plane = [
+    'arccos', 'arccosh', 'arcsin', 'arcsinh',
+    'arctan', 'arctanh', 'conjugate', 'cos',
+    'cosh', 'exp', 'exp2', 'expm1', 'log',
+    'log10', 'log1p', 'sin', 'sinh', 'sqrt',
+    'square', 'tan', 'tanh', 'sinc', 'positive',
+    'negative', 'absolute', 'sign'
+  ]
 
 
 class CompositeTest(jtu.JaxTestCase):
