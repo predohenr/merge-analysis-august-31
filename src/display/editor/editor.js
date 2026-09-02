@@ -49,84 +49,247 @@ import { TouchManager } from "../touch_manager.js";
 class AnnotationEditor {
   #accessibilityData = null;
 
-  #allResizerDivs = null;
+  #resizersDiv = null
 
-  #altText = null;
+  #altText = null
 
-  #comment = null;
+  #touchManager = null
 
-  #disabled = false;
+  #prevDragX = 0
 
-  #dragPointerId = null;
+;
 
-  #dragPointerType = "";
+;
 
-  #keepAspectRatio = false;
+  #prevDragY = 0
 
-  #resizersDiv = null;
+  // We wait a bit to avoid sending too many requests when changing something
 
-  #lastPointerCoords = null;
+  #focusAC = null
 
-  #savedDimensions = null;
+  #savedDimensions = null
 
-  #focusAC = null;
+;
 
-  #focusedResizerName = "";
+;
 
-  #hasBeenClicked = false;
+  _editToolbar = null
 
-  #initialRect = null;
+;
 
-  #isEditing = false;
+  _isVisible = true
 
-  #isInEditMode = false;
+  #zIndex = AnnotationEditor._zIndex++
 
-  #isResizerEnabledForKeyboard = false;
+  _initialData = null
 
-  #moveInDOMTimeout = null;
+  _uiManager = null
 
-  #prevDragX = 0;
+;
 
-  #prevDragY = 0;
+;
 
-  #telemetryTimeouts = null;
+;
 
-  #touchManager = null;
+;
 
-  isSelected = false;
+;
 
-  _isCopy = false;
+;
 
-  _editToolbar = null;
+;
 
-  _initialOptions = Object.create(null);
+;
 
-  _initialData = null;
+  static _zIndex = 1
 
-  _isVisible = true;
+  static _telemetryTimeout = 1000
 
-  _uiManager = null;
+;
 
-  _focusEventsAllowed = true;
+;
 
-  static _l10n = null;
+;
 
-  static _l10nResizer = null;
+  #comment = null
 
-  #isDraggable = false;
+;
 
-  #zIndex = AnnotationEditor._zIndex++;
+;
 
-  static _borderLineWidth = -1;
+  #moveInDOMTimeout = null
 
-  static _colorManager = new ColorManager();
+;
 
-  static _zIndex = 1;
+;
+
+  #dragPointerType = ""
+
+  // We wait a bit to avoid sending too many requests when changing something
+
+  // like the thickness of a line.
+
+  static _borderLineWidth = -1
+
+  #telemetryTimeouts = null
+
+;
+
+;
+
+;
+
+;
+
+;
+
+;
+
+;
+
+  static _l10nResizer = null
+
+;
+
+;
+
+;
+
+;
+
+;
+
+;
+
+;
+
+;
+
+;
+
+  _isCopy = false
+
+;
+
+;
+
+;
+
+  #disabled = false
+
+  _initialOptions = Object.create(null)
+
+;
+
+;
+
+;
+
+;
+
+;
+
+;
+
+  #dragPointerId = null
 
   // Time to wait (in ms) before sending the telemetry data.
-  // We wait a bit to avoid sending too many requests when changing something
+
+  isSelected = false
+
+  static _colorManager = new ColorManager()
+
+;
+
   // like the thickness of a line.
-  static _telemetryTimeout = 1000;
+
+;
+
+;
+
+;
+
+;
+
+  #allResizerDivs = null
+
+  #hasBeenClicked = false
+
+  static _l10n = null
+
+;
+
+;
+
+;
+
+;
+
+;
+
+  #isDraggable = false
+
+;
+
+;
+
+;
+
+;
+
+  #lastPointerCoords = null
+
+  _focusEventsAllowed = true
+
+;
+
+  #isResizerEnabledForKeyboard = false
+
+  #isEditing = false
+
+  // Time to wait (in ms) before sending the telemetry data.
+
+  #focusedResizerName = ""
+
+;
+
+;
+
+;
+
+;
+
+;
+
+;
+
+;
+
+;
+
+;
+
+;
+
+;
+
+;
+
+;
+
+;
+
+  #isInEditMode = false
+
+;
+
+  #initialRect = null
+
+  #keepAspectRatio = false
+
+;
+
+;
 
   static get _resizerKeyboardManager() {
     const resize = AnnotationEditor.prototype._resizeWithKeyboard;
@@ -1134,16 +1297,16 @@ class AnnotationEditor {
   get altTextData() {
     return this.#altText?.data;
   }
-
-  /**
-   * Set the alt text data.
-   */
   set altTextData(data) {
     if (!this.#altText) {
       return;
     }
     this.#altText.data = data;
   }
+
+  /**
+   * Set the alt text data.
+   */
 
   get guessedAltText() {
     return this.#altText?.guessedText;
@@ -2052,11 +2215,6 @@ class AnnotationEditor {
   get isEditing() {
     return this.#isEditing;
   }
-
-  /**
-   * When set to true, it means that this editor is currently edited.
-   * @param {boolean} value
-   */
   set isEditing(value) {
     this.#isEditing = value;
     if (!this.parent) {
@@ -2069,6 +2227,11 @@ class AnnotationEditor {
       this.parent.setActiveEditor(null);
     }
   }
+
+  /**
+   * When set to true, it means that this editor is currently edited.
+   * @param {boolean} value
+   */
 
   /**
    * Set the aspect ratio to use when resizing.
