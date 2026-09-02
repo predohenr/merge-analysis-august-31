@@ -224,8 +224,7 @@ describe("Scene/BufferPointCollection", () => {
     collection.get(1, point);
     expect(point.getPosition()).toEqual(new Cartesian3(999, 0, 0));
 
-    collection.update({ mode: SceneMode.SCENE3D, passes: {} });
-
+    collection._updateBoundingVolume();
     expect(collection.boundingVolume.center).toEqual(center);
     expect(collection.boundingVolume.radius).toEqual(1);
   });
@@ -260,11 +259,10 @@ describe("Scene/BufferPointCollection", () => {
     collection.get(0, point);
     expect(point.getPosition().x).toBe(16384);
 
-    collection.update({ mode: SceneMode.SCENE3D, passes: {} });
-
     // Bounding volume is computed from de-normalized local positions,
     // then transformed by modelMatrix.
+    collection._updateBoundingVolume();
     const expectedWorldX = (16384 / 32767) * scale;
-    expect(collection.boundingVolume.center.x).toBeCloseTo(expectedWorldX, 0);
+    expect(collection.boundingVolumeWC.center.x).toBeCloseTo(expectedWorldX, 0);
   });
 });

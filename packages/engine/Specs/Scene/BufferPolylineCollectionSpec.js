@@ -274,8 +274,7 @@ describe("Scene/BufferPolylineCollection", () => {
     collection.get(1, polyline);
     expect(polyline.getPositions()).toEqual(positions.slice(9, 18));
 
-    collection.update({ mode: SceneMode.SCENE3D, passes: {} });
-
+    collection._updateBoundingVolume();
     expect(collection.boundingVolume.center).toEqual(center);
     expect(collection.boundingVolume.radius).toEqual(1);
   });
@@ -322,12 +321,13 @@ describe("Scene/BufferPolylineCollection", () => {
     collection.get(0, polyline);
     expect(polyline.getPositions()).toEqual(positions);
 
-    collection.update({ mode: SceneMode.SCENE3D, passes: {} });
-
     // Bounding volume is computed in local space, then transformed by modelMatrix.
+    collection._updateBoundingVolume();
     expect(collection.boundingVolume.center.x).toBeCloseTo(0, 1);
     expect(collection.boundingVolume.center.y).toBeCloseTo(0, 1);
     expect(collection.boundingVolume.center.z).toBeCloseTo(0, 1);
-    expect(collection.boundingVolume.radius).toBeCloseTo(scale, 0);
+    // World bounding volume is scaled by modelMatrix.
+    expect(collection.boundingVolumeWC.center.x).toBeCloseTo(0, 1);
+    expect(collection.boundingVolumeWC.radius).toBeCloseTo(scale, 0);
   });
 });
