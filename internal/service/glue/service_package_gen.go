@@ -28,7 +28,7 @@ func (p *servicePackage) FrameworkDataSources(ctx context.Context) []*inttypes.S
 			Factory:  newDataSourceFederatedCatalog,
 			TypeName: "aws_glue_federated_catalog",
 			Name:     "Federated Catalog",
-			Region:   inttypes.ResourceRegionDefault(),
+			Region:   unique.Make(inttypes.ResourceRegionDefault()),
 		},
 		{
 			Factory:  newRegistryDataSource,
@@ -51,7 +51,7 @@ func (p *servicePackage) FrameworkResources(ctx context.Context) []*inttypes.Ser
 			Factory:  newResourceFederatedCatalog,
 			TypeName: "aws_glue_federated_catalog",
 			Name:     "Federated Catalog",
-			Region:   inttypes.ResourceRegionDefault(),
+			Region:   unique.Make(inttypes.ResourceRegionDefault()),
 		},
 	}
 }
