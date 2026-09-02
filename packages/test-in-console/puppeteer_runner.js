@@ -28,23 +28,19 @@ async function runNextUrl(browser) {
     else {
       testNumber++;
       const currentClientTest = await page.evaluate(() =>
-        __Tinytest._getCurrentRunningTestOnClient()
+        __Tinytest._getCurrentRunningTestOnClient(),
       );
       if (currentClientTest !== "") {
-        console.log(
-          `Currently running on the client test: ${currentClientTest}`
-        );
+        console.log(`Currently running on the client test: ${currentClientTest}`);
         return;
       }
       // If we get here is because we have not yet started the test on the client
       const currentServerTest = await page.evaluate(
-        async () => await __Tinytest._getCurrentRunningTestOnServer()
+        async () => await __Tinytest._getCurrentRunningTestOnServer(),
       );
 
       if (currentServerTest !== "") {
-        console.log(
-          `Currently running on the server test: ${currentServerTest}`
-        );
+        console.log(`Currently running on the server test: ${currentServerTest}`);
         return;
       }
       // we were not able to find the name of the test, this is a way to make sure the test is still running
@@ -153,11 +149,7 @@ async function runTests() {
 
   // --no-sandbox and --disable-setuid-sandbox must be disabled for CI compatibility
   const browser = await puppeteer.launch({
-    args: [
-      "--no-sandbox",
-      "--disable-setuid-sandbox",
-      "--disable-web-security",
-    ],
+    args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-web-security"],
     headless: "new",
   });
   console.log(`Using version: ${await browser.version()}`);
