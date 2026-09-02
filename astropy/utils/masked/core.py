@@ -144,6 +144,58 @@ def combine_masks(masks, *, out=None, where=True, copy=True):
     return result
 
 
+def _comparison_method(op):
+    """
+    Create a comparison operator for MaskedNDArray.
+
+    Needed since for string dtypes the base operators bypass __array_ufunc__
+    and hence return unmasked results.
+    """
+
+    def _compare(self, other):
+        other_data, other_mask = get_data_and_mask(other)
+        result = getattr(self.unmasked, op)(other_data)
+        if result is NotImplemented:
+            return NotImplemented
+        mask = self.mask | (other_mask if other_mask is not None else False)
+        return self._masked_result(result, mask, None)
+
+    return _compare
+
+
+def __getattr__(key):
+    """Make commonly used Masked subclasses importable for ASDF support.
+
+    Registered types associated with ASDF converters must be importable by
+    their fully qualified name. Masked classes are dynamically created and have
+    apparent names like ``astropy.utils.masked.core.MaskedQuantity`` although
+    they aren't actually attributes of this module. Customize module attribute
+    lookup so that certain commonly used Masked classes are importable.
+
+    See:
+    - https://asdf.readthedocs.io/en/latest/asdf/extending/converters.html#entry-point-performance-considerations
+    - https://github.com/astropy/asdf-astropy/pull/253
+    """
+    if key.startswith(Masked.__name__):
+        # TODO: avoid using a private attribute from table.
+        # Can we make this more beautiful?
+        from astropy.table.serialize import __construct_mixin_classes
+
+        base_class_name = key[len(Masked.__name__) :]
+        for base_class_qualname in __construct_mixin_classes:
+            module, _, name = base_class_qualname.rpartition(".")
+            if name == base_class_name:
+                base_class = getattr(importlib.import_module(module), name)
+                # Try creating the masked class
+                masked_class = Masked(base_class)
+                # But only return it if it is a standard one, not one
+                # where we just used the ndarray fallback.
+                if base_class in Masked._masked_classes:
+                    return masked_class
+
+    raise AttributeError(f"module '{__name__}' has no attribute '{key}'")
+
+
 class Masked(NDArrayShapeMethods):
     """A scalar value or array of values with associated mask.
 
@@ -211,10 +263,6 @@ class Masked(NDArrayShapeMethods):
                 cls.__doc__ = get__doc__(data_cls)
 
         super().__init_subclass__(**kwargs)
-
-    # This base implementation just uses the class initializer.
-    # Subclasses can override this in case the class does not work
-    # with this signature, or to provide a faster implementation.
     @classmethod
     def from_unmasked(cls, data, mask=None, copy=COPY_IF_NEEDED):
         """Create an instance from unmasked data and a mask."""
@@ -299,11 +347,6 @@ class Masked(NDArrayShapeMethods):
             self._mask = mask.copy() if copy else mask.view()
         else:
             self._mask = ma
-
-    mask = property(_get_mask, _set_mask)
-
-    # Note: subclass should generally override the unmasked property.
-    # This one assumes the unmasked data is stored in a private attribute.
     @property
     def unmasked(self):
         """The unmasked values.
@@ -357,6 +400,15 @@ class Masked(NDArrayShapeMethods):
             unmasked, mask = get_data_and_mask(value)
             self.unmasked[item] = unmasked
         self.mask[item] = mask
+
+    # This base implementation just uses the class initializer.
+    # Subclasses can override this in case the class does not work
+    # with this signature, or to provide a faster implementation.
+
+    mask = property(_get_mask, _set_mask)
+
+    # Note: subclass should generally override the unmasked property.
+    # This one assumes the unmasked data is stored in a private attribute.
 
 
 class MaskableShapedLikeNDArray(ShapedLikeNDArray):
@@ -506,25 +558,6 @@ class MaskedArraySubclassInfo(MaskedInfoBase):
         return out
 
 
-def _comparison_method(op):
-    """
-    Create a comparison operator for MaskedNDArray.
-
-    Needed since for string dtypes the base operators bypass __array_ufunc__
-    and hence return unmasked results.
-    """
-
-    def _compare(self, other):
-        other_data, other_mask = get_data_and_mask(other)
-        result = getattr(self.unmasked, op)(other_data)
-        if result is NotImplemented:
-            return NotImplemented
-        mask = self.mask | (other_mask if other_mask is not None else False)
-        return self._masked_result(result, mask, None)
-
-    return _compare
-
-
 class MaskedIterator:
     """
     Flat iterator object to iterate over Masked Arrays.
@@ -624,8 +657,6 @@ class MaskedNDArray(Masked, np.ndarray, base_cls=np.ndarray, data_cls=np.ndarray
                 dict(attr_names=attr_names),
             )
             cls.info = new_info()
-
-    # The two pieces typically overridden.
     @classmethod
     def from_unmasked(cls, data, mask=None, copy=COPY_IF_NEEDED):
         # Note: have to override since __new__ would use ndarray.__new__
@@ -764,13 +795,6 @@ class MaskedNDArray(Masked, np.ndarray, base_cls=np.ndarray, data_cls=np.ndarray
                 ) from None
             else:  # pragma: no cover
                 raise
-
-    _eq_simple = _comparison_method("__eq__")
-    _ne_simple = _comparison_method("__ne__")
-    __lt__ = _comparison_method("__lt__")
-    __le__ = _comparison_method("__le__")
-    __gt__ = _comparison_method("__gt__")
-    __ge__ = _comparison_method("__ge__")
 
     def __eq__(self, other):
         if not self.dtype.names:
@@ -1104,9 +1128,6 @@ class MaskedNDArray(Masked, np.ndarray, base_cls=np.ndarray, data_cls=np.ndarray
             "should go through array_function. Please raise an issue on "
             "https://github.com/astropy/astropy"
         )
-
-    # Below are ndarray methods that need to be overridden as masked elements
-    # need to be skipped and/or an initial value needs to be set.
     def _reduce_defaults(self, kwargs, initial_func=None):
         """Get default where and initial for masked reductions.
 
@@ -1361,9 +1382,6 @@ class MaskedNDArray(Masked, np.ndarray, base_cls=np.ndarray, data_cls=np.ndarray
         return np.logical_and.reduce(
             self, axis=axis, out=out, keepdims=keepdims, where=~self.mask & where
         )
-
-    # Following overrides needed since somehow the ndarray implementation
-    # does not actually call these.
     def __str__(self):
         return np.array_str(self)
 
@@ -1386,6 +1404,21 @@ class MaskedNDArray(Masked, np.ndarray, base_cls=np.ndarray, data_cls=np.ndarray
         # Will raise regular ndarray error.
         return hash((self.unmasked, self.mask))
 
+    # The two pieces typically overridden.
+
+    _eq_simple = _comparison_method("__eq__")
+    _ne_simple = _comparison_method("__ne__")
+    __lt__ = _comparison_method("__lt__")
+    __le__ = _comparison_method("__le__")
+    __gt__ = _comparison_method("__gt__")
+    __ge__ = _comparison_method("__ge__")
+
+    # Below are ndarray methods that need to be overridden as masked elements
+    # need to be skipped and/or an initial value needs to be set.
+
+    # Following overrides needed since somehow the ndarray implementation
+    # does not actually call these.
+
 
 class MaskedRecarrayInfo(MaskedNDArrayInfo):
     # Ensure that we output a plain MaskedArray, not a masked_recarray.
@@ -1404,9 +1437,6 @@ class MaskedRecarray(np.recarray, MaskedNDArray, data_cls=np.recarray):
         # explicitly.
         super().__array_finalize__(obj)
         super(np.recarray, self).__array_finalize__(obj)
-
-    # __getattribute__, __setattr__, and field use these somewhat
-    # obscrure ndarray methods.  TODO: override in MaskedNDArray?
     def getfield(self, dtype, offset=0):
         for field, info in self.dtype.fields.items():
             if offset == info[1] and dtype == info[0]:
@@ -1430,35 +1460,5 @@ class MaskedRecarray(np.recarray, MaskedNDArray, data_cls=np.recarray):
         extra_space = (len(cls_name) - len(prefix)) * " "
         return "\n".join([out0] + [extra_space + o for o in out[1:]])
 
-
-def __getattr__(key):
-    """Make commonly used Masked subclasses importable for ASDF support.
-
-    Registered types associated with ASDF converters must be importable by
-    their fully qualified name. Masked classes are dynamically created and have
-    apparent names like ``astropy.utils.masked.core.MaskedQuantity`` although
-    they aren't actually attributes of this module. Customize module attribute
-    lookup so that certain commonly used Masked classes are importable.
-
-    See:
-    - https://asdf.readthedocs.io/en/latest/asdf/extending/converters.html#entry-point-performance-considerations
-    - https://github.com/astropy/asdf-astropy/pull/253
-    """
-    if key.startswith(Masked.__name__):
-        # TODO: avoid using a private attribute from table.
-        # Can we make this more beautiful?
-        from astropy.table.serialize import __construct_mixin_classes
-
-        base_class_name = key[len(Masked.__name__) :]
-        for base_class_qualname in __construct_mixin_classes:
-            module, _, name = base_class_qualname.rpartition(".")
-            if name == base_class_name:
-                base_class = getattr(importlib.import_module(module), name)
-                # Try creating the masked class
-                masked_class = Masked(base_class)
-                # But only return it if it is a standard one, not one
-                # where we just used the ndarray fallback.
-                if base_class in Masked._masked_classes:
-                    return masked_class
-
-    raise AttributeError(f"module '{__name__}' has no attribute '{key}'")
+    # __getattribute__, __setattr__, and field use these somewhat
+    # obscrure ndarray methods.  TODO: override in MaskedNDArray?
