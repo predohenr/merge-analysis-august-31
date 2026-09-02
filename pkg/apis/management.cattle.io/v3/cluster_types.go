@@ -94,15 +94,15 @@ const (
 
 type Cluster struct {
 	metav1.TypeMeta `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+	Spec ClusterSpec `json:"spec"`
+	Status ClusterStatus `json:"status"`
 	// Standard object’s metadata. More info:
 	// https://github.com/kubernetes/community/blob/master/contributors/devel/api-conventions.md#metadata
-	metav1.ObjectMeta `json:"metadata,omitempty"`
 	// Specification of the desired behavior of the the cluster. More info:
 	// https://github.com/kubernetes/community/blob/master/contributors/devel/api-conventions.md#spec-and-status
-	Spec ClusterSpec `json:"spec"`
 	// Most recent observed status of the cluster. More info:
 	// https://github.com/kubernetes/community/blob/master/contributors/devel/api-conventions.md#spec-and-status
-	Status ClusterStatus `json:"status"`
 }
 
 type ClusterSpecBase struct {
@@ -177,6 +177,54 @@ func (a *Answer) ObjClusterName() string {
 	return a.ClusterName
 }
 
+func (m *MapStringInterface) DeepCopy() *MapStringInterface {
+	var buf bytes.Buffer
+	enc := gob.NewEncoder(&buf)
+	dec := gob.NewDecoder(&buf)
+	err := enc.Encode(m)
+	if err != nil {
+		logrus.Errorf("error while deep copying MapStringInterface %v", err)
+		return nil
+	}
+
+	var copy MapStringInterface
+	err = dec.Decode(&copy)
+	if err != nil {
+		logrus.Errorf("error while deep copying MapStringInterface %v", err)
+		return nil
+	}
+
+	return &copy
+}
+
+func (c *ClusterRegistrationToken) ObjClusterName() string {
+	return c.Spec.ObjClusterName()
+}
+
+func (c *ClusterRegistrationTokenSpec) ObjClusterName() string {
+	return c.ClusterName
+}
+
+func (i *ImportClusterYamlInput) ObjClusterName() string {
+	if parts := strings.SplitN(i.ProjectName, ":", 2); len(parts) == 2 {
+		return parts[0]
+	}
+	return ""
+}
+func (c *Cluster) GetSecret(key string) string {
+	clusterSecrets := reflect.ValueOf(&c.Spec.ClusterSecrets).Elem()
+	secret := clusterSecrets.FieldByName(key)
+	if secret.IsValid() && secret.String() != "" {
+		return secret.String()
+	}
+	status := reflect.ValueOf(&c.Status).Elem()
+	secret = status.FieldByName(key)
+	if secret.IsValid() {
+		return secret.String()
+	}
+	return ""
+}
+
 type ImportedConfig struct {
 	KubeConfig         string `json:"kubeConfig" norman:"type=password"`
 	PrivateRegistryURL string `json:"privateRegistryURL,omitempty"`
@@ -186,8 +234,6 @@ type ClusterStatus struct {
 	// Conditions represent the latest available observations of an object's current state:
 	// More info: https://github.com/kubernetes/community/blob/master/contributors/devel/api-conventions.md#typical-status-properties
 	Conditions []ClusterCondition `json:"conditions,omitempty"`
-	// Component statuses will represent cluster's components (etcd/controller/scheduler) health
-	// https://kubernetes.io/docs/api-reference/v1.8/#componentstatus-v1-core
 	Driver                     string                    `json:"driver"`
 	Provider                   string                    `json:"provider"`
 	AgentImage                 string                    `json:"agentImage"`
@@ -218,16 +264,18 @@ type ClusterStatus struct {
 	AKSStatus                  AKSStatus                 `json:"aksStatus,omitempty" norman:"nocreate,noupdate"`
 	EKSStatus                  EKSStatus                 `json:"eksStatus,omitempty" norman:"nocreate,noupdate"`
 	GKEStatus                  GKEStatus                 `json:"gkeStatus,omitempty" norman:"nocreate,noupdate"`
-	PrivateRegistrySecret      string                    `json:"privateRegistrySecret,omitempty" norman:"nocreate,noupdate"` // Deprecated: use ClusterSpec.ClusterSecrets.PrivateRegistrySecret instead
-	S3CredentialSecret         string                    `json:"s3CredentialSecret,omitempty" norman:"nocreate,noupdate"`    // Deprecated: use ClusterSpec.ClusterSecrets.S3CredentialSecret instead
-	WeavePasswordSecret        string                    `json:"weavePasswordSecret,omitempty" norman:"nocreate,noupdate"`   // Deprecated: use ClusterSpec.ClusterSecrets.WeavePasswordSecret instead
-	VsphereSecret              string                    `json:"vsphereSecret,omitempty" norman:"nocreate,noupdate"`         // Deprecated: use ClusterSpec.ClusterSecrets.VsphereSecret instead
-	VirtualCenterSecret        string                    `json:"virtualCenterSecret,omitempty" norman:"nocreate,noupdate"`   // Deprecated: use ClusterSpec.ClusterSecrets.VirtualCenterSecret instead
-	OpenStackSecret            string                    `json:"openStackSecret,omitempty" norman:"nocreate,noupdate"`       // Deprecated: use ClusterSpec.ClusterSecrets.OpenStackSecret instead
-	AADClientSecret            string                    `json:"aadClientSecret,omitempty" norman:"nocreate,noupdate"`       // Deprecated: use ClusterSpec.ClusterSecrets.AADClientSecret instead
-	AADClientCertSecret        string                    `json:"aadClientCertSecret,omitempty" norman:"nocreate,noupdate"`   // Deprecated: use ClusterSpec.ClusterSecrets.AADClientCertSecret instead
+	PrivateRegistrySecret      string                    `json:"privateRegistrySecret,omitempty" norman:"nocreate,noupdate"`
+	S3CredentialSecret         string                    `json:"s3CredentialSecret,omitempty" norman:"nocreate,noupdate"`
+	WeavePasswordSecret        string                    `json:"weavePasswordSecret,omitempty" norman:"nocreate,noupdate"`
+	VsphereSecret              string                    `json:"vsphereSecret,omitempty" norman:"nocreate,noupdate"`
+	VirtualCenterSecret        string                    `json:"virtualCenterSecret,omitempty" norman:"nocreate,noupdate"`
+	OpenStackSecret            string                    `json:"openStackSecret,omitempty" norman:"nocreate,noupdate"`
+	AADClientSecret            string                    `json:"aadClientSecret,omitempty" norman:"nocreate,noupdate"`
+	AADClientCertSecret        string                    `json:"aadClientCertSecret,omitempty" norman:"nocreate,noupdate"`
 
 	AppliedClusterAgentDeploymentCustomization *AgentDeploymentCustomization `json:"appliedClusterAgentDeploymentCustomization,omitempty"`
+	// Component statuses will represent cluster's components (etcd/controller/scheduler) health
+	// https://kubernetes.io/docs/api-reference/v1.8/#componentstatus-v1-core // Deprecated: use ClusterSpec.ClusterSecrets.PrivateRegistrySecret instead    // Deprecated: use ClusterSpec.ClusterSecrets.S3CredentialSecret instead   // Deprecated: use ClusterSpec.ClusterSecrets.WeavePasswordSecret instead         // Deprecated: use ClusterSpec.ClusterSecrets.VsphereSecret instead   // Deprecated: use ClusterSpec.ClusterSecrets.VirtualCenterSecret instead       // Deprecated: use ClusterSpec.ClusterSecrets.OpenStackSecret instead       // Deprecated: use ClusterSpec.ClusterSecrets.AADClientSecret instead   // Deprecated: use ClusterSpec.ClusterSecrets.AADClientCertSecret instead
 }
 
 type ClusterComponentStatus struct {
@@ -238,39 +286,19 @@ type ClusterComponentStatus struct {
 type ClusterCondition struct {
 	// Type of cluster condition.
 	Type ClusterConditionType `json:"type"`
-	// Status of the condition, one of True, False, Unknown.
 	Status v1.ConditionStatus `json:"status"`
-	// The last time this condition was updated.
 	LastUpdateTime string `json:"lastUpdateTime,omitempty"`
-	// Last time the condition transitioned from one status to another.
 	LastTransitionTime string `json:"lastTransitionTime,omitempty"`
-	// The reason for the condition's last transition.
 	Reason string `json:"reason,omitempty"`
-	// Human-readable message indicating details about last transition
 	Message string `json:"message,omitempty"`
+	// Status of the condition, one of True, False, Unknown.
+	// The last time this condition was updated.
+	// Last time the condition transitioned from one status to another.
+	// The reason for the condition's last transition.
+	// Human-readable message indicating details about last transition
 }
 
 type MapStringInterface map[string]interface{}
-
-func (m *MapStringInterface) DeepCopy() *MapStringInterface {
-	var buf bytes.Buffer
-	enc := gob.NewEncoder(&buf)
-	dec := gob.NewDecoder(&buf)
-	err := enc.Encode(m)
-	if err != nil {
-		logrus.Errorf("error while deep copying MapStringInterface %v", err)
-		return nil
-	}
-
-	var copy MapStringInterface
-	err = dec.Decode(&copy)
-	if err != nil {
-		logrus.Errorf("error while deep copying MapStringInterface %v", err)
-		return nil
-	}
-
-	return &copy
-}
 
 // +genclient
 // +kubebuilder:skipversion
@@ -280,27 +308,19 @@ type ClusterRegistrationToken struct {
 	types.Namespaced
 
 	metav1.TypeMeta `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+	Spec ClusterRegistrationTokenSpec `json:"spec"`
+	Status ClusterRegistrationTokenStatus `json:"status"`
 	// Standard object’s metadata. More info:
 	// https://github.com/kubernetes/community/blob/master/contributors/devel/api-conventions.md#metadata
-	metav1.ObjectMeta `json:"metadata,omitempty"`
 	// Specification of the desired behavior of the the cluster. More info:
 	// https://github.com/kubernetes/community/blob/master/contributors/devel/api-conventions.md#spec-and-status
-	Spec ClusterRegistrationTokenSpec `json:"spec"`
 	// Most recent observed status of the cluster. More info:
 	// https://github.com/kubernetes/community/blob/master/contributors/devel/api-conventions.md#spec-and-status
-	Status ClusterRegistrationTokenStatus `json:"status"`
-}
-
-func (c *ClusterRegistrationToken) ObjClusterName() string {
-	return c.Spec.ObjClusterName()
 }
 
 type ClusterRegistrationTokenSpec struct {
 	ClusterName string `json:"clusterName" norman:"required,type=reference[cluster]"`
-}
-
-func (c *ClusterRegistrationTokenSpec) ObjClusterName() string {
-	return c.ClusterName
 }
 
 type ClusterRegistrationTokenStatus struct {
@@ -327,13 +347,6 @@ type ImportClusterYamlInput struct {
 	DefaultNamespace string `json:"defaultNamespace,omitempty"`
 	Namespace        string `json:"namespace,omitempty"`
 	ProjectName      string `json:"projectName,omitempty" norman:"type=reference[project]"`
-}
-
-func (i *ImportClusterYamlInput) ObjClusterName() string {
-	if parts := strings.SplitN(i.ProjectName, ":", 2); len(parts) == 2 {
-		return parts[0]
-	}
-	return ""
 }
 
 type ImportYamlOutput struct {
@@ -441,16 +454,3 @@ type ClusterSecrets struct {
 
 // GetSecret gets a reference to a secret by its field name, either from the ClusterSecrets field or the Status field.
 // Spec.ClusterSecrets.* is preferred because the secret fields on Status are deprecated.
-func (c *Cluster) GetSecret(key string) string {
-	clusterSecrets := reflect.ValueOf(&c.Spec.ClusterSecrets).Elem()
-	secret := clusterSecrets.FieldByName(key)
-	if secret.IsValid() && secret.String() != "" {
-		return secret.String()
-	}
-	status := reflect.ValueOf(&c.Status).Elem()
-	secret = status.FieldByName(key)
-	if secret.IsValid() {
-		return secret.String()
-	}
-	return ""
-}
