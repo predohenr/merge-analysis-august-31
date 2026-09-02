@@ -20,7 +20,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
 	"github.com/hashicorp/terraform-provider-aws/internal/conns"
-	"github.com/hashicorp/terraform-provider-aws/internal/enum"
 	"github.com/hashicorp/terraform-provider-aws/internal/errs"
 	"github.com/hashicorp/terraform-provider-aws/internal/errs/sdkdiag"
 	"github.com/hashicorp/terraform-provider-aws/internal/flex"
@@ -407,32 +406,19 @@ func resourceCatalogTable() *schema.Resource {
 				MaxItems: 1,
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
-						"definer": {
-							Type:     schema.TypeString,
-							Optional: true,
-						},
-						"is_protected": {
-							Type:     schema.TypeBool,
-							Optional: true,
-						},
-						"last_refresh_type": {
-							Type:             schema.TypeString,
-							Optional:         true,
-							ValidateDiagFunc: enum.Validate[awstypes.LastRefreshType](),
-						},
-						"refresh_seconds": {
-							Type:     schema.TypeInt,
-							Optional: true,
-						},
 						"representations": {
 							Type:     schema.TypeList,
 							Optional: true,
 							Elem: &schema.Resource{
 								Schema: map[string]*schema.Schema{
 									"dialect": {
-										Type:             schema.TypeString,
-										Optional:         true,
-										ValidateDiagFunc: enum.Validate[awstypes.ViewDialect](),
+										Type:     schema.TypeString,
+										Optional: true,
+										ValidateFunc: validation.StringInSlice([]string{
+											"REDSHIFT",
+											"ATHENA",
+											"SPARK",
+										}, false),
 									},
 									"dialect_version": {
 										Type:         schema.TypeString,
@@ -444,12 +430,12 @@ func resourceCatalogTable() *schema.Resource {
 										Optional:     true,
 										ValidateFunc: validation.StringLenBetween(1, 255),
 									},
-									"view_expanded_text": {
+									"view_original_text": {
 										Type:         schema.TypeString,
 										Optional:     true,
 										ValidateFunc: validation.StringLenBetween(0, 409600),
 									},
-									"view_original_text": {
+									"view_expanded_text": {
 										Type:         schema.TypeString,
 										Optional:     true,
 										ValidateFunc: validation.StringLenBetween(0, 409600),
@@ -457,15 +443,23 @@ func resourceCatalogTable() *schema.Resource {
 								},
 							},
 						},
-						"sub_object_version_ids": {
-							Type:     schema.TypeList,
+						"is_protected": {
+							Type:     schema.TypeBool,
 							Optional: true,
-							Elem:     &schema.Schema{Type: schema.TypeInt},
+						},
+						"definer": {
+							Type:     schema.TypeString,
+							Optional: true,
 						},
 						"sub_objects": {
 							Type:     schema.TypeList,
 							Optional: true,
 							Elem:     &schema.Schema{Type: schema.TypeString},
+						},
+						"sub_object_version_ids": {
+							Type:     schema.TypeList,
+							Optional: true,
+							Elem:     &schema.Schema{Type: schema.TypeInt},
 						},
 						"view_version_id": {
 							Type:     schema.TypeInt,
@@ -473,6 +467,18 @@ func resourceCatalogTable() *schema.Resource {
 						},
 						"view_version_token": {
 							Type:     schema.TypeString,
+							Optional: true,
+						},
+						"last_refresh_type": {
+							Type:     schema.TypeString,
+							Optional: true,
+							ValidateFunc: validation.StringInSlice([]string{
+								"FULL",
+								"INCREMENTAL",
+							}, false),
+						},
+						"refresh_seconds": {
+							Type:     schema.TypeInt,
 							Optional: true,
 						},
 					},
@@ -734,16 +740,16 @@ func expandTableInput(d *schema.ResourceData) *awstypes.TableInput {
 		apiObject.TargetTable = expandTableIdentifier(v.([]any)[0].(map[string]any))
 	}
 
+	if v, ok := d.GetOk("view_definition"); ok {
+		tableInput.ViewDefinition = expandViewDefinition(v.([]any))
+	}
+
 	if v, ok := d.GetOk("view_original_text"); ok {
 		apiObject.ViewOriginalText = aws.String(v.(string))
 	}
 
 	if v, ok := d.GetOk("view_expanded_text"); ok {
 		apiObject.ViewExpandedText = aws.String(v.(string))
-	}
-
-	if v, ok := d.GetOk("view_definition"); ok && len(v.([]any)) > 0 && v.([]any)[0] != nil {
-		apiObject.ViewDefinition = expandViewDefinitionInput(v.([]any)[0].(map[string]any))
 	}
 
 	return apiObject
@@ -1249,73 +1255,62 @@ func flattenNonManagedParameters(allParameters map[string]string) map[string]str
 	return allParameters
 }
 
-func expandViewDefinitionInput(tfMap map[string]any) *awstypes.ViewDefinitionInput {
-	if tfMap == nil {
+func expandViewRepresentationInput(l []any) []awstypes.ViewRepresentationInput {
+	if len(l) == 0 || l[0] == nil {
 		return nil
 	}
 
-	apiObject := &awstypes.ViewDefinitionInput{}
+	s := l[0].(map[string]any)
+	viewRepresentationInput := awstypes.ViewRepresentationInput{}
 
-	if v, ok := tfMap["definer"].(string); ok && v != "" {
-		apiObject.Definer = aws.String(v)
+	if v, ok := s["dialect"]; ok && v != nil && v != "" {
+		viewRepresentationInput.Dialect = awstypes.ViewDialect(v.(string))
 	}
 
-	if v, ok := tfMap["is_protected"].(bool); ok {
-		apiObject.IsProtected = aws.Bool(v)
+	if v, ok := s["dialect_version"]; ok && v != nil && v != "" {
+		viewRepresentationInput.DialectVersion = aws.String(v.(string))
 	}
 
-	if v, ok := tfMap["representations"].([]any); ok && len(v) > 0 {
-		apiObject.Representations = expandViewRepresentationInputs(v)
+	if v, ok := s["validation_connection"]; ok && v != nil && v != "" {
+		viewRepresentationInput.ValidationConnection = aws.String(v.(string))
 	}
 
-	if v, ok := tfMap["sub_objects"].([]any); ok && len(v) > 0 {
-		apiObject.SubObjects = flex.ExpandStringValueList(v)
+	if v, ok := s["view_expanded_text"]; ok && v != nil && v != "" {
+		viewRepresentationInput.ViewExpandedText = aws.String(v.(string))
 	}
 
-	// TODO
+	if v, ok := s["view_original_text"]; ok && v != nil && v != "" {
+		viewRepresentationInput.ViewOriginalText = aws.String(v.(string))
+	}
 
-	return apiObject
+	return []awstypes.ViewRepresentationInput{viewRepresentationInput}
 }
 
-func expandViewRepresentationInputs(tfList []any) []awstypes.ViewRepresentationInput {
-	if len(tfList) == 0 {
+func expandViewDefinition(l []any) *awstypes.ViewDefinitionInput {
+	if len(l) == 0 || l[0] == nil {
 		return nil
 	}
 
-	var apiObjects []awstypes.ViewRepresentationInput
+	s := l[0].(map[string]any)
+	viewDefinition := &awstypes.ViewDefinitionInput{}
 
-	for _, tfMapRaw := range tfList {
-		tfMap, ok := tfMapRaw.(map[string]any)
-		if !ok {
-			continue
-		}
-
-		apiObject := awstypes.ViewRepresentationInput{}
-
-		if v, ok := tfMap["dialect"].(string); ok && v != "" {
-			apiObject.Dialect = awstypes.ViewDialect(v)
-		}
-
-		if v, ok := tfMap["dialect_version"].(string); ok && v != "" {
-			apiObject.DialectVersion = aws.String(v)
-		}
-
-		if v, ok := tfMap["validation_connection"].(string); ok && v != "" {
-			apiObject.ValidationConnection = aws.String(v)
-		}
-
-		if v, ok := tfMap["view_expanded_text"].(string); ok && v != "" {
-			apiObject.ViewExpandedText = aws.String(v)
-		}
-
-		if v, ok := tfMap["view_original_text"].(string); ok && v != "" {
-			apiObject.ViewOriginalText = aws.String(v)
-		}
-
-		apiObjects = append(apiObjects, apiObject)
+	if v, ok := s["definer"]; ok && v != nil && v != "" {
+		viewDefinition.Definer = aws.String(v.(string))
 	}
 
-	return apiObjects
+	if v, ok := s["is_protected"]; ok && v != nil && v != "" {
+		viewDefinition.IsProtected = aws.Bool(v.(bool))
+	}
+
+	if v, ok := s["representations"]; ok && v != nil {
+		viewDefinition.Representations = expandViewRepresentationInput(v.([]any))
+	}
+
+	if v, ok := s["sub_objects"]; ok && v != nil {
+		viewDefinition.SubObjects = flex.ExpandStringValueList(v.([]any))
+	}
+
+	return viewDefinition
 }
 
 func tableARN(ctx context.Context, c *conns.AWSClient, dbName, name string) string {
