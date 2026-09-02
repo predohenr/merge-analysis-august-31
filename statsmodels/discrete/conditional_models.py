@@ -198,8 +198,6 @@ class _ConditionalModel(base.LikelihoodModel):
             refit=refit,
             **defaults,
         )
-
-    # Override to allow groups to be passed as a variable name.
     @classmethod
     def from_formula(cls, formula, data, subset=None, drop_cols=None, *args, **kwargs):
 
@@ -222,6 +220,8 @@ class _ConditionalModel(base.LikelihoodModel):
         model = super().from_formula(formula, data, *args, groups=groups, **kwargs)
 
         return model
+
+    # Override to allow groups to be passed as a variable name.
 
 
 class ConditionalLogit(_ConditionalModel):
@@ -655,7 +655,6 @@ class ConditionalMNLogit(_ConditionalModel):
             grad -= denomg / denom
 
         return grad.flatten()
-
 
 
 class ConditionalResultsWrapper(lm.RegressionResultsWrapper):
