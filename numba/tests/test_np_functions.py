@@ -23,6 +23,11 @@ from numba.tests.support import (TestCase, MemoryLeakMixin,
                                  skip_if_numpy_2, IS_NUMPY_2,
                                  IS_MACOS_ARM64, IS_WIN_ARM64,
                                  REDUCED_TESTING,
+                                 skip_if_reduced_testing)
+from numba.tests.support import (TestCase, MemoryLeakMixin,
+                                 needs_blas, run_in_subprocess,
+                                 skip_if_numpy_2, IS_NUMPY_2,
+                                 IS_MACOS_ARM64, REDUCED_TESTING,
                                  skip_if_reduced_testing,
                                  numpy_sincos_uses_svml)
 import unittest
