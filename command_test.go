@@ -6215,6 +6215,89 @@ func TestCommand_NoDefaultCmdArgMatchingFlag(t *testing.T) {
 	require.Equal(t, &expectedArgs, actualArgs)
 }
 
+func TestCommand_Path(t *testing.T) {
+	subCmd := &Command{Name: "bar"}
+	subSubCmd := &Command{Name: "baz"}
+	subCmd.Commands = []*Command{subSubCmd}
+
+	cmd := &Command{
+		Name:     "foo",
+		Commands: []*Command{subCmd},
+	}
+
+	require.NoError(t, cmd.Run(buildTestContext(t), []string{"foo", "bar", "baz"}))
+
+	assert.Equal(t, []string{"foo"}, cmd.Path())
+	assert.Equal(t, []string{"foo", "bar"}, subCmd.Path())
+	assert.Equal(t, []string{"foo", "bar", "baz"}, subSubCmd.Path())
+}
+
+func TestCommand_Walk(t *testing.T) {
+	subCmd := &Command{Name: "bar"}
+	subSubCmd := &Command{Name: "baz"}
+	subCmd.Commands = []*Command{subSubCmd}
+
+	cmd := &Command{
+		Name:     "foo",
+		Commands: []*Command{subCmd},
+	}
+
+	var visited []string
+	err := cmd.Walk(func(c *Command) error {
+		visited = append(visited, c.Name)
+		return nil
+	})
+	require.NoError(t, err)
+	assert.Equal(t, []string{"foo", "bar", "baz"}, visited)
+}
+
+func TestCommand_Walk_ShortCircuit(t *testing.T) {
+	subCmd := &Command{Name: "bar"}
+	subSubCmd := &Command{Name: "baz"}
+	subCmd.Commands = []*Command{subSubCmd}
+
+	cmd := &Command{
+		Name:     "foo",
+		Commands: []*Command{subCmd},
+	}
+
+	errWalk := fmt.Errorf("stop")
+	var visited []string
+	err := cmd.Walk(func(c *Command) error {
+		visited = append(visited, c.Name)
+		if c.Name == "bar" {
+			return errWalk
+		}
+		return nil
+	})
+	assert.ErrorIs(t, err, errWalk)
+	assert.Equal(t, []string{"foo", "bar"}, visited)
+}
+
+func TestCommand_Walk_Hidden(t *testing.T) {
+	subCmd := &Command{Name: "bar", HideHelp: true}
+	subSubCmd := &Command{Name: "baz"}
+	subCmd.Commands = []*Command{subSubCmd}
+
+	cmd := &Command{
+		Name:     "foo",
+		Commands: []*Command{subCmd},
+	}
+
+	var visited []string
+	err := cmd.Walk(func(c *Command) error {
+		visited = append(visited, c.Name)
+		return nil
+	})
+	require.NoError(t, err)
+	assert.Equal(t, []string{"foo", "bar", "baz"}, visited)
+}
+
+func TestCommand_Walk_NilFn(t *testing.T) {
+	cmd := &Command{Name: "foo"}
+	assert.Nil(t, cmd.Walk(nil))
+}
+
 func TestDefaultCommandWithSubcommandFlags(t *testing.T) {
 	// Regression test for https://github.com/urfave/cli/issues/2249
 	// When DefaultCommand is set, flags defined on the default subcommand
@@ -6318,87 +6401,4 @@ func TestDefaultCommandWithShortFlagHandling(t *testing.T) {
 	err := cmd.Run(buildTestContext(t), []string{"c", "-f", "baz"})
 	assert.NoError(t, err)
 	assert.True(t, actionRun, "expected run action to be executed")
-}
-
-func TestCommand_Path(t *testing.T) {
-	subCmd := &Command{Name: "bar"}
-	subSubCmd := &Command{Name: "baz"}
-	subCmd.Commands = []*Command{subSubCmd}
-
-	cmd := &Command{
-		Name:     "foo",
-		Commands: []*Command{subCmd},
-	}
-
-	require.NoError(t, cmd.Run(buildTestContext(t), []string{"foo", "bar", "baz"}))
-
-	assert.Equal(t, []string{"foo"}, cmd.Path())
-	assert.Equal(t, []string{"foo", "bar"}, subCmd.Path())
-	assert.Equal(t, []string{"foo", "bar", "baz"}, subSubCmd.Path())
-}
-
-func TestCommand_Walk(t *testing.T) {
-	subCmd := &Command{Name: "bar"}
-	subSubCmd := &Command{Name: "baz"}
-	subCmd.Commands = []*Command{subSubCmd}
-
-	cmd := &Command{
-		Name:     "foo",
-		Commands: []*Command{subCmd},
-	}
-
-	var visited []string
-	err := cmd.Walk(func(c *Command) error {
-		visited = append(visited, c.Name)
-		return nil
-	})
-	require.NoError(t, err)
-	assert.Equal(t, []string{"foo", "bar", "baz"}, visited)
-}
-
-func TestCommand_Walk_ShortCircuit(t *testing.T) {
-	subCmd := &Command{Name: "bar"}
-	subSubCmd := &Command{Name: "baz"}
-	subCmd.Commands = []*Command{subSubCmd}
-
-	cmd := &Command{
-		Name:     "foo",
-		Commands: []*Command{subCmd},
-	}
-
-	errWalk := fmt.Errorf("stop")
-	var visited []string
-	err := cmd.Walk(func(c *Command) error {
-		visited = append(visited, c.Name)
-		if c.Name == "bar" {
-			return errWalk
-		}
-		return nil
-	})
-	assert.ErrorIs(t, err, errWalk)
-	assert.Equal(t, []string{"foo", "bar"}, visited)
-}
-
-func TestCommand_Walk_Hidden(t *testing.T) {
-	subCmd := &Command{Name: "bar", HideHelp: true}
-	subSubCmd := &Command{Name: "baz"}
-	subCmd.Commands = []*Command{subSubCmd}
-
-	cmd := &Command{
-		Name:     "foo",
-		Commands: []*Command{subCmd},
-	}
-
-	var visited []string
-	err := cmd.Walk(func(c *Command) error {
-		visited = append(visited, c.Name)
-		return nil
-	})
-	require.NoError(t, err)
-	assert.Equal(t, []string{"foo", "bar", "baz"}, visited)
-}
-
-func TestCommand_Walk_NilFn(t *testing.T) {
-	cmd := &Command{Name: "foo"}
-	assert.Nil(t, cmd.Walk(nil))
 }
