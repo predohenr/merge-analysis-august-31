@@ -22,6 +22,7 @@ import (
 	"path"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"runtime/pprof"
 	"sort"
 	"strconv"
@@ -588,6 +589,7 @@ func (c *serveCmd) syncthingMain() {
 	_ = lf.Unlock()
 	_ = os.Remove(locations.Get(locations.LockFile))
 
+	runtime.KeepAlive(lf) // ensure lock is still held to this point
 	os.Exit(int(status))
 }
 
@@ -899,6 +901,8 @@ func (u upgradeCmd) Run() error {
 		} else {
 			err = upgrade.To(release)
 		}
+		_ = lf.Unlock()
+		_ = os.Remove(locations.Get(locations.LockFile))
 	}
 	if err != nil {
 		l.Warnln("Upgrade:", err)
