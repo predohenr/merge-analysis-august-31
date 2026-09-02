@@ -18,6 +18,13 @@ package shell
 
 import (
 	"os"
+	"strings"
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+)
+import (
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -69,9 +76,6 @@ func TestGetNameAndItsPpidOfParent(t *testing.T) {
 	assert.Equal(t, "go.exe", shell)
 	assert.NoError(t, err)
 }
-
-// isKnownWindowsShell returns true if the given raw process name (path or basename)
-// corresponds to a known Windows shell or test runner executable.
 func isKnownWindowsShell(raw string) bool {
 	norm := strings.ToLower(filepath.Base(strings.TrimSpace(raw)))
 	switch norm {
@@ -94,3 +98,6 @@ func TestGetNameAndItsPpidOfGrandParent(t *testing.T) {
 
 	assert.True(t, isKnownWindowsShell(shell), "unexpected grandparent process: raw=%q", shell)
 }
+
+// isKnownWindowsShell returns true if the given raw process name (path or basename)
+// corresponds to a known Windows shell or test runner executable.
