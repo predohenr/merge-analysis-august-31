@@ -1,9 +1,8 @@
 """Inference runner with output validation."""
 
 from __future__ import annotations
-
-import logging
 from collections.abc import Mapping
+import logging
 from functools import lru_cache
 from importlib import import_module
 from pathlib import Path
