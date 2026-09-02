@@ -118,7 +118,7 @@ type spnvmeDataWrapper struct {
 	} `json:"SPNVMeDataType"`
 }
 
-func SerialNumberWithContext(ctx context.Context, name string) (string, error) {
+func SerialNumberWithContext(_ context.Context, _ string) (string, error) {
 	output, err := invoke.CommandWithContext(ctx, "system_profiler", "SPNVMeDataType", "-json")
 	if err != nil {
 		return "", err
@@ -138,7 +138,7 @@ func SerialNumberWithContext(ctx context.Context, name string) (string, error) {
 	}
 
 	if len(serialNumbers) == 0 {
-		return "", errors.New("no serial numbers found")
+		return "", fmt.Errorf("no serial numbers found")
 	}
 
 	return strings.Join(serialNumbers, ", "), nil
