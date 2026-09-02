@@ -74,9 +74,6 @@ class Code:
     def __eq__(self, other):
         return self.raw == other.raw
 
-    # Ignore type because of https://github.com/python/mypy/issues/4266.
-    __hash__ = None  # type: ignore
-
     @property
     def firstlineno(self) -> int:
         return self.raw.co_firstlineno - 1
@@ -126,6 +123,9 @@ class Code:
             argcount += raw.co_flags & CO_VARARGS
             argcount += raw.co_flags & CO_VARKEYWORDS
         return raw.co_varnames[:argcount]
+
+    # Ignore type because of https://github.com/python/mypy/issues/4266.
+    __hash__ = None  # type: ignore
 
 
 class Frame:
@@ -269,8 +269,6 @@ class TracebackEntry:
                 astcache[key] = astnode
         return source[start:end]
 
-    source = property(getsource)
-
     def ishidden(self, excinfo: ExceptionInfo[BaseException] | None) -> bool:
         """Return True if the current frame has a var __tracebackhide__
         resolving to True.
@@ -318,6 +316,8 @@ class TracebackEntry:
     def name(self) -> str:
         """co_name of underlying code."""
         return self.frame.code.raw.co_name
+
+    source = property(getsource)
 
 
 class Traceback(List[TracebackEntry]):
@@ -1385,18 +1385,6 @@ def getfslineno(obj: object) -> tuple[str | Path, int]:
     return code.path, code.firstlineno
 
 
-# Relative paths that we use to filter traceback entries from appearing to the user;
-# see filter_traceback.
-# note: if we need to add more paths than what we have now we should probably use a list
-# for better maintenance.
-
-_PLUGGY_DIR = Path(pluggy.__file__.rstrip("oc"))
-# pluggy is either a package or a single module depending on the version
-if _PLUGGY_DIR.name == "__init__.py":
-    _PLUGGY_DIR = _PLUGGY_DIR.parent
-_PYTEST_DIR = Path(_pytest.__file__).parent
-
-
 def filter_traceback(entry: TracebackEntry) -> bool:
     """Return True if a TracebackEntry instance should be included in tracebacks.
 
@@ -1424,3 +1412,15 @@ def filter_traceback(entry: TracebackEntry) -> bool:
         return False
 
     return True
+
+
+# Relative paths that we use to filter traceback entries from appearing to the user;
+# see filter_traceback.
+# note: if we need to add more paths than what we have now we should probably use a list
+# for better maintenance.
+
+_PLUGGY_DIR = Path(pluggy.__file__.rstrip("oc"))
+# pluggy is either a package or a single module depending on the version
+if _PLUGGY_DIR.name == "__init__.py":
+    _PLUGGY_DIR = _PLUGGY_DIR.parent
+_PYTEST_DIR = Path(_pytest.__file__).parent
