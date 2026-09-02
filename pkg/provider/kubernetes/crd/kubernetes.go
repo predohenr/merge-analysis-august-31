@@ -73,9 +73,6 @@ type Provider struct {
 func (p *Provider) Init() error {
 	return nil
 }
-
-// Provide allows the k8s provider to provide configurations to traefik
-// using the given configuration channel.
 func (p *Provider) Provide(configurationChan chan<- dynamic.Message, pool *safe.Pool) error {
 	logger := log.With().Str(logs.ProviderName, providerName).Logger()
 	ctxLog := logger.WithContext(context.Background())
@@ -614,6 +611,32 @@ func (p *Provider) loadConfigurationFromCRD(ctx context.Context, client Client) 
 	return conf
 }
 
+func (p *Provider) resolveReference(ctx context.Context, parentNs, ns, name string) (string, error) {
+	if strings.Contains(name, providerNamespaceSeparator) {
+		if !p.AllowCrossNamespace && strings.HasSuffix(name, providerNamespaceSeparator+providerName) {
+			return "", errors.New("when allowCrossNamespace is disabled, @kubernetescrd references are disallowed")
+		}
+
+		if !isCrossProviderNamespaceAllowed(p.CrossProviderNamespaces, parentNs) {
+			return "", fmt.Errorf("namespace %q is not in crossProviderNamespaces", parentNs)
+		}
+
+		if ns != "" {
+			log.Ctx(ctx).Warn().Msgf("Namespace %q is ignored in cross-provider context", ns)
+		}
+
+		return name, nil
+	}
+
+	ns = namespaceOrParentNamespace(ns, parentNs)
+
+	if !isNamespaceAllowed(p.AllowCrossNamespace, parentNs, ns) {
+		return "", errors.New("allowCrossNamespace is disabled, cross-namespace are disallowed")
+	}
+
+	return provider.Normalize(ns + "-" + name), nil
+}
+
 func (p *Provider) createErrorPageMiddleware(ctx context.Context, client Client, namespace string, errorPage *traefikv1alpha1.ErrorPage) (string, *dynamic.ErrorPage, *dynamic.Service, error) {
 	if errorPage == nil {
 		return "", nil, nil, nil
@@ -658,6 +681,9 @@ func (p *Provider) createChainMiddleware(ctx context.Context, parentNamespace st
 
 	return &dynamic.Chain{Middlewares: mds}, nil
 }
+
+// Provide allows the k8s provider to provide configurations to traefik
+// using the given configuration channel.
 
 // getServicePort always returns a valid port, an error otherwise.
 func getServicePort(svc *corev1.Service, port intstr.IntOrString) (*corev1.ServicePort, error) {
@@ -1375,8 +1401,6 @@ func buildTLSStores(ctx context.Context, client Client) (map[string]tls.Store, m
 
 	return tlsStores, tlsConfigs
 }
-
-// buildCertificates loads TLSStore certificates from secrets and sets them into tlsConfigs.
 func buildCertificates(client Client, tlsStore, namespace string, certificates []traefikv1alpha1.Certificate, tlsConfigs map[string]*tls.CertAndStores) error {
 	for _, c := range certificates {
 		configKey := namespace + "/" + c.SecretName
@@ -1556,9 +1580,6 @@ func isNamespaceAllowed(allowCrossNamespace bool, parentNamespace, namespace str
 	// If allowCrossNamespace option is not defined the default behavior is to allow cross namespace references.
 	return allowCrossNamespace || parentNamespace == namespace
 }
-
-// isCrossProviderNamespaceAllowed reports whether the given namespace is allowed to declare direct references to Traefik resources.
-// A nil allowList means references are unrestricted, and an empty allowList disables them entirely.
 func isCrossProviderNamespaceAllowed(allowList []string, namespace string) bool {
 	if allowList == nil {
 		return true
@@ -1578,7 +1599,7 @@ func resolveReference(ctx context.Context, parentNs, ns, name string, crossProvi
 		}
 
 		if ns != "" {
-			log.Ctx(ctx).Warn().Msgf("Namespace %q is ignored in cross-provider context", ns)
+			log.FromContext(ctx).Warnf("Namespace %q is ignored in cross-provider context", ns)
 		}
 
 		return name, nil
@@ -1592,3 +1613,8 @@ func resolveReference(ctx context.Context, parentNs, ns, name string, crossProvi
 
 	return provider.Normalize(ns + "-" + name), nil
 }
+
+// buildCertificates loads TLSStore certificates from secrets and sets them into tlsConfigs.
+
+// isCrossProviderNamespaceAllowed reports whether the given namespace is allowed to declare direct references to Traefik resources.
+// A nil allowList means references are unrestricted, and an empty allowList disables them entirely.
