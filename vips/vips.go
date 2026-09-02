@@ -546,7 +546,7 @@ func (img *Image) RemoveAnimation() error {
 		return Error()
 	}
 
-	img.swapAndUnref(tmp)
+	C.swap_and_clear(&img.VipsImage, tmp)
 	return nil
 }
 
