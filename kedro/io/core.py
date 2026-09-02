@@ -516,26 +516,6 @@ def generate_timestamp() -> str:
     return current_ts[:-4] + current_ts[-1:]  # Don't keep microseconds
 
 
-class Version(namedtuple("Version", ["load", "save"])):
-    """This namedtuple is used to provide load and save versions for versioned
-    datasets. If ``Version.load`` is None, then the latest available version
-    is loaded. If ``Version.save`` is None, then save version is formatted as
-    YYYY-MM-DDThh.mm.ss.sssZ of the current timestamp.
-    """
-
-    __slots__ = ()
-
-
-_CONSISTENCY_WARNING = (
-    "Save version '{}' did not match load version '{}' for {}. This is strongly "
-    "discouraged due to inconsistencies it may cause between 'save' and "
-    "'load' operations. Please refrain from setting exact load version for "
-    "intermediate datasets where possible to avoid this warning."
-)
-
-_DEFAULT_PACKAGES = ["kedro.io.", "kedro_datasets.", ""]
-
-
 def parse_dataset_definition(
     config: dict[str, Any],
     load_version: str | None = None,
@@ -689,6 +669,89 @@ def _local_exists(filepath: str) -> bool:  # SKIP_IF_NO_SPARK
     return Path(filepath).exists()
 
 
+def get_protocol_and_path(
+    filepath: str | os.PathLike, version: Version | None = None
+) -> tuple[str, str]:
+    """Parses filepath on protocol and path.
+
+    .. warning::
+        Versioning is not supported for HTTP protocols.
+
+    Args:
+        filepath: raw filepath e.g.: ``gcs://bucket/test.json``.
+        version: instance of ``kedro.io.core.Version`` or None.
+
+    Returns:
+        Protocol and path.
+
+    Raises:
+        DatasetError: when protocol is http(s) and version is not None.
+    """
+    options_dict = _parse_filepath(str(filepath))
+    path = options_dict["path"]
+    protocol = options_dict["protocol"]
+
+    if protocol in HTTP_PROTOCOLS:
+        if version is not None:
+            raise DatasetError(
+                "Versioning is not supported for HTTP protocols. "
+                "Please remove the `versioned` flag from the dataset configuration."
+            )
+        path = path.split(PROTOCOL_DELIMITER, 1)[-1]
+
+    return protocol, path
+
+
+def get_filepath_str(raw_path: PurePath, protocol: str) -> str:
+    """Returns filepath. Returns full filepath (with protocol) if protocol is HTTP(s).
+
+    Args:
+        raw_path: filepath without protocol.
+        protocol: protocol.
+
+    Returns:
+        Filepath string.
+    """
+    path = raw_path.as_posix()
+    if protocol in HTTP_PROTOCOLS:
+        path = "".join((protocol, PROTOCOL_DELIMITER, path))
+    return path
+
+
+def validate_on_forbidden_chars(**kwargs: Any) -> None:
+    """Validate that string values do not include white-spaces or ;"""
+    for key, value in kwargs.items():
+        if " " in value or ";" in value:
+            raise DatasetError(
+                f"Neither white-space nor semicolon are allowed in '{key}'."
+            )
+
+
+def is_parameter(dataset_name: str) -> bool:
+    """Check if dataset is a parameter."""
+    return dataset_name.startswith("params:") or dataset_name == "parameters"
+
+
+class Version(namedtuple("Version", ["load", "save"])):
+    """This namedtuple is used to provide load and save versions for versioned
+    datasets. If ``Version.load`` is None, then the latest available version
+    is loaded. If ``Version.save`` is None, then save version is formatted as
+    YYYY-MM-DDThh.mm.ss.sssZ of the current timestamp.
+    """
+
+    __slots__ = ()
+
+
+_CONSISTENCY_WARNING = (
+    "Save version '{}' did not match load version '{}' for {}. This is strongly "
+    "discouraged due to inconsistencies it may cause between 'save' and "
+    "'load' operations. Please refrain from setting exact load version for "
+    "intermediate datasets where possible to avoid this warning."
+)
+
+_DEFAULT_PACKAGES = ["kedro.io.", "kedro_datasets.", ""]
+
+
 class AbstractVersionedDataset(AbstractDataset[_DI, _DO], abc.ABC):
     """
     ``AbstractVersionedDataset`` is the base class for all versioned dataset
@@ -763,9 +826,6 @@ class AbstractVersionedDataset(AbstractDataset[_DI, _DO], abc.ABC):
         self._glob_function = glob_function or iglob
         # 1 entry for load version, 1 for save version
         self._version_cache = Cache(maxsize=2)  # type: Cache
-
-    # 'key' is set to prevent cache key overlapping for load and save:
-    # https://cachetools.readthedocs.io/en/stable/#cachetools.cachedmethod
     @cachedmethod(cache=attrgetter("_version_cache"), key=partial(hashkey, "load"))
     def _fetch_latest_load_version(self) -> str:
         # When load version is unpinned, fetch the most recent existing
@@ -786,9 +846,6 @@ class AbstractVersionedDataset(AbstractDataset[_DI, _DO], abc.ABC):
             message = f"Did not find any versions for {self}"
             raise VersionNotFoundError(message)
         return PurePath(most_recent).parent.name
-
-    # 'key' is set to prevent cache key overlapping for load and save:
-    # https://cachetools.readthedocs.io/en/stable/#cachetools.cachedmethod
     @cachedmethod(cache=attrgetter("_version_cache"), key=partial(hashkey, "save"))
     def _fetch_latest_save_version(self) -> str:
         """Generate and cache the current save version"""
@@ -899,68 +956,11 @@ class AbstractVersionedDataset(AbstractDataset[_DI, _DO], abc.ABC):
         super()._release()
         self._version_cache.clear()
 
+    # 'key' is set to prevent cache key overlapping for load and save:
+    # https://cachetools.readthedocs.io/en/stable/#cachetools.cachedmethod
 
-def get_protocol_and_path(
-    filepath: str | os.PathLike, version: Version | None = None
-) -> tuple[str, str]:
-    """Parses filepath on protocol and path.
-
-    .. warning::
-        Versioning is not supported for HTTP protocols.
-
-    Args:
-        filepath: raw filepath e.g.: ``gcs://bucket/test.json``.
-        version: instance of ``kedro.io.core.Version`` or None.
-
-    Returns:
-        Protocol and path.
-
-    Raises:
-        DatasetError: when protocol is http(s) and version is not None.
-    """
-    options_dict = _parse_filepath(str(filepath))
-    path = options_dict["path"]
-    protocol = options_dict["protocol"]
-
-    if protocol in HTTP_PROTOCOLS:
-        if version is not None:
-            raise DatasetError(
-                "Versioning is not supported for HTTP protocols. "
-                "Please remove the `versioned` flag from the dataset configuration."
-            )
-        path = path.split(PROTOCOL_DELIMITER, 1)[-1]
-
-    return protocol, path
-
-
-def get_filepath_str(raw_path: PurePath, protocol: str) -> str:
-    """Returns filepath. Returns full filepath (with protocol) if protocol is HTTP(s).
-
-    Args:
-        raw_path: filepath without protocol.
-        protocol: protocol.
-
-    Returns:
-        Filepath string.
-    """
-    path = raw_path.as_posix()
-    if protocol in HTTP_PROTOCOLS:
-        path = "".join((protocol, PROTOCOL_DELIMITER, path))
-    return path
-
-
-def validate_on_forbidden_chars(**kwargs: Any) -> None:
-    """Validate that string values do not include white-spaces or ;"""
-    for key, value in kwargs.items():
-        if " " in value or ";" in value:
-            raise DatasetError(
-                f"Neither white-space nor semicolon are allowed in '{key}'."
-            )
-
-
-def is_parameter(dataset_name: str) -> bool:
-    """Check if dataset is a parameter."""
-    return dataset_name.startswith("params:") or dataset_name == "parameters"
+    # 'key' is set to prevent cache key overlapping for load and save:
+    # https://cachetools.readthedocs.io/en/stable/#cachetools.cachedmethod
 
 
 _C = TypeVar("_C")
