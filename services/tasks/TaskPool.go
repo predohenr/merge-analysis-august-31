@@ -4,8 +4,24 @@ import (
 	"errors"
 	"fmt"
 	"github.com/semaphoreui/semaphore/pkg/random"
-	"github.com/semaphoreui/semaphore/services/tasks/stage_parsers"
 	"github.com/semaphoreui/semaphore/pkg/tz"
+	"regexp"
+	"strconv"
+	"strings"
+	"time"
+
+	"github.com/semaphoreui/semaphore/db"
+	"github.com/semaphoreui/semaphore/db_lib"
+	"github.com/semaphoreui/semaphore/pkg/task_logger"
+
+	"github.com/semaphoreui/semaphore/util"
+	log "github.com/sirupsen/logrus"
+)
+import (
+	"errors"
+	"fmt"
+	"github.com/semaphoreui/semaphore/pkg/random"
+	"github.com/semaphoreui/semaphore/services/tasks/stage_parsers"
 	"regexp"
 	"strconv"
 	"strings"
@@ -33,17 +49,9 @@ type resourceLock struct {
 type TaskPool struct {
 	// Queue contains list of tasks in status TaskWaitingStatus.
 	Queue []*TaskRunner
-
-	// register channel used to put tasks to queue.
 	register chan *TaskRunner
-
-	// activeProj ???
 	activeProj map[int]map[int]*TaskRunner
-
-	// RunningTasks contains tasks with status TaskRunningStatus. Map key is a task ID.
 	RunningTasks map[int]*TaskRunner
-
-	// logger channel used to putting log records to database.
 	logger chan logRecord
 
 	store db.Store
@@ -51,6 +59,14 @@ type TaskPool struct {
 	resourceLocker chan *resourceLock
 
 	aliases map[string]*TaskRunner
+
+	// register channel used to put tasks to queue.
+
+	// activeProj ???
+
+	// RunningTasks contains tasks with status TaskRunningStatus. Map key is a task ID.
+
+	// logger channel used to putting log records to database.
 }
 
 var ErrInvalidSubscription = errors.New("has no active subscription")
@@ -208,8 +224,6 @@ func (p *TaskPool) MoveToNextStage(
 
 	return
 }
-
-// nolint: gocyclo
 func (p *TaskPool) Run() {
 	ticker := time.NewTicker(5 * time.Second)
 
@@ -364,19 +378,6 @@ func (p *TaskPool) blocks(t *TaskRunner) bool {
 	return res
 }
 
-func CreateTaskPool(store db.Store) TaskPool {
-	return TaskPool{
-		Queue:          make([]*TaskRunner, 0), // queue of waiting tasks
-		register:       make(chan *TaskRunner), // add TaskRunner to queue
-		activeProj:     make(map[int]map[int]*TaskRunner),
-		RunningTasks:   make(map[int]*TaskRunner),   // working tasks
-		logger:         make(chan logRecord, 10000), // store log records to database
-		store:          store,
-		resourceLocker: make(chan *resourceLock),
-		aliases:        make(map[string]*TaskRunner),
-	}
-}
-
 func (p *TaskPool) ConfirmTask(targetTask db.Task) error {
 	tsk := p.GetTask(targetTask.ID)
 
@@ -429,60 +430,6 @@ func (p *TaskPool) StopTask(targetTask db.Task, forceStop bool) error {
 	}
 
 	return nil
-}
-
-func getNextBuildVersion(startVersion string, currentVersion string) string {
-	re := regexp.MustCompile(`^(.*[^\d])?(\d+)([^\d].*)?$`)
-	m := re.FindStringSubmatch(startVersion)
-
-	if m == nil {
-		return startVersion
-	}
-
-	var prefix, suffix, body string
-
-	switch len(m) - 1 {
-	case 3:
-		prefix = m[1]
-		body = m[2]
-		suffix = m[3]
-	case 2:
-		if _, err := strconv.Atoi(m[1]); err == nil {
-			body = m[1]
-			suffix = m[2]
-		} else {
-			prefix = m[1]
-			body = m[2]
-		}
-	case 1:
-		body = m[1]
-	default:
-		return startVersion
-	}
-
-	if !strings.HasPrefix(currentVersion, prefix) ||
-		!strings.HasSuffix(currentVersion, suffix) {
-		return startVersion
-	}
-
-	curr, err := strconv.Atoi(currentVersion[len(prefix) : len(currentVersion)-len(suffix)])
-	if err != nil {
-		return startVersion
-	}
-
-	start, err := strconv.Atoi(body)
-	if err != nil {
-		panic(err)
-	}
-
-	var newVer int
-	if start > curr {
-		newVer = start
-	} else {
-		newVer = curr + 1
-	}
-
-	return prefix + strconv.Itoa(newVer) + suffix
 }
 
 func (p *TaskPool) AddTask(
@@ -580,4 +527,73 @@ func (p *TaskPool) AddTask(
 	taskRunner.createTaskEvent()
 
 	return
+}
+
+// nolint: gocyclo
+
+func CreateTaskPool(store db.Store) TaskPool {
+	return TaskPool{
+		Queue:          make([]*TaskRunner, 0), // queue of waiting tasks
+		register:       make(chan *TaskRunner), // add TaskRunner to queue
+		activeProj:     make(map[int]map[int]*TaskRunner),
+		RunningTasks:   make(map[int]*TaskRunner),   // working tasks
+		logger:         make(chan logRecord, 10000), // store log records to database
+		store:          store,
+		resourceLocker: make(chan *resourceLock),
+		aliases:        make(map[string]*TaskRunner),
+	}
+}
+
+func getNextBuildVersion(startVersion string, currentVersion string) string {
+	re := regexp.MustCompile(`^(.*[^\d])?(\d+)([^\d].*)?$`)
+	m := re.FindStringSubmatch(startVersion)
+
+	if m == nil {
+		return startVersion
+	}
+
+	var prefix, suffix, body string
+
+	switch len(m) - 1 {
+	case 3:
+		prefix = m[1]
+		body = m[2]
+		suffix = m[3]
+	case 2:
+		if _, err := strconv.Atoi(m[1]); err == nil {
+			body = m[1]
+			suffix = m[2]
+		} else {
+			prefix = m[1]
+			body = m[2]
+		}
+	case 1:
+		body = m[1]
+	default:
+		return startVersion
+	}
+
+	if !strings.HasPrefix(currentVersion, prefix) ||
+		!strings.HasSuffix(currentVersion, suffix) {
+		return startVersion
+	}
+
+	curr, err := strconv.Atoi(currentVersion[len(prefix) : len(currentVersion)-len(suffix)])
+	if err != nil {
+		return startVersion
+	}
+
+	start, err := strconv.Atoi(body)
+	if err != nil {
+		panic(err)
+	}
+
+	var newVer int
+	if start > curr {
+		newVer = start
+	} else {
+		newVer = curr + 1
+	}
+
+	return prefix + strconv.Itoa(newVer) + suffix
 }

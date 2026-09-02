@@ -3,8 +3,22 @@ package tasks
 import (
 	"encoding/json"
 	"errors"
-	"github.com/semaphoreui/semaphore/services/tasks/hooks"
 	"github.com/semaphoreui/semaphore/pkg/tz"
+	"os"
+	"strconv"
+	"strings"
+	"sync"
+
+	"github.com/semaphoreui/semaphore/api/sockets"
+	"github.com/semaphoreui/semaphore/db"
+	"github.com/semaphoreui/semaphore/pkg/task_logger"
+	"github.com/semaphoreui/semaphore/util"
+	log "github.com/sirupsen/logrus"
+)
+import (
+	"encoding/json"
+	"errors"
+	"github.com/semaphoreui/semaphore/services/tasks/hooks"
 	"os"
 	"strconv"
 	"strings"
@@ -37,8 +51,6 @@ type TaskRunner struct {
 	alert     bool
 	alertChat *string
 	pool      *TaskPool
-
-	// job executes Ansible and returns stdout to Semaphore logs
 	job Job
 
 	RunnerID        int
@@ -51,6 +63,8 @@ type TaskRunner struct {
 	Alias string
 
 	logWG sync.WaitGroup
+
+	// job executes Ansible and returns stdout to Semaphore logs
 }
 
 func (t *TaskRunner) AddStatusListener(l task_logger.StatusListener) {
@@ -246,8 +260,6 @@ func (t *TaskRunner) prepareError(err error, errMsg string) error {
 
 	return nil
 }
-
-// nolint: gocyclo
 func (t *TaskRunner) populateDetails() error {
 	// get template
 	var err error
@@ -371,6 +383,8 @@ func (t *TaskRunner) populateDetails() error {
 
 	return nil
 }
+
+// nolint: gocyclo
 
 // checkTmpDir checks to see if the temporary directory exists
 // and if it does not attempts to create it
