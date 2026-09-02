@@ -21,7 +21,8 @@ from decimal import Decimal
 from pathlib import Path
 from textwrap import dedent
 from types import FunctionType, ModuleType
-from typing import Any, ForwardRef
+from typing import Any, ForwardRef, Union
+from typing import Any
 
 import attr
 import click
@@ -90,11 +91,6 @@ def test_strategies_with_invalid_syntax_repr_as_nothing():
     assert ghostwriter._valid_syntax_repr(s)[1] == "nothing()"
 
 
-class AnEnum(enum.Enum):
-    a = "value of AnEnum.a"
-    b = "value of AnEnum.b"
-
-
 def takes_enum(foo=AnEnum.a):
     # This can only fail if we use the default argument to guess
     # that any instance of that enum type should be allowed.
@@ -118,14 +114,6 @@ def non_type_annotation(x: 3):  # type: ignore
 
 def annotated_any(x: Any):
     pass
-
-
-space_in_name = type("a name", (type,), {"__init__": lambda self: None})
-
-
-class NotResolvable:
-    def __init__(self, unannotated_required):
-        pass
 
 
 def non_resolvable_arg(x: NotResolvable):
@@ -160,11 +148,6 @@ def takes_sized(x: Sized) -> None:
 
 def takes_frozensets(a: frozenset[int], b: frozenset[int]) -> None:
     pass
-
-
-@attr.s()
-class Foo:
-    foo: str = attr.ib()
 
 
 def takes_attrs_class(x: Foo) -> None:
@@ -259,20 +242,6 @@ def test_invalid_func_inputs(gw, args):
         gw(*args)
 
 
-class A:
-    @classmethod
-    def to_json(cls, obj: dict | list) -> str:
-        return json.dumps(obj)
-
-    @classmethod
-    def from_json(cls, obj: str) -> dict | list:
-        return json.loads(obj)
-
-    @staticmethod
-    def static_sorter(seq: Sequence[int]) -> list[int]:
-        return sorted(seq)
-
-
 @pytest.mark.parametrize(
     "gw,args",
     [
@@ -293,10 +262,6 @@ def test_run_ghostwriter_fuzz():
     source_code = ghostwriter.fuzz(sorted)
     assert "st.nothing()" not in source_code
     get_test_function(source_code)()
-
-
-class MyError(UnicodeDecodeError):
-    pass
 
 
 @pytest.mark.parametrize(
@@ -523,10 +488,6 @@ def test_gets_public_location_not_impl_location():
     assert ghostwriter._get_module(assume) == "hypothesis"  # not "hypothesis.control"
 
 
-class ForwardRefA:
-    pass
-
-
 @pytest.mark.parametrize(
     "parameter, type_name",
     [
@@ -548,3 +509,43 @@ class ForwardRefA:
 )
 def test_parameter_to_annotation(parameter, type_name):
     assert ghostwriter._parameter_to_annotation(parameter) == type_name
+
+
+class AnEnum(enum.Enum):
+    a = "value of AnEnum.a"
+    b = "value of AnEnum.b"
+
+
+space_in_name = type("a name", (type,), {"__init__": lambda self: None})
+
+
+class NotResolvable:
+    def __init__(self, unannotated_required):
+        pass
+
+
+@attr.s()
+class Foo:
+    foo: str = attr.ib()
+
+
+class A:
+    @classmethod
+    def to_json(cls, obj: dict | list) -> str:
+        return json.dumps(obj)
+
+    @classmethod
+    def from_json(cls, obj: str) -> dict | list:
+        return json.loads(obj)
+
+    @staticmethod
+    def static_sorter(seq: Sequence[int]) -> list[int]:
+        return sorted(seq)
+
+
+class MyError(UnicodeDecodeError):
+    pass
+
+
+class ForwardRefA:
+    pass
