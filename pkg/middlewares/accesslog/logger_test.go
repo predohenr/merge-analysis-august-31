@@ -487,7 +487,7 @@ func TestCommonLoggerDropQueryParameters(t *testing.T) {
 		},
 	}
 	config := &otypes.AccessLog{FilePath: logFilePath, Format: CommonFormat, Fields: fieldConfig}
-	doLogging(t, config, false, false)
+	doLogging(t, config, false)
 
 	logData, err := os.ReadFile(logFilePath)
 	require.NoError(t, err)
@@ -531,7 +531,7 @@ func TestLoggerGenericCLFDropQueryParameters(t *testing.T) {
 		},
 	}
 	config := &otypes.AccessLog{FilePath: logFilePath, Format: GenericCLFFormat, Fields: fieldConfig}
-	doLogging(t, config, false, false)
+	doLogging(t, config, false)
 
 	logData, err := os.ReadFile(logFilePath)
 	require.NoError(t, err)
@@ -676,7 +676,7 @@ func TestLoggerJSON(t *testing.T) {
 				RequestHost:                assertString(testHostname),
 				RequestAddr:                assertString(testHostname),
 				RequestMethod:              assertString(testMethod),
-				RequestPath:                assertString(testPath + "?param1=test1&param2=test2"),
+				RequestPath:                assertString(testPath),
 				RequestProtocol:            assertString(testProto),
 				RequestScheme:              assertString(testScheme),
 				RequestPort:                assertString("-"),
