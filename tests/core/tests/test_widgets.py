@@ -680,6 +680,10 @@ class CachedForeignKeyWidgetTest(TestCase):
         """Ensure lookup works when value is a string (as from CSV import)."""
         self.assertEqual(self.widget.clean(str(self.author.id)), self.author)
 
+    def test_clean_with_string_pk(self):
+        """Ensure lookup works when value is a string (as from CSV import)."""
+        self.assertEqual(self.widget.clean(str(self.author.id)), self.author)
+
     def test_clean_empty(self):
         self.assertEqual(self.widget.clean(""), None)
 
@@ -840,6 +844,20 @@ class CachedForeignKeyWidgetTest(TestCase):
             "use_natural_foreign_keys and key_is_id " "cannot both be True",
             str(e.exception),
         )
+
+    def test_with_related_fields(self):
+        author2 = Author.objects.create(name="Baz")
+        book = Book.objects.create(name="Baz", author=author2)
+        widget = widgets.CachedForeignKeyWidget(Book, "author__name")
+        with CaptureQueriesContext(connection) as ctx:
+            self.assertEqual(self.book, widget.clean(self.author.name))
+        self.assertEqual(len(ctx.captured_queries), 1)
+        with CaptureQueriesContext(connection) as ctx:
+            self.assertEqual(
+                book,
+                widget.clean(author2.name),
+            )
+        self.assertEqual(len(ctx.captured_queries), 0)
 
     def test_with_related_fields(self):
         author2 = Author.objects.create(name="Baz")
