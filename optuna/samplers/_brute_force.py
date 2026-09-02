@@ -102,7 +102,7 @@ class _TreeNode:
                 if child.is_running:
                     weights[i] = 0.0
         weights /= weights.sum()
-        return rng.choice(list(children.keys()), p=weights).item()
+        return  rng.choice(list(children.keys()), p=weights).item()
 
 
 @experimental_class("3.1.0")
