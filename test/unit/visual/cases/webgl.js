@@ -1251,6 +1251,7 @@ visualSuite('WebGL', function() {
       p5.fill(0);
       p5.noStroke();
 
+      // Contours with nearly identical consecutive vertices (as can occur with textToContours)
       // Outer contour
       p5.beginShape();
       p5.vertex(-30, -30, 0);
@@ -1258,10 +1259,11 @@ visualSuite('WebGL', function() {
       p5.vertex(30, 30, 0);
       p5.vertex(-30, 30, 0);
 
-      // Inner contour (hole)
+      // Inner contour (hole) with nearly identical vertices
       p5.beginContour();
       p5.vertex(-10, -10, 0);
       p5.vertex(-10, 10, 0);
+      // This vertex has x coordinate almost equal to previous (10.00000001 vs 10)
       p5.vertex(10.00000001, 10, 0);
       p5.vertex(10, -10, 0);
       p5.endContour();
