@@ -62,7 +62,6 @@ const BufferPolylineAttributeLocations = {
   nextPosition: 2,
   pickColor: 3,
   showColorWidthAndTexCoord: 4,
-  alpha: 5,
 };
 
 /**
@@ -161,7 +160,7 @@ function renderBufferPolylineCollection(collection, frameState, renderContext) {
           nextPositionLow: new Float32Array(vertexCountMax * 3),
           pickColor: new Uint8Array(vertexCountMax * 4),
           showColorWidthAndTexCoord: new Float32Array(vertexCountMax * 4),
-          alpha: new Uint8Array(vertexCountMax),
+      alpha: new Uint8Array(vertexCountMax),
         };
   }
 
@@ -362,6 +361,8 @@ function renderBufferPolylineCollection(collection, frameState, renderContext) {
             attributeArrays.nextPositionLow[vOffset * 3 + 2] =
               nextCartesianEnc.low.z;
 
+          alphaArray[vOffset] = colorAlpha * 255.0;
+
             // Pick ID.
             pickColorArray[vOffset * 4] = Color.floatToByte(pickColor.red);
             pickColorArray[vOffset * 4 + 1] = Color.floatToByte(
@@ -377,8 +378,6 @@ function renderBufferPolylineCollection(collection, frameState, renderContext) {
             showColorWidthAndTexCoordArray[vOffset * 4 + 1] = encodedColor;
             showColorWidthAndTexCoordArray[vOffset * 4 + 2] = material.width;
             showColorWidthAndTexCoordArray[vOffset * 4 + 3] = j / (jl - 1); // texcoord.s
-
-            alphaArray[vOffset] = colorAlpha * 255.0;
 
             vOffset++;
           }
@@ -414,7 +413,7 @@ function renderBufferPolylineCollection(collection, frameState, renderContext) {
                 vertexBuffer: Buffer.createVertexBuffer({
                   typedArray: attributeArrays.position,
                   context,
-                  usage: BufferUsage.STATIC_DRAW,
+                  usage: BufferUsage.DYNAMIC_DRAW,
                 }),
               },
               {
@@ -425,7 +424,7 @@ function renderBufferPolylineCollection(collection, frameState, renderContext) {
                 vertexBuffer: Buffer.createVertexBuffer({
                   typedArray: attributeArrays.prevPosition,
                   context,
-                  usage: BufferUsage.STATIC_DRAW,
+                  usage: BufferUsage.DYNAMIC_DRAW,
                 }),
               },
               {
@@ -436,7 +435,7 @@ function renderBufferPolylineCollection(collection, frameState, renderContext) {
                 vertexBuffer: Buffer.createVertexBuffer({
                   typedArray: attributeArrays.nextPosition,
                   context,
-                  usage: BufferUsage.STATIC_DRAW,
+                  usage: BufferUsage.DYNAMIC_DRAW,
                 }),
               },
             ]

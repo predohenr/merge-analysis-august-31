@@ -54,7 +54,7 @@ const BufferPointAttributeLocations = {
   position: 0,
   pickColor: 1,
   showSizeAndColor: 2,
-  outlineWidthColorAlpha: 3,
+  outlineWidthAndOutlineColor: 3,
 };
 
 /**
@@ -174,7 +174,7 @@ function renderBufferPointCollection(collection, frameState, renderContext) {
                 vertexBuffer: Buffer.createVertexBuffer({
                   typedArray: collection._positionView,
                   context,
-                  usage: BufferUsage.STATIC_DRAW,
+                  usage: BufferUsage.DYNAMIC_DRAW,
                 }),
               },
             ]

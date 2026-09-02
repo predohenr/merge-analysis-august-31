@@ -105,7 +105,6 @@ class BufferPrimitiveCollection {
     this._blendOption = options.blendOption ?? BlendOption.TRANSLUCENT;
 
     /**
-     * Transforms geometry from model to world coordinates.
      * @type {Matrix4}
      * @default Matrix4.IDENTITY
      * @readonly

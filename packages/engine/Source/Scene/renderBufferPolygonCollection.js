@@ -209,7 +209,7 @@ function renderBufferPolygonCollection(collection, frameState, renderContext) {
                 vertexBuffer: Buffer.createVertexBuffer({
                   typedArray: attributeArrays.position,
                   context,
-                  usage: BufferUsage.STATIC_DRAW,
+                  usage: BufferUsage.DYNAMIC_DRAW,
                 }),
               },
             ]
