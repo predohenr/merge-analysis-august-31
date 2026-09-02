@@ -25,6 +25,18 @@ import (
 	"github.com/pkg/errors"
 
 	chartutil "helm.sh/helm/v4/pkg/chart/v2/util"
+	"helm.sh/helm/v4/pkg/release"
+	helmtime "helm.sh/helm/v4/pkg/time"
+)
+import (
+	"bytes"
+	"fmt"
+	"strings"
+	"time"
+
+	"github.com/pkg/errors"
+
+	chartutil "helm.sh/helm/v4/pkg/chart/util"
 	"helm.sh/helm/v4/pkg/kube"
 	"helm.sh/helm/v4/pkg/release"
 	helmtime "helm.sh/helm/v4/pkg/time"
@@ -42,10 +54,10 @@ type Rollback struct {
 	WaitForJobs   bool
 	DisableHooks  bool
 	DryRun        bool
-	Recreate      bool // will (if true) recreate pods after a rollback.
-	Force         bool // will (if true) force resource upgrade through uninstall/recreate if needed
+	Recreate      bool
+	Force         bool
 	CleanupOnFail bool
-	MaxHistory    int // MaxHistory limits the maximum number of revisions saved per release
+	MaxHistory    int // will (if true) recreate pods after a rollback. // will (if true) force resource upgrade through uninstall/recreate if needed // MaxHistory limits the maximum number of revisions saved per release
 }
 
 // NewRollback creates a new Rollback object with the given configuration.
@@ -93,9 +105,6 @@ func (r *Rollback) Run(name string) error {
 	}
 	return nil
 }
-
-// prepareRollback finds the previous release and prepares a new release object with
-// the previous release's configuration
 func (r *Rollback) prepareRollback(name string) (*release.Release, *release.Release, error) {
 	if err := chartutil.ValidateReleaseName(name); err != nil {
 		return nil, nil, errors.Errorf("prepareRollback: Release name is invalid: %s", name)
@@ -266,3 +275,6 @@ func (r *Rollback) performRollback(currentRelease, targetRelease *release.Releas
 
 	return targetRelease, nil
 }
+
+// prepareRollback finds the previous release and prepares a new release object with
+// the previous release's configuration
