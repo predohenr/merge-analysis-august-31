@@ -218,7 +218,7 @@ func (c *debugHooksCommand) getValidActions(actions *charm.Actions) (set.Strings
 
 	// A charm can have no actions defined, but that is not an error. In that
 	// case, return an empty set of actions.
-	if actions.ActionSpecs == nil {
+	if ch.Actions() == nil {
 		return validActions, nil
 	}
 
