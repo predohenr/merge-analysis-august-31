@@ -6215,8 +6215,6 @@ class ExamplesTest(PallasTest):
       o_ref[...] = l_ref[...] + r_ref[...]
 
     np.testing.assert_allclose(kernel(x, x), x + x)
-
-  # Multi-block kernels
   def test_stage1(self):
     row_block = 64
     x = jnp.arange(128 * 128, dtype=jnp.float16).reshape(128, 128)
@@ -6229,8 +6227,6 @@ class ExamplesTest(PallasTest):
       o_ref[my_slice] = l_ref[my_slice] + r_ref[my_slice]
 
     np.testing.assert_allclose(kernel(x, x), x + x)
-
-  # Async copies
   def test_stage3(self):
     row_block, col_block = 64, 128
 
@@ -6256,8 +6252,6 @@ class ExamplesTest(PallasTest):
 
     x = jnp.arange(128 * 128, dtype=jnp.float16).reshape(128, 128)
     np.testing.assert_allclose(kernel(x, x), x + x)
-
-  # Pipelining
   def test_stage4(self):
     row_block, col_block = 64, 32
     x = jnp.arange(128 * 128, dtype=jnp.float16).reshape(128, 128)
@@ -6278,8 +6272,6 @@ class ExamplesTest(PallasTest):
       )(l_ref, r_ref, o_ref)
 
     np.testing.assert_allclose(kernel(x, x), x + x)
-
-  # Transforms
   def test_stage5(self):
     row_block, col_block = 64, 32
     x = jnp.arange(128 * 128, dtype=jnp.float16).reshape(128, 128)
@@ -6304,6 +6296,14 @@ class ExamplesTest(PallasTest):
       )(l_ref, r_ref, o_ref)
 
     np.testing.assert_allclose(kernel(x, x), x + x)
+
+  # Multi-block kernels
+
+  # Async copies
+
+  # Pipelining
+
+  # Transforms
 
 
 class SemaphoreTest(PallasTest):
