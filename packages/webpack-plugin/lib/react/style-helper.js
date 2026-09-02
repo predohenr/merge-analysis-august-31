@@ -9,10 +9,8 @@ const unitRegExp = /^\s*(-?\d+(?:\.\d+)?)(rpx|vw|vh|px)?\s*$/
 const hairlineRegExp = /^\s*hairlineWidth\s*$/
 const varRegExp = /^--/
 const cssPrefixExp = /^-(webkit|moz|ms|o)-/
-function getClassMap ({ content, styles, filename, inputFileSystem, mode, srcMode, ctorType, formatValueName, warn, error }) {
-  const classMap = ctorType === 'page'
-      ? { [MPX_TAG_PAGE_SELECTOR]: { flex: 1, height: "'100%'" } }
-      : {}
+function getClassMap({ content, styles, filename, inputFileSystem, mode, srcMode, ctorType, formatValueName, warn, error }) {
+  const classMap = ctorType === 'page' ? { [MPX_TAG_PAGE_SELECTOR]: { flex: 1, height: "'100%'" } } : {}
 
   styles = styles && styles.length
     ? styles
@@ -127,6 +125,7 @@ function getClassMap ({ content, styles, filename, inputFileSystem, mode, srcMod
       if (prev && prev.type === 'comment' && prev.text.includes('rn-layer:')) {
         layer = JSON.stringify(prev.text.split(':')[1].trim())
       }
+
       rule.walkDecls((decl) => {
         let { prop, value, important } = decl
         if (value === 'undefined' || cssPrefixExp.test(prop) || cssPrefixExp.test(value)) return
@@ -135,6 +134,7 @@ function getClassMap ({ content, styles, filename, inputFileSystem, mode, srcMod
         if (!Array.isArray(newData)) {
           newData = [newData]
         }
+
         newData.forEach(item => {
           prop = varRegExp.test(item.prop) ? item.prop : dash2hump(item.prop)
           value = item.value
@@ -156,6 +156,7 @@ function getClassMap ({ content, styles, filename, inputFileSystem, mode, srcMod
           } else {
             value = formatValue(value)
           }
+
           if (important) {
             classMapValue._inlineLayer = classMapValue._inlineLayer || {}
             classMapValue._inlineLayer.important = classMapValue._inlineLayer.important || {}
@@ -165,7 +166,6 @@ function getClassMap ({ content, styles, filename, inputFileSystem, mode, srcMod
           }
         })
       })
-
       const classMapKeys = []
       const options = getMediaOptions(rule.parent.params || '')
       const isMedia = options.maxWidth || options.minWidth
@@ -193,13 +193,15 @@ function getClassMap ({ content, styles, filename, inputFileSystem, mode, srcMod
       }).processSync(rule.selector)
 
       if (classMapKeys.length) {
-        classMapKeys.forEach((key) => {
+        classMapKeys.forEach(key => {
           if (Object.keys(classMapValue).length) {
             // set css defalut value
             const val = classMap[key] || {}
             classMap[key] = Object.assign(val, classMapValue)
 
+            // set css layer
             if (layer) {
+              if (key.endsWith('!')) layer = '"important"'
               classMap[key]._layer = layer
             }
 
