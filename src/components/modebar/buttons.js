@@ -71,13 +71,11 @@ modeBarButtons.toImage = {
 
 modeBarButtons.sendChartToCloud = {
     name: 'sendChartToCloud',
-    title: function (gd) {
-        return _(gd, 'Share with Plotly Cloud');
-    },
+    title: function(gd) { return _(gd, 'Share with Plotly Cloud'); },
     icon: Icons.cloudupload,
-    click: function (gd) {
+    click: function(gd) {
         var baseUrl = (window.PLOTLYENV || {}).BASE_URL || gd._context.plotlyServerURL;
-        if (!baseUrl) {
+        if(!baseUrl) {
             console.error('No destination URL provided (plotlyServerURL is not set)');
             return;
         }
@@ -87,12 +85,12 @@ modeBarButtons.sendChartToCloud = {
         // back when authentication succeeds.
         try {
             new URL(baseUrl);
-        } catch (e) {
+        } catch(e) {
             console.error('Invalid plotlyServerURL: ' + baseUrl);
             return;
         }
 
-        confirmCloudDialog(gd, baseUrl, function () {
+        confirmCloudDialog(gd, baseUrl, function() {
             Plots.sendDataToCloud(gd, baseUrl);
         });
     }

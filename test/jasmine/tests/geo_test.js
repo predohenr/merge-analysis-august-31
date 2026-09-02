@@ -116,7 +116,7 @@ describe('Test geo fitbounds with antimeridian-straddling points', function() {
     });
 });
 
-describe('Test Geo layout defaults', function() {
+describe('Test Geo layout defaults', function () {
     var layoutAttributes = Geo.layoutAttributes;
     var supplyLayoutDefaults = Geo.supplyLayoutDefaults;
 
