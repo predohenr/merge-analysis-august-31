@@ -493,11 +493,11 @@ func (e *genericRestoreExposer) createRestorePod(
 	containerName := string(ownerObject.UID)
 	volumeName := string(ownerObject.UID)
 
-	nodeSelector := map[string]string{}
 	if selectedNode != "" {
 		affinity = nil
-		nodeSelector["kubernetes.io/hostname"] = selectedNode
 		e.log.Infof("Selected node for restore pod. Ignore affinity from the node-agent config.")
+	} else {
+		nodeSelector["kubernetes.io/hostname"] = selectedNode
 	}
 
 	if affinity == nil {
