@@ -218,7 +218,7 @@ func NewReusableRequest(req *http.Request, maxBodySize int64) (*ReusableRequest,
 	if req == nil {
 		return nil, nil, errors.New("nil input request")
 	}
-	if req.Body == nil {
+	if req.Body == nil || !mirrorBody {
 		return &ReusableRequest{req: req}, nil, nil
 	}
 
@@ -243,7 +243,7 @@ func NewReusableRequest(req *http.Request, maxBodySize int64) (*ReusableRequest,
 	// with a non-nil Body and ContentLength == -1. The same shape is possible for a
 	// chunked request that sends no chunks.
 	if errors.Is(err, io.EOF) {
-		return &ReusableRequest{
+		return &reusableRequest{
 			req:  req,
 			body: body[:n],
 		}, nil, nil

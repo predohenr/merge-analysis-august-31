@@ -309,12 +309,12 @@ func TestCloneRequest(t *testing.T) {
 		req.Body = io.NopCloser(bytes.NewReader(nil))
 		req.ContentLength = -1
 
-		rr, expectedBytes, err := NewReusableRequest(req, 20)
+		rr, expectedBytes, err := newReusableRequest(req, true, 20)
 		assert.NoError(t, err)
 		assert.Nil(t, expectedBytes)
 		assert.Empty(t, rr.body)
 
-		cloned := rr.Clone(req.Context())
+		cloned := rr.clone(req.Context())
 		body, err := io.ReadAll(cloned.Body)
 		assert.NoError(t, err)
 		assert.Empty(t, body)
@@ -328,12 +328,12 @@ func TestCloneRequest(t *testing.T) {
 
 		req.ContentLength = -1
 
-		rr, expectedBytes, err := NewReusableRequest(req, 20)
+		rr, expectedBytes, err := newReusableRequest(req, true, 20)
 		assert.NoError(t, err)
 		assert.Nil(t, expectedBytes)
 		assert.Equal(t, bb, rr.body)
 
-		cloned := rr.Clone(req.Context())
+		cloned := rr.clone(req.Context())
 		body, err := io.ReadAll(cloned.Body)
 		assert.NoError(t, err)
 		assert.Equal(t, bb, body)
