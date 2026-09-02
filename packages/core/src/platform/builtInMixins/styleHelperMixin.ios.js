@@ -186,37 +186,25 @@ function mergeObjectArray (arr) {
 function transformStyleObj (styleObj) {
   const transformed = {}
   Object.keys(styleObj).forEach((prop) => {
-    let value = styleObj[prop]
-
-    // check important
-    const importantValue = typeof value === 'string' && value.endsWith('!important')
-    if (importantValue) {
-      transformed._inlineLayer = transformed._inlineLayer || {}
-      transformed._inlineLayer.important = transformed._inlineLayer.important || {}
-      value = value.split('!')[0]
-    }
-
-    // format value
-    if (prop === 'lineHeight' && isNum(value)) {
-      if (+value === 0) {
-        value = 0
+    if (prop === 'lineHeight' && isNum(styleObj[prop])) {
+      if (+styleObj[prop] === 0) {
+        transformed[prop] = 0
       } else {
-        value = `${Math.round(value * 100)}%`
+        transformed[prop] = `${Math.round(styleObj[prop] * 100)}%`
       }
-    } else if (prop !== 'flex') {
-      value = formatValue(value)
-    }
-
-    // set value
-    if (importantValue) {
-      transformed._inlineLayer.important[prop] = value
+    } else if (prop === 'flex') {
+      transformed[prop] = styleObj[prop]
     } else {
-      transformed[prop] = value
+      const value = styleObj[prop]
+      if (typeof value === 'string' && value.endsWith('!important')) {
+        transformed._inlineLayer = transformed._inlineLayer || {}
+        transformed._inlineLayer.important = transformed._inlineLayer.important || {}
+        transformed._inlineLayer.important[prop] = formatValue(value.split('!')[0])
+      } else {
+        transformed[prop] = formatValue(value)
+      }
     }
-
   })
-
-  console.log(transformed)
   return transformed
 }
 
@@ -272,29 +260,22 @@ const createLayer = (isNativeStyle) => {
   }
 
   const genResult = isNativeStyle
-    ? () => {
-      return [
+    ? () => [
         ...layerMap.preflight,
         ...layerMap.app,
         ...layerMap.uno,
         ...layerMap.normal,
         ...layerMap.important
       ]
-    }
-    : () => {
-      const res = Object.assign(
-        {},
-        ...layerMap.preflight,
-        ...layerMap.app,
-        ...layerMap.uno,
-        ...layerMap.normal,
-        ...layerMap.important
-      )
-      console.log('pre', res);
-      delete res['_inlineLayer']
-      console.log(res);
-      return res
-    }
+    : () =>
+        Object.assign(
+          {},
+          ...layerMap.preflight,
+          ...layerMap.app,
+          ...layerMap.uno,
+          ...layerMap.normal,
+          ...layerMap.important
+        )
 
   return {
     mergeToLayer,
