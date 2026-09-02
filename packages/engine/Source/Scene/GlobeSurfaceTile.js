@@ -91,15 +91,6 @@ class GlobeSurfaceTile {
 
     this.clippedByBoundaries = false;
   }
-
-  /**
-   * Gets a value indicating whether or not this tile is eligible to be unloaded.
-   * Typically, a tile is ineligible to be unloaded while an asynchronous operation,
-   * such as a request for data, is in progress on it.  A tile will never be
-   * unloaded while it is needed for rendering, regardless of the value of this
-   * property.
-   * @type {boolean}
-   */
   get eligibleForUnloading() {
     // Do not remove tiles that are transitioning or that have
     // imagery that is transitioning.
@@ -120,16 +111,6 @@ class GlobeSurfaceTile {
 
     return shouldRemoveTile;
   }
-
-  /**
-   * Gets the {@link TerrainMesh} that is used for rendering this tile, if any.
-   * Returns the value of the {@link GlobeSurfaceTile#mesh} property if
-   * {@link GlobeSurfaceTile#vertexArray} is defined. Otherwise, It returns the
-   * {@link TerrainFillMesh#mesh} property of the {@link GlobeSurfaceTile#fill}.
-   * If there is no fill, it returns undefined.
-   *
-   * @type {TerrainMesh}
-   */
   get renderedMesh() {
     if (defined(this.vertexArray)) {
       return this.mesh;
@@ -138,14 +119,6 @@ class GlobeSurfaceTile {
     }
     return undefined;
   }
-
-  /**
-   * @param {Ray} ray
-   * @param {SceneMode} mode
-   * @param {MapProjection} projection
-   * @param {boolean} cullBackFaces
-   * @param {Cartesian3} result
-   */
   pick(ray, mode, projection, cullBackFaces, result) {
     if (!defined(this.renderedMesh)) {
       return undefined;
@@ -153,10 +126,6 @@ class GlobeSurfaceTile {
     const value = this.renderedMesh.pick(ray, cullBackFaces, mode, projection);
     return Cartesian3.clone(value, result);
   }
-
-  /**
-   * Frees the GPU lookup textures for this tile's draped vector data
-   */
   freeVectorResources() {
     const vectorData = this.vectorData;
     if (defined(vectorData)) {
@@ -201,13 +170,6 @@ class GlobeSurfaceTile {
     GlobeSurfaceTile._freeVertexArray(this.wireframeVertexArray);
     this.wireframeVertexArray = undefined;
   }
-
-  /**
-   * @param {QuadtreeTile} tile
-   * @param {TerrainProvider} terrainProvider
-   * @param {VectorProvider} vectorProvider
-   * @param {ImageryLayerCollection} imageryLayerCollection
-   */
   static initialize(
     tile,
     terrainProvider,
@@ -228,17 +190,6 @@ class GlobeSurfaceTile {
       tile.state = QuadtreeTileLoadState.LOADING;
     }
   }
-
-  /**
-   * @param {QuadtreeTile} tile
-   * @param {FrameState} frameState
-   * @param {TerrainProvider} terrainProvider
-   * @param {VectorProvider} vectorProvider
-   * @param {ImageryLayerCollection} imageryLayerCollection
-   * @param {QuadtreePrimitive} quadtree
-   * @param {*} vertexArraysToDestroy
-   * @param {*} terrainOnly
-   */
   static processStateMachine(
     tile,
     frameState,
@@ -323,13 +274,6 @@ class GlobeSurfaceTile {
       tile.renderable = true;
     }
   }
-
-  /**
-   * @param {QuadtreeTile} tile
-   * @param {TerrainProvider} terrainProvider
-   * @param {FrameState} frameState
-   * @param {boolean} skipLoading
-   */
   processImagery(tile, terrainProvider, frameState, skipLoading) {
     const surfaceTile = /** @type {GlobeSurfaceTile} */ (tile.data);
     let isUpsampledOnly = tile.upsampledFromParent;
@@ -389,27 +333,12 @@ class GlobeSurfaceTile {
 
     return isDoneLoading;
   }
-
-  /**
-   * @param {Ellipsoid} ellipsoid
-   * @param {FrameState} frameState
-   */
   addGeodeticSurfaceNormals(ellipsoid, frameState) {
     toggleGeodeticSurfaceNormals(this, true, ellipsoid, frameState);
   }
-
-  /**
-   * @param {FrameState} frameState
-   */
   removeGeodeticSurfaceNormals(frameState) {
     toggleGeodeticSurfaceNormals(this, false, undefined, frameState);
   }
-
-  /**
-   * @param {QuadtreeTile} tile
-   * @param {FrameState} frameState
-   * @param {QuadtreePrimitive} quadtree
-   */
   updateExaggeration(tile, frameState, quadtree) {
     const surfaceTile = this;
     const mesh = surfaceTile.renderedMesh;
@@ -462,10 +391,6 @@ class GlobeSurfaceTile {
       mesh.updateExaggeration(exaggeration, exaggerationRelativeHeight);
     }
   }
-
-  /**
-   * @param {SceneMode} mode
-   */
   updateSceneMode(mode) {
     const surfaceTile = this;
     const mesh = surfaceTile.renderedMesh;
@@ -475,11 +400,6 @@ class GlobeSurfaceTile {
 
     mesh.updateSceneMode(mode);
   }
-
-  /**
-   * @param {Context} context
-   * @param {TerrainMesh} mesh
-   */
   static _createVertexArrayForMesh(context, mesh) {
     const typedArray = mesh.vertices;
     const buffer = Buffer.createVertexBuffer({
@@ -514,10 +434,6 @@ class GlobeSurfaceTile {
       indexBuffer: indexBuffer,
     });
   }
-
-  /**
-   * @param {VertexArray} vertexArray
-   */
   static _freeVertexArray(vertexArray) {
     if (defined(vertexArray)) {
       // @ts-expect-error Missing types.
@@ -539,10 +455,6 @@ class GlobeSurfaceTile {
       }
     }
   }
-
-  /**
-   * @param {QuadtreeTile} tile
-   */
   _findAncestorTileWithTerrainData(tile) {
     let sourceTile = tile.parent;
 
@@ -557,12 +469,6 @@ class GlobeSurfaceTile {
 
     return sourceTile;
   }
-
-  /**
-   * @param {QuadtreeTile} tile
-   * @param {QuadtreeTile} sourceTile
-   * @param {Cartesian4} result
-   */
   _computeWaterMaskTranslationAndScale(tile, sourceTile, result) {
     const sourceTileRectangle = sourceTile.rectangle;
     const tileRectangle = tile.rectangle;
@@ -580,6 +486,100 @@ class GlobeSurfaceTile {
 
     return result;
   }
+
+  /**
+   * Gets a value indicating whether or not this tile is eligible to be unloaded.
+   * Typically, a tile is ineligible to be unloaded while an asynchronous operation,
+   * such as a request for data, is in progress on it.  A tile will never be
+   * unloaded while it is needed for rendering, regardless of the value of this
+   * property.
+   * @type {boolean}
+   */
+
+  /**
+   * Gets the {@link TerrainMesh} that is used for rendering this tile, if any.
+   * Returns the value of the {@link GlobeSurfaceTile#mesh} property if
+   * {@link GlobeSurfaceTile#vertexArray} is defined. Otherwise, It returns the
+   * {@link TerrainFillMesh#mesh} property of the {@link GlobeSurfaceTile#fill}.
+   * If there is no fill, it returns undefined.
+   *
+   * @type {TerrainMesh}
+   */
+
+  /**
+   * @param {Ray} ray
+   * @param {SceneMode} mode
+   * @param {MapProjection} projection
+   * @param {boolean} cullBackFaces
+   * @param {Cartesian3} result
+   */
+
+  /**
+   * Frees the GPU lookup textures for this tile's draped vector data
+   */
+
+  /**
+   * @param {QuadtreeTile} tile
+   * @param {TerrainProvider} terrainProvider
+   * @param {VectorProvider} vectorProvider
+   * @param {ImageryLayerCollection} imageryLayerCollection
+   */
+
+  /**
+   * @param {QuadtreeTile} tile
+   * @param {FrameState} frameState
+   * @param {TerrainProvider} terrainProvider
+   * @param {VectorProvider} vectorProvider
+   * @param {ImageryLayerCollection} imageryLayerCollection
+   * @param {QuadtreePrimitive} quadtree
+   * @param {*} vertexArraysToDestroy
+   * @param {*} terrainOnly
+   */
+
+  /**
+   * @param {QuadtreeTile} tile
+   * @param {TerrainProvider} terrainProvider
+   * @param {FrameState} frameState
+   * @param {boolean} skipLoading
+   */
+
+  /**
+   * @param {Ellipsoid} ellipsoid
+   * @param {FrameState} frameState
+   */
+
+  /**
+   * @param {FrameState} frameState
+   */
+
+  /**
+   * @param {QuadtreeTile} tile
+   * @param {FrameState} frameState
+   * @param {QuadtreePrimitive} quadtree
+   */
+
+  /**
+   * @param {SceneMode} mode
+   */
+
+  /**
+   * @param {Context} context
+   * @param {TerrainMesh} mesh
+   */
+
+  /**
+   * @param {VertexArray} vertexArray
+   */
+
+  /**
+   * @param {QuadtreeTile} tile
+   */
+
+  /**
+   * @param {QuadtreeTile} tile
+   * @param {QuadtreeTile} sourceTile
+   * @param {Cartesian4} result
+   */
 }
 
 /**
@@ -807,10 +807,10 @@ function processTerrainStateMachine(
       createWaterMaskTextureIfNeeded(frameState.context, surfaceTile);
     } else {
       const sourceTile = surfaceTile._findAncestorTileWithTerrainData(tile);
-      const sourceSurfaceTile = /** @type {GlobeSurfaceTile|undefined} */ (
-        sourceTile?.data
-      );
-      if (defined(sourceTile) && defined(sourceSurfaceTile.waterMaskTexture)) {
+      if (defined(sourceTile) && defined(sourceTile.data.waterMaskTexture)) {
+        const sourceSurfaceTile = /** @type {GlobeSurfaceTile|undefined} */ (
+          sourceTile?.data
+        );
         surfaceTile.waterMaskTexture = sourceSurfaceTile.waterMaskTexture;
         ++surfaceTile.waterMaskTexture.referenceCount;
         surfaceTile._computeWaterMaskTranslationAndScale(
