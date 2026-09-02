@@ -36,7 +36,61 @@ import (
 	"github.com/juju/juju/core/semversion"
 	corestorage "github.com/juju/juju/core/storage"
 	jujuversion "github.com/juju/juju/core/version"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/bootstrap"
+	environscloudspec "github.com/juju/juju/environs/cloudspec"
+	environscmd "github.com/juju/juju/environs/cmd"
+	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/sync"
+	"github.com/juju/juju/internal/cmd"
+	"github.com/juju/juju/internal/docker"
+	"github.com/juju/juju/internal/featureflag"
+	"github.com/juju/juju/internal/naturalsort"
+	_ "github.com/juju/juju/internal/provider/all" // Import all the providers for bootstrap.
+	k8sconstants "github.com/juju/juju/internal/provider/kubernetes/constants"
+	"github.com/juju/juju/internal/provider/lxd/lxdnames"
+	"github.com/juju/juju/internal/proxy"
+	"github.com/juju/juju/internal/ssh"
+	"github.com/juju/juju/internal/storage"
+	"github.com/juju/juju/internal/uuid"
+	"github.com/juju/juju/juju"
+	"github.com/juju/juju/juju/osenv"
+)
+import (
+	"bufio"
+	"context"
+	"fmt"
+	"os"
+	"sort"
+	"strings"
+
+	jujuclock "github.com/juju/clock"
+	"github.com/juju/errors"
+	"github.com/juju/gnuflag"
+	"github.com/juju/names/v6"
+	"github.com/juju/schema"
+	"github.com/juju/utils/v4/keyvalues"
+
+	"github.com/juju/juju/caas"
+	k8s "github.com/juju/juju/caas/kubernetes"
+	jujucloud "github.com/juju/juju/cloud"
+	jujucmd "github.com/juju/juju/cmd"
+	"github.com/juju/juju/cmd/constants"
+	"github.com/juju/juju/cmd/juju/application/refresher"
+	"github.com/juju/juju/cmd/juju/common"
+	cmdcontroller "github.com/juju/juju/cmd/juju/controller"
+	cmdmodel "github.com/juju/juju/cmd/juju/model"
+	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/controller"
+	corebase "github.com/juju/juju/core/base"
+	"github.com/juju/juju/core/constraints"
+	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/semversion"
+	corestorage "github.com/juju/juju/core/storage"
+	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/domain/deployment/charm"
+	domainstorage "github.com/juju/juju/domain/storage"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
@@ -212,6 +266,69 @@ func newBootstrapCommand() cmd.Command {
 	)
 }
 
+func parseControllerCharmChannel(channelStr string) (charm.Channel, error) {
+	ch, err := charm.ParseChannel(channelStr)
+	if err != nil {
+		return charm.Channel{}, err
+	}
+
+	if ch.Track == "" {
+		ch.Track = fmt.Sprintf("%d.%d", jujuversion.Current.Major, jujuversion.Current.Minor)
+	}
+	if ch.Risk == "" {
+		ch.Risk = charm.Stable
+	}
+	return ch, nil
+}
+func checkProviderType(envType string) error {
+	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
+	flag, ok := provisionalProviders[envType]
+	if ok && !featureflag.Enabled(flag) {
+		msg := `the %q provider is provisional in this version of Juju. To use it anyway, set JUJU_DEV_FEATURE_FLAGS="%s" in your shell model`
+		return errors.Errorf(msg, envType, flag)
+	}
+	return nil
+}
+func handleBootstrapError(ctx *cmd.Context, cleanup func() error) {
+	ch := make(chan os.Signal, 1)
+	ctx.InterruptNotify(ch)
+	defer ctx.StopInterruptNotify(ch)
+	defer close(ch)
+	go func() {
+		for range ch {
+			// Newline prefix is intentional, so output appears as
+			// "^C\nCtrl-C pressed" instead of "^CCtrl-C pressed".
+			_, _ = fmt.Fprintln(ctx.GetStderr(), "\nCtrl-C pressed, cleaning up failed bootstrap")
+		}
+	}()
+	logger.Debugf(context.TODO(), "cleaning up after failed bootstrap")
+	if err := cleanup(); err != nil {
+		logger.Errorf(context.TODO(), "error cleaning up: %v", err)
+	}
+}
+
+func handleChooseCloudRegionError(ctx *cmd.Context, err error) error {
+	if !common.IsChooseCloudRegionError(err) {
+		return err
+	}
+	_, _ = fmt.Fprintf(ctx.GetStderr(),
+		"%s\n\nSpecify an alternative region, or try %q.\n",
+		err, "juju update-public-clouds",
+	)
+	return cmd.ErrSilent
+}
+
+func newInt(i int) *int {
+	return &i
+}
+
+func newStringIfNonEmpty(s string) *string {
+	if s == "" {
+		return nil
+	}
+	return &s
+}
+
 // bootstrapCommand is responsible for launching the first machine in a juju
 // environment, and setting up everything necessary to continue working.
 type bootstrapCommand struct {
@@ -248,9 +365,9 @@ type bootstrapCommand struct {
 	ControllerCharmPath       string
 	ControllerCharmChannelStr string
 	ControllerCharmChannel    charm.Channel
+	Force bool
 
 	// Force is used to allow a bootstrap to be run on unsupported series.
-	Force bool
 }
 
 func (c *bootstrapCommand) Info() *cmd.Info {
@@ -278,29 +395,6 @@ func (c *bootstrapCommand) Info() *cmd.Info {
 		usageBootstrapDetailsPartTwo)
 	return jujucmd.Info(info)
 }
-
-// ConfigCategoryKeys represents the collection of keys supported by the
-// --config option during bootstrap grouped by the domain category the keys
-// apply to within Juju.
-type ConfigCategoryKeys struct {
-	// BootstrapKeys describes the set of keys supported by --config as
-	// bootstrap only config keys.
-	BootstrapKeys map[string]common.PrintConfigSchema
-
-	// ControllerKeys describes the set of keys supported by --config as
-	// configuration items that will be applied to the controller during
-	// bootstrap.
-	ControllerKeys map[string]common.PrintConfigSchema
-
-	// ModelKeys describes the set of keys supported by --config as
-	// configuration items that will be applied to the controllers model during
-	// bootstrap.
-	ModelKeys map[string]common.PrintConfigSchema
-}
-
-// Format is responsible for returning a formatted categorised string of all
-// the --config keys supported by bootstrap. This is used directly when
-// generating help docs.
 func (c ConfigCategoryKeys) Format() string {
 	builder := strings.Builder{}
 
@@ -471,42 +565,6 @@ func (c *bootstrapCommand) Init(args []string) (err error) {
 	return nil
 }
 
-func parseControllerCharmChannel(channelStr string) (charm.Channel, error) {
-	ch, err := charm.ParseChannel(channelStr)
-	if err != nil {
-		return charm.Channel{}, err
-	}
-
-	if ch.Track == "" {
-		ch.Track = fmt.Sprintf("%d.%d", jujuversion.Current.Major, jujuversion.Current.Minor)
-	}
-	if ch.Risk == "" {
-		ch.Risk = charm.Stable
-	}
-	return ch, nil
-}
-
-// BootstrapInterface provides bootstrap functionality that Run calls to support cleaner testing.
-type BootstrapInterface interface {
-	// Bootstrap bootstraps a controller.
-	Bootstrap(ctx environs.BootstrapContext, environ environs.BootstrapEnviron,
-		args bootstrap.BootstrapParams) error
-
-	// CloudDetector returns a CloudDetector for the given provider,
-	// if the provider supports it.
-	CloudDetector(environs.EnvironProvider) (environs.CloudDetector, bool)
-
-	// CloudRegionDetector returns a CloudRegionDetector for the given provider,
-	// if the provider supports it.
-	CloudRegionDetector(environs.EnvironProvider) (environs.CloudRegionDetector, bool)
-
-	// CloudFinalizer returns a CloudFinalizer for the given provider,
-	// if the provider supports it.
-	CloudFinalizer(environs.EnvironProvider) (environs.CloudFinalizer, bool)
-}
-
-type bootstrapFuncs struct{}
-
 func (b bootstrapFuncs) Bootstrap(ctx environs.BootstrapContext, env environs.BootstrapEnviron,
 	args bootstrap.BootstrapParams) error {
 	return bootstrap.Bootstrap(ctx, env, args)
@@ -526,26 +584,6 @@ func (b bootstrapFuncs) CloudFinalizer(provider environs.EnvironProvider) (envir
 	finalizer, ok := provider.(environs.CloudFinalizer)
 	return finalizer, ok
 }
-
-var getBootstrapFuncs = func() BootstrapInterface {
-	return &bootstrapFuncs{}
-}
-
-var (
-	bootstrapPrepareController = bootstrap.PrepareController
-	environsDestroy            = environs.Destroy
-	waitForAgentInitialisation = common.WaitForAgentInitialisation
-)
-
-var ambiguousDetectedCredentialError = errors.New(`
-more than one credential detected
-run juju autoload-credentials and specify a credential using the --credential argument`[1:],
-)
-
-var ambiguousCredentialError = errors.New(`
-more than one credential is available
-specify a credential using the --credential argument`[1:],
-)
 
 func (c *bootstrapCommand) parseConstraints(ctx *cmd.Context) (err error) {
 	allAliases := map[string]string{}
@@ -572,10 +610,6 @@ func (c *bootstrapCommand) parseConstraints(ctx *cmd.Context) (err error) {
 	}
 	return nil
 }
-
-// Run connects to the environment specified on the command line and bootstraps
-// a juju in that environment if none already exists. If there is as yet no environments.yaml file,
-// the user is informed how to create one.
 func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 	var isCAASController bool
 	if err := c.parseConstraints(ctx); err != nil {
@@ -1275,14 +1309,6 @@ func (c *bootstrapCommand) validateRegion(ctx *cmd.Context, cloud *jujucloud.Clo
 	}
 	return errors.NotValidf("region %q for cloud %q", c.Region, c.Cloud)
 }
-
-type bootstrapCredentials struct {
-	credential   *jujucloud.Credential
-	name         string
-	detectedName string
-}
-
-// Get the credentials and region name.
 func (c *bootstrapCommand) credentialsAndRegionName(
 	ctx *cmd.Context,
 	provider environs.EnvironProvider,
@@ -1330,17 +1356,6 @@ func (c *bootstrapCommand) credentialsAndRegionName(
 	}
 	logger.Tracef(context.TODO(), "credential: %v", creds.credential)
 	return creds, regionName, nil
-}
-
-// bootstrapConfigs is a deconstructed representation of all of the config
-// options supplied by a user at bootstrap time into their various buckets.
-type bootstrapConfigs struct {
-	bootstrapModel           map[string]interface{}
-	controller               controller.Config
-	bootstrap                bootstrap.Config
-	inheritedControllerAttrs map[string]interface{}
-	userConfigAttrs          map[string]interface{}
-	storagePools             map[string]storage.Attrs
 }
 
 func (c *bootstrapCommand) bootstrapConfigs(
@@ -1582,9 +1597,6 @@ func (c *bootstrapCommand) bootstrapConfigs(
 	}
 	return configs, nil
 }
-
-// runInteractive queries the user about bootstrap config interactively at the
-// command prompt.
 func (c *bootstrapCommand) runInteractive(ctx *cmd.Context) error {
 	scanner := bufio.NewScanner(ctx.Stdin)
 	clouds, err := assembleClouds()
@@ -1623,54 +1635,96 @@ func (c *bootstrapCommand) runInteractive(ctx *cmd.Context) error {
 	return nil
 }
 
-// checkProviderType ensures the provider type is okay.
-func checkProviderType(envType string) error {
-	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
-	flag, ok := provisionalProviders[envType]
-	if ok && !featureflag.Enabled(flag) {
-		msg := `the %q provider is provisional in this version of Juju. To use it anyway, set JUJU_DEV_FEATURE_FLAGS="%s" in your shell model`
-		return errors.Errorf(msg, envType, flag)
-	}
-	return nil
+// ConfigCategoryKeys represents the collection of keys supported by the
+// --config option during bootstrap grouped by the domain category the keys
+// apply to within Juju.
+type ConfigCategoryKeys struct {
+	// BootstrapKeys describes the set of keys supported by --config as
+	// bootstrap only config keys.
+	BootstrapKeys map[string]common.PrintConfigSchema
+	ControllerKeys map[string]common.PrintConfigSchema
+	ModelKeys map[string]common.PrintConfigSchema
+
+	// ControllerKeys describes the set of keys supported by --config as
+	// configuration items that will be applied to the controller during
+	// bootstrap.
+
+	// ModelKeys describes the set of keys supported by --config as
+	// configuration items that will be applied to the controllers model during
+	// bootstrap.
 }
+
+// Format is responsible for returning a formatted categorised string of all
+// the --config keys supported by bootstrap. This is used directly when
+// generating help docs.
+
+// BootstrapInterface provides bootstrap functionality that Run calls to support cleaner testing.
+type BootstrapInterface interface {
+	// Bootstrap bootstraps a controller.
+	Bootstrap(ctx environs.BootstrapContext, environ environs.BootstrapEnviron,
+		args bootstrap.BootstrapParams) error
+
+	// CloudDetector returns a CloudDetector for the given provider,
+	// if the provider supports it.
+	CloudDetector(environs.EnvironProvider) (environs.CloudDetector, bool)
+
+	// CloudRegionDetector returns a CloudRegionDetector for the given provider,
+	// if the provider supports it.
+	CloudRegionDetector(environs.EnvironProvider) (environs.CloudRegionDetector, bool)
+
+	// CloudFinalizer returns a CloudFinalizer for the given provider,
+	// if the provider supports it.
+	CloudFinalizer(environs.EnvironProvider) (environs.CloudFinalizer, bool)
+}
+
+type bootstrapFuncs struct{}
+
+var getBootstrapFuncs = func() BootstrapInterface {
+	return &bootstrapFuncs{}
+}
+
+var (
+	bootstrapPrepareController = bootstrap.PrepareController
+	environsDestroy            = environs.Destroy
+	waitForAgentInitialisation = common.WaitForAgentInitialisation
+)
+
+var ambiguousDetectedCredentialError = errors.New(`
+more than one credential detected
+run juju autoload-credentials and specify a credential using the --credential argument`[1:],
+)
+
+var ambiguousCredentialError = errors.New(`
+more than one credential is available
+specify a credential using the --credential argument`[1:],
+)
+
+// Run connects to the environment specified on the command line and bootstraps
+// a juju in that environment if none already exists. If there is as yet no environments.yaml file,
+// the user is informed how to create one.
+
+type bootstrapCredentials struct {
+	credential   *jujucloud.Credential
+	name         string
+	detectedName string
+}
+
+// Get the credentials and region name.
+
+// bootstrapConfigs is a deconstructed representation of all of the config
+// options supplied by a user at bootstrap time into their various buckets.
+type bootstrapConfigs struct {
+	bootstrapModel           map[string]interface{}
+	controller               controller.Config
+	bootstrap                bootstrap.Config
+	inheritedControllerAttrs map[string]interface{}
+	userConfigAttrs          map[string]interface{}
+	storagePools             map[string]storage.Attrs
+}
+
+// runInteractive queries the user about bootstrap config interactively at the
+// command prompt.
+
+// checkProviderType ensures the provider type is okay.
 
 // handleBootstrapError is called to clean up if bootstrap fails.
-func handleBootstrapError(ctx *cmd.Context, cleanup func() error) {
-	ch := make(chan os.Signal, 1)
-	ctx.InterruptNotify(ch)
-	defer ctx.StopInterruptNotify(ch)
-	defer close(ch)
-	go func() {
-		for range ch {
-			// Newline prefix is intentional, so output appears as
-			// "^C\nCtrl-C pressed" instead of "^CCtrl-C pressed".
-			_, _ = fmt.Fprintln(ctx.GetStderr(), "\nCtrl-C pressed, cleaning up failed bootstrap")
-		}
-	}()
-	logger.Debugf(context.TODO(), "cleaning up after failed bootstrap")
-	if err := cleanup(); err != nil {
-		logger.Errorf(context.TODO(), "error cleaning up: %v", err)
-	}
-}
-
-func handleChooseCloudRegionError(ctx *cmd.Context, err error) error {
-	if !common.IsChooseCloudRegionError(err) {
-		return err
-	}
-	_, _ = fmt.Fprintf(ctx.GetStderr(),
-		"%s\n\nSpecify an alternative region, or try %q.\n",
-		err, "juju update-public-clouds",
-	)
-	return cmd.ErrSilent
-}
-
-func newInt(i int) *int {
-	return &i
-}
-
-func newStringIfNonEmpty(s string) *string {
-	if s == "" {
-		return nil
-	}
-	return &s
-}
