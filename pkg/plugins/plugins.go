@@ -7,8 +7,17 @@ import (
 	"strings"
 
 	"github.com/hashicorp/go-multierror"
-	"github.com/rs/zerolog/log"
+	"github.com/traefik/traefik/v2/pkg/log"
 	"golang.org/x/mod/module"
+)
+import (
+	"context"
+	"errors"
+	"fmt"
+	"strings"
+
+	"github.com/hashicorp/go-multierror"
+	"github.com/rs/zerolog/log"
 )
 
 const localGoPath = "./plugins-local/"
@@ -75,8 +84,6 @@ func checkRemotePluginsConfiguration(plugins map[string]Descriptor) error {
 
 	return nil
 }
-
-// SetupLocalPlugins setup local plugins environment.
 func SetupLocalPlugins(plugins map[string]LocalDescriptor) error {
 	if plugins == nil {
 		return nil
@@ -156,3 +163,5 @@ func checkLocalPluginManifest(descriptor LocalDescriptor) error {
 
 	return errs.ErrorOrNil()
 }
+
+// SetupLocalPlugins setup local plugins environment.
