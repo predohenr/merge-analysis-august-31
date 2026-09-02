@@ -233,9 +233,9 @@ class FunctionalTests(BaseTests):
     def test_unicode_arg(self):
         py = create_tmp_test(
             """
-import sys
-sys.stdout.write(sys.argv[1])
-"""
+    import sys
+    sys.stdout.write(sys.argv[1])
+    """
         )
         test = "漢字"
         p = pythons(py.name, test, _encoding="utf8")
@@ -267,22 +267,22 @@ sys.stdout.write(sys.argv[1])
     def test_trunc_exc(self):
         py = create_tmp_test(
             """
-import sys
-sys.stdout.write("a" * 1000)
-sys.stderr.write("b" * 1000)
-exit(1)
-"""
+    import sys
+    sys.stdout.write("a" * 1000)
+    sys.stderr.write("b" * 1000)
+    exit(1)
+    """
         )
         self.assertRaises(sh.ErrorReturnCode_1, python, py.name)
 
     def test_number_arg(self):
         py = create_tmp_test(
             """
-from optparse import OptionParser
-parser = OptionParser()
-options, args = parser.parse_args()
-print(args[0])
-"""
+    from optparse import OptionParser
+    parser = OptionParser()
+    options, args = parser.parse_args()
+    print(args[0])
+    """
         )
 
         out = python(py.name, 3).strip()
@@ -291,13 +291,13 @@ print(args[0])
     def test_arg_string_coercion(self):
         py = create_tmp_test(
             """
-from argparse import ArgumentParser
-parser = ArgumentParser()
-parser.add_argument("-n", type=int)
-parser.add_argument("--number", type=int)
-ns = parser.parse_args()
-print(ns.n + ns.number)
-"""
+    from argparse import ArgumentParser
+    parser = ArgumentParser()
+    parser.add_argument("-n", type=int)
+    parser.add_argument("--number", type=int)
+    ns = parser.parse_args()
+    print(ns.n + ns.number)
+    """
         )
 
         out = python(py.name, n=3, number=4, _long_sep=None).strip()
@@ -306,10 +306,10 @@ print(ns.n + ns.number)
     def test_empty_stdin_no_hang(self):
         py = create_tmp_test(
             """
-import sys
-data = sys.stdin.read()
-sys.stdout.write("no hang")
-"""
+    import sys
+    data = sys.stdin.read()
+    sys.stdout.write("no hang")
+    """
         )
         out = pythons(py.name, _in="", _timeout=2)
         self.assertEqual(out, "no hang")
@@ -322,8 +322,8 @@ sys.stdout.write("no hang")
 
         py = create_tmp_test(
             """
-exit(3)
-"""
+    exit(3)
+    """
         )
         self.assertRaises(ErrorReturnCode_3, python, py.name)
 
@@ -332,9 +332,9 @@ exit(3)
 
         py = create_tmp_test(
             """
-import sys
-print(sys.argv[1:])
-"""
+    import sys
+    print(sys.argv[1:])
+    """
         )
         files = glob("*.faowjefoajweofj")
         out = python(py.name, files).strip()
@@ -345,8 +345,8 @@ print(sys.argv[1:])
 
         py = create_tmp_test(
             """
-exit(3)
-"""
+    exit(3)
+    """
         )
 
         try:
@@ -364,8 +364,8 @@ exit(3)
 
         py = create_tmp_test(
             """
-exit(3)
-"""
+    exit(3)
+    """
         )
 
         self.assertRaises(ErrorReturnCode_3, python, py.name)
@@ -378,11 +378,11 @@ exit(3)
     def test_stdin_from_string(self):
         py = create_tmp_test(
             r"""
-import sys, re
-_, pattern, repl, _ = sys.argv[1].split("/")
-data = sys.stdin.read()
-sys.stdout.write(re.sub(pattern, repl, data))
-"""
+    import sys, re
+    _, pattern, repl, _ = sys.argv[1].split("/")
+    data = sys.stdin.read()
+    sys.stdout.write(re.sub(pattern, repl, data))
+    """
         )
         self.assertEqual(
             pythons(py.name, "s/test/two/", _in="one test three").strip(),
@@ -412,9 +412,9 @@ sys.stdout.write(re.sub(pattern, repl, data))
     def test_none_arg(self):
         py = create_tmp_test(
             """
-import sys
-print(sys.argv[1:])
-"""
+    import sys
+    print(sys.argv[1:])
+    """
         )
         maybe_arg = "some"
         out = python(py.name, maybe_arg).strip()
@@ -427,11 +427,11 @@ print(sys.argv[1:])
     def test_quote_escaping(self):
         py = create_tmp_test(
             """
-from optparse import OptionParser
-parser = OptionParser()
-options, args = parser.parse_args()
-print(args)
-"""
+    from optparse import OptionParser
+    parser = OptionParser()
+    options, args = parser.parse_args()
+    print(args)
+    """
         )
         out = python(py.name, "one two three").strip()
         self.assertEqual(out, "['one two three']")
@@ -456,25 +456,25 @@ print(args)
 
         py = create_tmp_test(
             """
-import sys
-import os
-import time
+    import sys
+    import os
+    import time
 
-for l in "andrew":
+    for l in "andrew":
     sys.stdout.write(l)
     time.sleep(.2)
-"""
+    """
         )
 
         inc_py = create_tmp_test(
             """
-import sys
-while True:
+    import sys
+    while True:
     letter = sys.stdin.read(1)
     if not letter:
         break
     sys.stdout.write(chr(ord(letter)+1))
-"""
+    """
         )
 
         def inc(*args, **kwargs):
@@ -566,27 +566,27 @@ while True:
         # we've set it
         py = create_tmp_test(
             """
-import os
+    import os
 
-for key in list(os.environ.keys()):
+    for key in list(os.environ.keys()):
     if key != "HERP":
         del os.environ[key]
-print(dict(os.environ))
-"""
+    print(dict(os.environ))
+    """
         )
         out = python(py.name, _env=env).strip()
         self.assertEqual(out, "{'HERP': 'DERP'}")
 
         py = create_tmp_test(
             """
-import os, sys
-sys.path.insert(0, os.getcwd())
-import sh
-for key in list(os.environ.keys()):
+    import os, sys
+    sys.path.insert(0, os.getcwd())
+    import sh
+    for key in list(os.environ.keys()):
     if key != "HERP":
         del os.environ[key]
-print(dict(HERP=sh.HERP))
-"""
+    print(dict(HERP=sh.HERP))
+    """
         )
         out = python(py.name, _env=env, _cwd=THIS_DIR).strip()
         self.assertEqual(out, "{'HERP': 'DERP'}")
@@ -614,8 +614,8 @@ print(dict(HERP=sh.HERP))
         which = sh._SelfWrapper__env.b_which
         py = create_tmp_test(
             """
-print("hi")
-"""
+    print("hi")
+    """
         )
         test_path = dirname(py.name)
         _, test_name = os.path.split(py.name)
@@ -642,9 +642,9 @@ print("hi")
 
         py = create_tmp_test(
             """
-import os
-print(len(os.listdir("/dev/fd")))
-"""
+    import os
+    print(len(os.listdir("/dev/fd")))
+    """
         )
         out = python(py.name, _close_fds=False).strip()
         # pick some number greater than 4, since it's hard to know exactly how many fds
@@ -670,9 +670,9 @@ print(len(os.listdir("/dev/fd")))
 
         py = create_tmp_test(
             """
-import os
-print(os.listdir("/dev/fd"))
-"""
+    import os
+    print(os.listdir("/dev/fd"))
+    """
         )
         out = python(py.name).strip()
         self.assertEqual(out, "['0', '1', '2', '3']")
@@ -697,9 +697,9 @@ print(os.listdir("/dev/fd"))
 
         py = create_tmp_test(
             """
-import os
-print(os.listdir("/dev/fd"))
-"""
+    import os
+    print(os.listdir("/dev/fd"))
+    """
         )
         out = python(py.name, _pass_fds=[last_fd]).strip()
         inherited = [0, 1, 2, 3, last_fd]
@@ -714,9 +714,9 @@ print(os.listdir("/dev/fd"))
 
         py = create_tmp_test(
             """
-import os, pwd
-print(pwd.getpwuid(os.geteuid())[0])
-"""
+    import os, pwd
+    print(pwd.getpwuid(os.geteuid())[0])
+    """
         )
         u1 = pythons(py.name).strip()
         u2 = pwd.getpwuid(os.geteuid())[0]
@@ -740,8 +740,8 @@ print(pwd.getpwuid(os.geteuid())[0])
 
         py = create_tmp_test(
             """
-exit(2)
-"""
+    exit(2)
+    """
         )
         self.assertRaises(ErrorReturnCode_2, python, py.name)
 
@@ -750,12 +750,12 @@ exit(2)
 
         py = create_tmp_test(
             """
-import sys
-sys.stdout.write("line1\\n")
-sys.stdout.write("line2\\n")
-sys.stdout.flush()
-exit(2)
-"""
+    import sys
+    sys.stdout.write("line1\\n")
+    sys.stdout.write("line2\\n")
+    sys.stdout.flush()
+    exit(2)
+    """
         )
 
         py2 = create_tmp_test("")
@@ -770,12 +770,12 @@ exit(2)
 
         py = create_tmp_test(
             """
-import sys
-sys.stdout.write("line1\\n")
-sys.stdout.write("line2\\n")
-sys.stdout.flush()
-exit(2)
-"""
+    import sys
+    sys.stdout.write("line1\\n")
+    sys.stdout.write("line2\\n")
+    sys.stdout.flush()
+    exit(2)
+    """
         )
 
         py2 = create_tmp_test("")
@@ -852,12 +852,12 @@ exit(2)
     def test_multiple_args_short_option(self):
         py = create_tmp_test(
             """
-from optparse import OptionParser
-parser = OptionParser()
-parser.add_option("-l", dest="long_option")
-options, args = parser.parse_args()
-print(len(options.long_option.split()))
-"""
+    from optparse import OptionParser
+    parser = OptionParser()
+    parser.add_option("-l", dest="long_option")
+    options, args = parser.parse_args()
+    print(len(options.long_option.split()))
+    """
         )
         num_args = int(python(py.name, l="one two three"))  # noqa: E741
         self.assertEqual(num_args, 3)
@@ -868,12 +868,12 @@ print(len(options.long_option.split()))
     def test_multiple_args_long_option(self):
         py = create_tmp_test(
             """
-from optparse import OptionParser
-parser = OptionParser()
-parser.add_option("-l", "--long-option", dest="long_option")
-options, args = parser.parse_args()
-print(len(options.long_option.split()))
-"""
+    from optparse import OptionParser
+    parser = OptionParser()
+    parser.add_option("-l", "--long-option", dest="long_option")
+    options, args = parser.parse_args()
+    print(len(options.long_option.split()))
+    """
         )
         num_args = int(python(py.name, long_option="one two three", nothing=False))
         self.assertEqual(num_args, 3)
@@ -890,12 +890,12 @@ print(len(options.long_option.split()))
     def test_short_bool_option(self):
         py = create_tmp_test(
             """
-from optparse import OptionParser
-parser = OptionParser()
-parser.add_option("-s", action="store_true", default=False, dest="short_option")
-options, args = parser.parse_args()
-print(options.short_option)
-"""
+    from optparse import OptionParser
+    parser = OptionParser()
+    parser.add_option("-s", action="store_true", default=False, dest="short_option")
+    options, args = parser.parse_args()
+    print(options.short_option)
+    """
         )
         self.assertTrue(pythons(py.name, s=True).strip() == "True")
         self.assertTrue(pythons(py.name, s=False).strip() == "False")
@@ -904,13 +904,13 @@ print(options.short_option)
     def test_long_bool_option(self):
         py = create_tmp_test(
             """
-from optparse import OptionParser
-parser = OptionParser()
-parser.add_option("-l", "--long-option", action="store_true", default=False, \
+    from optparse import OptionParser
+    parser = OptionParser()
+    parser.add_option("-l", "--long-option", action="store_true", default=False, \
     dest="long_option")
-options, args = parser.parse_args()
-print(options.long_option)
-"""
+    options, args = parser.parse_args()
+    print(options.long_option)
+    """
         )
         self.assertTrue(pythons(py.name, long_option=True).strip() == "True")
         self.assertTrue(pythons(py.name).strip() == "False")
@@ -918,9 +918,9 @@ print(options.long_option)
     def test_false_bool_ignore(self):
         py = create_tmp_test(
             """
-import sys
-print(sys.argv[1:])
-"""
+    import sys
+    print(sys.argv[1:])
+    """
         )
         test = True
         self.assertEqual(pythons(py.name, test and "-n").strip(), "['-n']")
@@ -930,15 +930,15 @@ print(sys.argv[1:])
     def test_composition(self):
         py1 = create_tmp_test(
             """
-import sys
-print(int(sys.argv[1]) * 2)
+    import sys
+    print(int(sys.argv[1]) * 2)
         """
         )
 
         py2 = create_tmp_test(
             """
-import sys
-print(int(sys.argv[1]) + 1)
+    import sys
+    print(int(sys.argv[1]) + 1)
         """
         )
 
@@ -948,15 +948,15 @@ print(int(sys.argv[1]) + 1)
     def test_incremental_composition(self):
         py1 = create_tmp_test(
             """
-import sys
-print(int(sys.argv[1]) * 2)
+    import sys
+    print(int(sys.argv[1]) * 2)
         """
         )
 
         py2 = create_tmp_test(
             """
-import sys
-print(int(sys.stdin.read()) + 1)
+    import sys
+    print(int(sys.stdin.read()) + 1)
         """
         )
 
@@ -973,12 +973,12 @@ print(int(sys.stdin.read()) + 1)
     def test_long_option(self):
         py = create_tmp_test(
             """
-from optparse import OptionParser
-parser = OptionParser()
-parser.add_option("-l", "--long-option", action="store", default="", dest="long_option")
-options, args = parser.parse_args()
-print(options.long_option.upper())
-"""
+    from optparse import OptionParser
+    parser = OptionParser()
+    parser.add_option("-l", "--long-option", action="store", default="", dest="long_option")
+    options, args = parser.parse_args()
+    print(options.long_option.upper())
+    """
         )
         self.assertTrue(python(py.name, long_option="testing").strip() == "TESTING")
         self.assertTrue(python(py.name).strip() == "")
@@ -986,19 +986,19 @@ print(options.long_option.upper())
     def test_raw_args(self):
         py = create_tmp_test(
             """
-from optparse import OptionParser
-parser = OptionParser()
-parser.add_option("--long_option", action="store", default=None,
+    from optparse import OptionParser
+    parser = OptionParser()
+    parser.add_option("--long_option", action="store", default=None,
     dest="long_option1")
-parser.add_option("--long-option", action="store", default=None,
+    parser.add_option("--long-option", action="store", default=None,
     dest="long_option2")
-options, args = parser.parse_args()
+    options, args = parser.parse_args()
 
-if options.long_option1:
+    if options.long_option1:
     print(options.long_option1.upper())
-else:
+    else:
     print(options.long_option2.upper())
-"""
+    """
         )
         self.assertEqual(
             python(py.name, {"long_option": "underscore"}).strip(), "UNDERSCORE"
@@ -1009,9 +1009,9 @@ else:
     def test_custom_separator(self):
         py = create_tmp_test(
             """
-import sys
-print(sys.argv[1])
-"""
+    import sys
+    print(sys.argv[1])
+    """
         )
 
         opt = {"long-option": "underscore"}
@@ -1029,9 +1029,9 @@ print(sys.argv[1])
     def test_custom_separator_space(self):
         py = create_tmp_test(
             """
-import sys
-print(str(sys.argv[1:]))
-"""
+    import sys
+    print(str(sys.argv[1:]))
+    """
         )
         opt = {"long-option": "space"}
         correct = ["--long-option", "space"]
@@ -1041,9 +1041,9 @@ print(str(sys.argv[1:]))
     def test_custom_long_prefix(self):
         py = create_tmp_test(
             """
-import sys
-print(sys.argv[1])
-"""
+    import sys
+    print(sys.argv[1])
+    """
         )
 
         out = python(
@@ -1068,17 +1068,17 @@ print(sys.argv[1])
     def test_command_wrapper(self):
         py_ls = create_tmp_test(
             """
-import sys, os
-for entry in os.listdir(sys.argv[1]):
+    import sys, os
+    for entry in os.listdir(sys.argv[1]):
     print(entry)
-"""
+    """
         )
         py_wc = create_tmp_test(
             """
-import sys
-count = sum(1 for _ in sys.stdin)
-print(count)
-"""
+    import sys
+    count = sum(1 for _ in sys.stdin)
+    print(count)
+    """
         )
         ls = python.bake(py_ls.name)
         wc = pythons.bake(py_wc.name)
@@ -1093,9 +1093,9 @@ print(count)
 
         py = create_tmp_test(
             """
-import time, sys
-time.sleep(float(sys.argv[1]))
-"""
+    import time, sys
+    time.sleep(float(sys.argv[1]))
+    """
         )
         start = time.time()
         sleep_time = 0.5
@@ -1118,20 +1118,20 @@ time.sleep(float(sys.argv[1]))
 
         py = create_tmp_test(
             """
-import sys
-import os
-import subprocess
+    import sys
+    import os
+    import subprocess
 
-print("with_context")
-subprocess.Popen(sys.argv[1:], shell=False).wait()
-"""
+    print("with_context")
+    subprocess.Popen(sys.argv[1:], shell=False).wait()
+    """
         )
 
         py_whoami = create_tmp_test(
             """
-import getpass
-print(getpass.getuser())
-"""
+    import getpass
+    print(getpass.getuser())
+    """
         )
 
         cmd1 = python.bake(py.name, _with=True)
@@ -1145,25 +1145,25 @@ print(getpass.getuser())
 
         py = create_tmp_test(
             """
-import sys
-import os
-import subprocess
-from optparse import OptionParser
+    import sys
+    import os
+    import subprocess
+    from optparse import OptionParser
 
-parser = OptionParser()
-parser.add_option("-o", "--opt", action="store_true", default=False, dest="opt")
-options, args = parser.parse_args()
+    parser = OptionParser()
+    parser.add_option("-o", "--opt", action="store_true", default=False, dest="opt")
+    options, args = parser.parse_args()
 
-if options.opt:
+    if options.opt:
     subprocess.Popen(args, shell=False).wait()
-"""
+    """
         )
 
         py_whoami = create_tmp_test(
             """
-import getpass
-print(getpass.getuser())
-"""
+    import getpass
+    print(getpass.getuser())
+    """
         )
 
         with python(py.name, opt=True, _with=True):
@@ -1177,9 +1177,9 @@ print(getpass.getuser())
     def test_with_context_nested(self):
         py = create_tmp_test(
             """
-import sys
-print(" ".join(sys.argv[1:]))
-"""
+    import sys
+    print(" ".join(sys.argv[1:]))
+    """
         )
         cmd = python.bake(py.name)
         with cmd.bake("test1", _with=True):
@@ -1199,14 +1199,14 @@ print(" ".join(sys.argv[1:]))
     def test_err_to_out(self):
         py = create_tmp_test(
             """
-import sys
-import os
+    import sys
+    import os
 
-sys.stdout.write("stdout")
-sys.stdout.flush()
-sys.stderr.write("stderr")
-sys.stderr.flush()
-"""
+    sys.stdout.write("stdout")
+    sys.stdout.flush()
+    sys.stderr.write("stderr")
+    sys.stderr.flush()
+    """
         )
         stdout = pythons(py.name, _err_to_out=True)
         self.assertEqual(stdout, "stdoutstderr")
@@ -1214,14 +1214,14 @@ sys.stderr.flush()
     def test_err_to_out_and_sys_stdout(self):
         py = create_tmp_test(
             """
-import sys
-import os
+    import sys
+    import os
 
-sys.stdout.write("stdout")
-sys.stdout.flush()
-sys.stderr.write("stderr")
-sys.stderr.flush()
-"""
+    sys.stdout.write("stdout")
+    sys.stdout.flush()
+    sys.stderr.write("stderr")
+    sys.stderr.flush()
+    """
         )
         master, slave = os.pipe()
         stdout = pythons(py.name, _err_to_out=True, _out=slave)
@@ -1231,20 +1231,20 @@ sys.stderr.flush()
     def test_err_piped(self):
         py = create_tmp_test(
             """
-import sys
-sys.stderr.write("stderr")
-"""
+    import sys
+    sys.stderr.write("stderr")
+    """
         )
 
         py2 = create_tmp_test(
             """
-import sys
-while True:
+    import sys
+    while True:
     line = sys.stdin.read()
     if not line:
         break
     sys.stdout.write(line)
-"""
+    """
         )
 
         out = pythons("-u", py2.name, _in=python("-u", py.name, _piped="err"))
@@ -1255,12 +1255,12 @@ while True:
 
         py = create_tmp_test(
             """
-import sys
-import os
+    import sys
+    import os
 
-sys.stdout.write("stdout")
-sys.stderr.write("stderr")
-"""
+    sys.stdout.write("stdout")
+    sys.stderr.write("stderr")
+    """
         )
 
         file_obj = tempfile.NamedTemporaryFile()
@@ -1291,12 +1291,12 @@ sys.stderr.write("stderr")
 
         py = create_tmp_test(
             """
-import sys
-import os
+    import sys
+    import os
 
-sys.stdout.write("stdout")
-sys.stderr.write("stderr")
-"""
+    sys.stdout.write("stdout")
+    sys.stderr.write("stderr")
+    """
         )
         file_obj = tempfile.NamedTemporaryFile()
         p = python("-u", py.name, _err=file_obj)
@@ -1326,12 +1326,12 @@ sys.stderr.write("stderr")
 
         py = create_tmp_test(
             """
-import sys
-import os
+    import sys
+    import os
 
-sys.stdout.write("stdout")
-sys.stderr.write("stderr")
-"""
+    sys.stdout.write("stdout")
+    sys.stderr.write("stderr")
+    """
         )
         err_file_obj = tempfile.NamedTemporaryFile()
         out_file_obj = tempfile.NamedTemporaryFile()
@@ -1353,9 +1353,9 @@ sys.stderr.write("stderr")
     def test_tty_tee(self):
         py = create_tmp_test(
             """
-import sys
-sys.stdout.write("stdout")
-"""
+    import sys
+    sys.stdout.write("stdout")
+    """
         )
         read, write = pty.openpty()
         out = python("-u", py.name, _out=write).stdout
@@ -1381,12 +1381,12 @@ sys.stdout.write("stdout")
         file_obj = tempfile.NamedTemporaryFile()
         py = create_tmp_test(
             """
-import sys
-import os
+    import sys
+    import os
 
-sys.stdout.write("stdout")
-sys.stderr.write("stderr")
-"""
+    sys.stdout.write("stdout")
+    sys.stderr.write("stderr")
+    """
         )
         stdout = pythons("-u", py.name, _err=file_obj.name)
         file_obj.seek(0)
@@ -1400,13 +1400,13 @@ sys.stderr.write("stderr")
 
         py = create_tmp_test(
             """
-import sys
-import os
-import subprocess
+    import sys
+    import os
+    import subprocess
 
-print("subcommand")
-subprocess.Popen(sys.argv[1:], shell=False).wait()
-"""
+    print("subcommand")
+    subprocess.Popen(sys.argv[1:], shell=False).wait()
+    """
         )
 
         cmd1 = python.bake(py.name)
@@ -1417,9 +1417,9 @@ subprocess.Popen(sys.argv[1:], shell=False).wait()
     def test_multiple_bakes(self):
         py = create_tmp_test(
             """
-import sys
-sys.stdout.write(str(sys.argv[1:]))
-"""
+    import sys
+    sys.stdout.write(str(sys.argv[1:]))
+    """
         )
 
         out = python.bake(py.name).bake("bake1").bake("bake2")()
@@ -1428,9 +1428,9 @@ sys.stdout.write(str(sys.argv[1:]))
     def test_arg_preprocessor(self):
         py = create_tmp_test(
             """
-import sys
-sys.stdout.write(str(sys.argv[1:]))
-"""
+    import sys
+    sys.stdout.write(str(sys.argv[1:]))
+    """
         )
 
         def arg_preprocess(args, kwargs):
@@ -1460,10 +1460,10 @@ sys.stdout.write(str(sys.argv[1:]))
     def test_stdout_pipe(self):
         py = create_tmp_test(
             r"""
-import sys
+    import sys
 
-sys.stdout.write("foobar\n")
-"""
+    sys.stdout.write("foobar\n")
+    """
         )
 
         read_fd, write_fd = os.pipe()
@@ -1485,11 +1485,11 @@ sys.stdout.write("foobar\n")
     def test_stdout_callback(self):
         py = create_tmp_test(
             """
-import sys
-import os
+    import sys
+    import os
 
-for i in range(5): print(i)
-"""
+    for i in range(5): print(i)
+    """
         )
         stdout = []
 
@@ -1506,14 +1506,14 @@ for i in range(5): print(i)
 
         py = create_tmp_test(
             """
-import sys
-import os
-import time
+    import sys
+    import os
+    import time
 
-for i in range(5):
+    for i in range(5):
     print(i)
     time.sleep(.5)
-"""
+    """
         )
 
         stdout = []
@@ -1532,11 +1532,11 @@ for i in range(5):
     def test_stdout_callback_line_buffered(self):
         py = create_tmp_test(
             """
-import sys
-import os
+    import sys
+    import os
 
-for i in range(5): print("herpderp")
-"""
+    for i in range(5): print("herpderp")
+    """
         )
 
         stdout = []
@@ -1552,11 +1552,11 @@ for i in range(5): print("herpderp")
     def test_stdout_callback_line_unbuffered(self):
         py = create_tmp_test(
             """
-import sys
-import os
+    import sys
+    import os
 
-for i in range(5): print("herpderp")
-"""
+    for i in range(5): print("herpderp")
+    """
         )
 
         stdout = []
@@ -1573,11 +1573,11 @@ for i in range(5): print("herpderp")
     def test_stdout_callback_buffered(self):
         py = create_tmp_test(
             """
-import sys
-import os
+    import sys
+    import os
 
-for i in range(5): sys.stdout.write("herpderp")
-"""
+    for i in range(5): sys.stdout.write("herpderp")
+    """
         )
 
         stdout = []
@@ -1593,13 +1593,13 @@ for i in range(5): sys.stdout.write("herpderp")
     def test_stdout_callback_with_input(self):
         py = create_tmp_test(
             """
-import sys
-import os
+    import sys
+    import os
 
-for i in range(5): print(str(i))
-derp = input("herp? ")
-print(derp)
-"""
+    for i in range(5): print(str(i))
+    derp = input("herp? ")
+    print(derp)
+    """
         )
 
         def agg(line, stdin):
@@ -1614,11 +1614,11 @@ print(derp)
     def test_stdout_callback_exit(self):
         py = create_tmp_test(
             """
-import sys
-import os
+    import sys
+    import os
 
-for i in range(5): print(i)
-"""
+    for i in range(5): print(i)
+    """
         )
 
         stdout = []
@@ -1640,14 +1640,14 @@ for i in range(5): print(i)
 
         py = create_tmp_test(
             """
-import sys
-import os
-import time
+    import sys
+    import os
+    import time
 
-for i in range(5):
+    for i in range(5):
     print(i)
     time.sleep(.5)
-"""
+    """
         )
 
         stdout = []
@@ -1678,14 +1678,14 @@ for i in range(5):
 
         py = create_tmp_test(
             """
-import sys
-import os
-import time
+    import sys
+    import os
+    import time
 
-for i in range(5):
+    for i in range(5):
     print(i)
     time.sleep(.5)
-"""
+    """
         )
 
         stdout = []
@@ -1716,24 +1716,24 @@ for i in range(5):
 
         py = create_tmp_test(
             """
-import sys
-import os
-import time
-import signal
+    import sys
+    import os
+    import time
+    import signal
 
-i = 0
-def sig_handler(sig, frame):
+    i = 0
+    def sig_handler(sig, frame):
     global i
     i = 42
 
-signal.signal(signal.SIGINT, sig_handler)
+    signal.signal(signal.SIGINT, sig_handler)
 
-for _ in range(6):
+    for _ in range(6):
     print(i)
     i += 1
     sys.stdout.flush()
     time.sleep(2)
-"""
+    """
         )
 
         stdout = []
@@ -1754,14 +1754,14 @@ for _ in range(6):
     def test_iter_generator(self):
         py = create_tmp_test(
             """
-import sys
-import os
-import time
+    import sys
+    import os
+    import time
 
-for i in range(42):
+    for i in range(42):
     print(i)
     sys.stdout.flush()
-"""
+    """
         )
 
         out = []
@@ -1773,11 +1773,11 @@ for i in range(42):
     def test_async(self):
         py = create_tmp_test(
             """
-import os
-import time
-time.sleep(0.5)
-print("hello")
-"""
+    import os
+    import time
+    time.sleep(0.5)
+    print("hello")
+    """
         )
 
         alternating = []
@@ -1813,9 +1813,9 @@ print("hello")
     def test_async_iter(self):
         py = create_tmp_test(
             """
-for i in range(5):
+    for i in range(5):
     print(i)
-"""
+    """
         )
 
         # this list will prove that our coroutines are yielding to each other as each
@@ -1846,10 +1846,10 @@ for i in range(5):
     def test_async_iter_exc(self):
         py = create_tmp_test(
             """
-for i in range(5):
+    for i in range(5):
     print(i)
-exit(34)
-"""
+    exit(34)
+    """
         )
 
         lines = []
@@ -1863,9 +1863,9 @@ exit(34)
     def test_async_return_cmd(self):
         py = create_tmp_test(
             """
-import sys
-sys.exit(0)
-"""
+    import sys
+    sys.exit(0)
+    """
         )
 
         async def main():
@@ -1879,9 +1879,9 @@ sys.exit(0)
     def test_async_return_cmd_exc(self):
         py = create_tmp_test(
             """
-import sys
-sys.exit(1)
-"""
+    import sys
+    sys.exit(1)
+    """
         )
 
         async def main():
@@ -1892,17 +1892,17 @@ sys.exit(1)
     def test_handle_both_out_and_err(self):
         py = create_tmp_test(
             """
-import sys
-import os
-import time
+    import sys
+    import os
+    import time
 
-for i in range(42):
+    for i in range(42):
     sys.stdout.write(str(i) + "\\n")
     sys.stdout.flush()
     if i % 2 == 0:
         sys.stderr.write(str(i) + "\\n")
         sys.stderr.flush()
-"""
+    """
         )
 
         out = []
@@ -1927,10 +1927,10 @@ for i in range(42):
         txt = create_tmp_test(test_string)
         py_cat = create_tmp_test(
             """
-import sys
-with open(sys.argv[1], encoding="utf-8") as f:
+    import sys
+    with open(sys.argv[1], encoding="utf-8") as f:
     sys.stdout.write(f.read())
-"""
+    """
         )
         had_line = False
         for line in python(py_cat.name, txt.name, _iter=True):
@@ -1944,11 +1944,11 @@ with open(sys.argv[1], encoding="utf-8") as f:
 
         py = create_tmp_test(
             """
-import time
-import sys
-time.sleep(1)
-sys.stdout.write("stdout")
-"""
+    import time
+    import sys
+    time.sleep(1)
+    sys.stdout.write("stdout")
+    """
         )
         count = 0
         value = None
@@ -1962,11 +1962,11 @@ sys.stdout.write("stdout")
 
         py = create_tmp_test(
             """
-import time
-import sys
-time.sleep(1)
-sys.stderr.write("stderr")
-"""
+    import time
+    import sys
+    time.sleep(1)
+    sys.stderr.write("stderr")
+    """
         )
 
         count = 0
@@ -1982,12 +1982,12 @@ sys.stderr.write("stderr")
     def test_for_generator_to_err(self):
         py = create_tmp_test(
             """
-import sys
-import os
+    import sys
+    import os
 
-for i in range(42):
+    for i in range(42):
     sys.stderr.write(str(i)+"\\n")
-"""
+    """
         )
 
         out = []
@@ -2004,17 +2004,17 @@ for i in range(42):
     def test_sigpipe(self):
         py1 = create_tmp_test(
             """
-import sys
-import os
-import time
-import signal
+    import sys
+    import os
+    import time
+    import signal
 
-# by default, python disables SIGPIPE, in favor of using IOError exceptions, so
-# let's put that back to the system default where we terminate with a signal
-# exit code
-signal.signal(signal.SIGPIPE, signal.SIG_DFL)
+    # by default, python disables SIGPIPE, in favor of using IOError exceptions, so
+    # let's put that back to the system default where we terminate with a signal
+    # exit code
+    signal.signal(signal.SIGPIPE, signal.SIG_DFL)
 
-for letter in "andrew":
+    for letter in "andrew":
     time.sleep(0.6)
     print(letter)
         """
@@ -2022,11 +2022,11 @@ for letter in "andrew":
 
         py2 = create_tmp_test(
             """
-import sys
-import os
-import time
+    import sys
+    import os
+    import time
 
-while True:
+    while True:
     line = sys.stdin.readline()
     if not line:
         break
@@ -2052,11 +2052,11 @@ while True:
 
         py1 = create_tmp_test(
             """
-import sys
-import os
-import time
+    import sys
+    import os
+    import time
 
-for letter in "andrew":
+    for letter in "andrew":
     time.sleep(0.6)
     print(letter)
         """
@@ -2064,11 +2064,11 @@ for letter in "andrew":
 
         py2 = create_tmp_test(
             """
-import sys
-import os
-import time
+    import sys
+    import os
+    import time
 
-while True:
+    while True:
     line = sys.stdin.readline()
     if not line:
         break
@@ -2096,12 +2096,12 @@ while True:
     def test_no_out_iter_err(self):
         py = create_tmp_test(
             """
-import sys
-sys.stderr.write("1\\n")
-sys.stderr.write("2\\n")
-sys.stderr.write("3\\n")
-sys.stderr.flush()
-"""
+    import sys
+    sys.stderr.write("1\\n")
+    sys.stderr.write("2\\n")
+    sys.stderr.write("3\\n")
+    sys.stderr.flush()
+    """
         )
         nums = [int(num.strip()) for num in python(py.name, _iter="err", _no_out=True)]
         assert nums == [1, 2, 3]
@@ -2109,13 +2109,13 @@ sys.stderr.flush()
     def test_generator_and_callback(self):
         py = create_tmp_test(
             """
-import sys
-import os
+    import sys
+    import os
 
-for i in range(42):
+    for i in range(42):
     sys.stderr.write(str(i * 2)+"\\n")
     print(i)
-"""
+    """
         )
 
         stderr = []
@@ -2133,11 +2133,11 @@ for i in range(42):
     def test_cast_bg(self):
         py = create_tmp_test(
             """
-import sys
-import time
-time.sleep(0.5)
-sys.stdout.write(sys.argv[1])
-"""
+    import sys
+    import time
+    time.sleep(0.5)
+    sys.stdout.write(sys.argv[1])
+    """
         )
         self.assertEqual(int(python(py.name, "123", _bg=True)), 123)
         self.assertEqual(float(python(py.name, "789", _bg=True)), 789.0)
@@ -2175,10 +2175,10 @@ sys.stdout.write(sys.argv[1])
     def test_fg_env(self):
         py = create_tmp_test(
             """
-import os
-code = int(os.environ.get("EXIT", "0"))
-exit(code)
-"""
+    import os
+    code = int(os.environ.get("EXIT", "0"))
+    exit(code)
+    """
         )
 
         env = os.environ.copy()
@@ -2212,10 +2212,10 @@ exit(code)
     def test_bg_exit_code(self):
         py = create_tmp_test(
             """
-import time
-time.sleep(1)
-exit(49)
-"""
+    import time
+    time.sleep(1)
+    exit(49)
+    """
         )
         p = python(py.name, _ok_code=49, _bg=True)
         self.assertEqual(49, p.exit_code)
@@ -2225,9 +2225,9 @@ exit(49)
 
         py = create_tmp_test(
             """
-import os
-print(os.getcwd())
-"""
+    import os
+    print(os.getcwd())
+    """
         )
         self.assertEqual(str(python(py.name, _cwd="/tmp")), realpath("/tmp") + "\n")
         self.assertEqual(str(python(py.name, _cwd="/etc")), realpath("/etc") + "\n")
@@ -2236,14 +2236,14 @@ print(os.getcwd())
         td = realpath(tempfile.mkdtemp())
         py = create_tmp_test(
             f"""
-import sh
-import os
-from os.path import realpath
-orig = realpath(os.getcwd())
-print(orig)
-sh.pwd(_cwd="{td}", _fg=True)
-print(realpath(os.getcwd()))
-"""
+    import sh
+    import os
+    from os.path import realpath
+    orig = realpath(os.getcwd())
+    print(orig)
+    sh.pwd(_cwd="{td}", _fg=True)
+    print(realpath(os.getcwd()))
+    """
         )
 
         orig, newdir, restored = python(py.name).strip().split("\n")
@@ -2263,19 +2263,19 @@ print(realpath(os.getcwd()))
     def test_tty_input(self):
         py = create_tmp_test(
             """
-import sys
-import os
+    import sys
+    import os
 
-if os.isatty(sys.stdin.fileno()):
+    if os.isatty(sys.stdin.fileno()):
     sys.stdout.write("password?\\n")
     sys.stdout.flush()
     pw = sys.stdin.readline().strip()
     sys.stdout.write("%s\\n" % ("*" * len(pw)))
     sys.stdout.flush()
-else:
+    else:
     sys.stdout.write("no tty attached!\\n")
     sys.stdout.flush()
-"""
+    """
         )
 
         test_pw = "test123"
@@ -2304,16 +2304,16 @@ else:
     def test_tty_output(self):
         py = create_tmp_test(
             """
-import sys
-import os
+    import sys
+    import os
 
-if os.isatty(sys.stdout.fileno()):
+    if os.isatty(sys.stdout.fileno()):
     sys.stdout.write("tty attached")
     sys.stdout.flush()
-else:
+    else:
     sys.stdout.write("no tty attached")
     sys.stdout.flush()
-"""
+    """
         )
 
         out = pythons(py.name, _tty_out=True)
@@ -2327,9 +2327,9 @@ else:
 
         py = create_tmp_test(
             """
-import sys
-sys.stdout.write(sys.argv[1])
-"""
+    import sys
+    sys.stdout.write(sys.argv[1])
+    """
         )
 
         out = StringIO()
@@ -2360,25 +2360,25 @@ sys.stdout.write(sys.argv[1])
     def test_change_stdout_buffering(self):
         py = create_tmp_test(
             """
-import sys
-import os
+    import sys
+    import os
 
-# this proves that we won't get the output into our callback until we send
-# a newline
-sys.stdout.write("switch ")
-sys.stdout.flush()
-sys.stdout.write("buffering\\n")
-sys.stdout.flush()
+    # this proves that we won't get the output into our callback until we send
+    # a newline
+    sys.stdout.write("switch ")
+    sys.stdout.flush()
+    sys.stdout.write("buffering\\n")
+    sys.stdout.flush()
 
-sys.stdin.read(1)
-sys.stdout.write("unbuffered")
-sys.stdout.flush()
+    sys.stdin.read(1)
+    sys.stdout.write("unbuffered")
+    sys.stdout.flush()
 
-# this is to keep the output from being flushed by the process ending, which
-# would ruin our test.  we want to make sure we get the string "unbuffered"
-# before the process ends, without writing a newline
-sys.stdin.read(1)
-"""
+    # this is to keep the output from being flushed by the process ending, which
+    # would ruin our test.  we want to make sure we get the string "unbuffered"
+    # before the process ends, without writing a newline
+    sys.stdin.read(1)
+    """
         )
 
         d = {
@@ -2411,9 +2411,9 @@ sys.stdin.read(1)
     def test_callable_interact(self):
         py = create_tmp_test(
             """
-import sys
-sys.stdout.write("line1")
-"""
+    import sys
+    sys.stdout.write("line1")
+    """
         )
 
         class Callable:
@@ -2440,9 +2440,9 @@ sys.stdout.write("line1")
 
         py_sleep = create_tmp_test(
             """
-import time, sys
-time.sleep(float(sys.argv[1]))
-"""
+    import time, sys
+    time.sleep(float(sys.argv[1]))
+    """
         )
         sleep_for = 3
         timeout = 1
@@ -2459,9 +2459,9 @@ time.sleep(float(sys.argv[1]))
     def test_timeout_overstep(self):
         py_sleep = create_tmp_test(
             """
-import time, sys
-time.sleep(float(sys.argv[1]))
-"""
+    import time, sys
+    time.sleep(float(sys.argv[1]))
+    """
         )
         started = time.time()
         python(py_sleep.name, 1, _timeout=5)
@@ -2471,9 +2471,9 @@ time.sleep(float(sys.argv[1]))
     def test_timeout_wait(self):
         py_sleep = create_tmp_test(
             """
-import time, sys
-time.sleep(float(sys.argv[1]))
-"""
+    import time, sys
+    time.sleep(float(sys.argv[1]))
+    """
         )
         p = python(py_sleep.name, 3, _bg=True)
         self.assertRaises(sh.TimeoutException, p.wait, timeout=1)
@@ -2481,9 +2481,9 @@ time.sleep(float(sys.argv[1]))
     def test_timeout_wait_overstep(self):
         py_sleep = create_tmp_test(
             """
-import time, sys
-time.sleep(float(sys.argv[1]))
-"""
+    import time, sys
+    time.sleep(float(sys.argv[1]))
+    """
         )
         p = python(py_sleep.name, 1, _bg=True)
         p.wait(timeout=5)
@@ -2491,9 +2491,9 @@ time.sleep(float(sys.argv[1]))
     def test_timeout_wait_negative(self):
         py_sleep = create_tmp_test(
             """
-import time, sys
-time.sleep(float(sys.argv[1]))
-"""
+    import time, sys
+    time.sleep(float(sys.argv[1]))
+    """
         )
         p = python(py_sleep.name, 3, _bg=True)
         self.assertRaises(RuntimeError, p.wait, timeout=-3)
@@ -2503,23 +2503,23 @@ time.sleep(float(sys.argv[1]))
 
         py1 = create_tmp_test(
             """
-import sys
-import os
+    import sys
+    import os
 
-sys.stdout = os.fdopen(sys.stdout.fileno(), "wb", 0)
-sys.stdout.write(b'\\xec;\\xedr\\xdbF')
-"""
+    sys.stdout = os.fdopen(sys.stdout.fileno(), "wb", 0)
+    sys.stdout.write(b'\\xec;\\xedr\\xdbF')
+    """
         )
 
         py2 = create_tmp_test(
             """
-import sys
-import os
+    import sys
+    import os
 
-sys.stdin = os.fdopen(sys.stdin.fileno(), "rb", 0)
-sys.stdout = os.fdopen(sys.stdout.fileno(), "wb", 0)
-sys.stdout.write(sys.stdin.read())
-"""
+    sys.stdin = os.fdopen(sys.stdin.fileno(), "rb", 0)
+    sys.stdout = os.fdopen(sys.stdout.fileno(), "wb", 0)
+    sys.stdout.write(sys.stdin.read())
+    """
         )
         out = python(py2.name, _in=python(py1.name))
         self.assertEqual(out.stdout, binary)
@@ -2531,9 +2531,9 @@ sys.stdout.write(sys.stdin.read())
 
         py = create_tmp_test(
             """
-print("andrewmoffat" * 1000)
-exit(1)
-"""
+    print("andrewmoffat" * 1000)
+    exit(1)
+    """
         )
         self.assertRaises(ErrorReturnCode_1, python, py.name)
 
@@ -2542,10 +2542,10 @@ exit(1)
         # an UnicodeDecodeError
         py = create_tmp_test(
             """
-import sys
-print(sys.argv[1], file=sys.stderr)
-sys.exit(1)
-"""
+    import sys
+    print(sys.argv[1], file=sys.stderr)
+    sys.exit(1)
+    """
         )
         test = "/á"
         self.assertRaises(sh.ErrorReturnCode, python, py.name, test, _encoding="utf8")
@@ -2553,10 +2553,10 @@ sys.exit(1)
     def test_no_out(self):
         py = create_tmp_test(
             """
-import sys
-sys.stdout.write("stdout")
-sys.stderr.write("stderr")
-"""
+    import sys
+    sys.stdout.write("stdout")
+    sys.stderr.write("stderr")
+    """
         )
         p = python(py.name, _no_out=True)
         self.assertEqual(p.stdout, b"")
@@ -2579,10 +2579,10 @@ sys.stderr.write("stderr")
     def test_tty_stdin(self):
         py = create_tmp_test(
             """
-import sys
-sys.stdout.write(sys.stdin.read())
-sys.stdout.flush()
-"""
+    import sys
+    sys.stdout.write(sys.stdin.read())
+    sys.stdout.flush()
+    """
         )
         out = pythons(py.name, _in="test\n", _tty_in=True)
         self.assertEqual("test\n", out)
@@ -2590,10 +2590,10 @@ sys.stdout.flush()
     def test_no_err(self):
         py = create_tmp_test(
             """
-import sys
-sys.stdout.write("stdout")
-sys.stderr.write("stderr")
-"""
+    import sys
+    sys.stdout.write("stdout")
+    sys.stderr.write("stderr")
+    """
         )
         p = python(py.name, _no_err=True)
         self.assertEqual(p.stderr, b"")
@@ -2636,12 +2636,12 @@ sys.stderr.write("stderr")
 
         py = create_tmp_test(
             """
-# -*- coding: utf8 -*-
-import sys
-import os
-sys.stdout = os.fdopen(sys.stdout.fileno(), 'wb')
-sys.stdout.write(bytes("te漢字st", "utf8") + "äåéë".encode("latin_1"))
-"""
+    # -*- coding: utf8 -*-
+    import sys
+    import os
+    sys.stdout = os.fdopen(sys.stdout.fileno(), 'wb')
+    sys.stdout.write(bytes("te漢字st", "utf8") + "äåéë".encode("latin_1"))
+    """
         )
         fn = partial(pythons, py.name, _encoding="ascii")
         self.assertRaises(UnicodeDecodeError, fn)
@@ -2664,9 +2664,9 @@ sys.stdout.write(bytes("te漢字st", "utf8") + "äåéë".encode("latin_1"))
         def throw_terminate_signal():
             py = create_tmp_test(
                 """
-import time
-while True: time.sleep(1)
-"""
+    import time
+    while True: time.sleep(1)
+    """
             )
             to_kill = python(py.name, _bg=True)
             to_kill.terminate()
@@ -2677,21 +2677,21 @@ while True: time.sleep(1)
     def test_signal_group(self):
         child = create_tmp_test(
             """
-import time
-time.sleep(3)
-"""
+    import time
+    time.sleep(3)
+    """
         )
 
         parent = create_tmp_test(
             """
-import sys
-import sh
-python = sh.Command(sys.executable)
-p = python("{child_file}", _bg=True, _new_session=False)
-print(p.pid)
-print(p.process.pgid)
-p.wait()
-""",
+    import sys
+    import sh
+    python = sh.Command(sys.executable)
+    p = python("{child_file}", _bg=True, _new_session=False)
+    print(p.pid)
+    print(p.process.pgid)
+    p.wait()
+    """,
             child_file=child.name,
         )
 
@@ -2819,10 +2819,10 @@ p.wait()
 
         py = create_tmp_test(
             """
-from time import time, sleep
-sleep(1)
-print(time())
-"""
+    from time import time, sleep
+    sleep(1)
+    print(time())
+    """
         )
 
         callback = Callback()
@@ -2845,13 +2845,13 @@ print(time())
 
         py = create_tmp_test(
             """
-from sh import sleep
+    from sh import sleep
 
-def done(cmd, success, exit_code):
+    def done(cmd, success, exit_code):
     print(cmd, success, exit_code)
 
-sleep('1', _done=done)
-"""
+    sleep('1', _done=done)
+    """
         )
 
         p = python(py.name, _bg=True, _timeout=2)
@@ -2879,16 +2879,16 @@ sleep('1', _done=done)
 
         py = create_tmp_test(
             """
-import os
-import time
-pid = os.getpid()
-pgid = os.getpgid(pid)
-sid = os.getsid(pid)
-stuff = [pid, pgid, sid]
+    import os
+    import time
+    pid = os.getpid()
+    pgid = os.getpgid(pid)
+    sid = os.getsid(pid)
+    stuff = [pid, pgid, sid]
 
-print(",".join([str(el) for el in stuff]))
-time.sleep(0.5)
-"""
+    print(",".join([str(el) for el in stuff]))
+    time.sleep(0.5)
+    """
         )
 
         event = Event()
@@ -2975,9 +2975,9 @@ time.sleep(0.5)
     def test_callable_stdin(self):
         py = create_tmp_test(
             """
-import sys
-sys.stdout.write(sys.stdin.read())
-"""
+    import sys
+    sys.stdout.write(sys.stdin.read())
+    """
         )
 
         def create_stdin():
@@ -3003,23 +3003,23 @@ sys.stdout.write(sys.stdin.read())
         # able to receive the data when a newline is fed in
         py = create_tmp_test(
             """
-import sys
-from time import time
+    import sys
+    from time import time
 
-started = time()
-data = sys.stdin.read(len("testing"))
-waited = time() - started
-sys.stdout.write(data + "\\n")
-sys.stdout.write(str(waited) + "\\n")
+    started = time()
+    data = sys.stdin.read(len("testing"))
+    waited = time() - started
+    sys.stdout.write(data + "\\n")
+    sys.stdout.write(str(waited) + "\\n")
 
-started = time()
-data = sys.stdin.read(len("done"))
-waited = time() - started
-sys.stdout.write(data + "\\n")
-sys.stdout.write(str(waited) + "\\n")
+    started = time()
+    data = sys.stdin.read(len("done"))
+    waited = time() - started
+    sys.stdout.write(data + "\\n")
+    sys.stdout.write(str(waited) + "\\n")
 
-sys.stdout.flush()
-"""
+    sys.stdout.flush()
+    """
         )
 
         def create_stdin():
@@ -3046,23 +3046,23 @@ sys.stdout.flush()
         # able to receive the data when a newline is fed in
         py = create_tmp_test(
             """
-import sys
-from time import time
+    import sys
+    from time import time
 
-started = time()
-data = sys.stdin.read(len("testing\\n"))
-waited = time() - started
-sys.stdout.write(data)
-sys.stdout.write(str(waited) + "\\n")
+    started = time()
+    data = sys.stdin.read(len("testing\\n"))
+    waited = time() - started
+    sys.stdout.write(data)
+    sys.stdout.write(str(waited) + "\\n")
 
-started = time()
-data = sys.stdin.read(len("done\\n"))
-waited = time() - started
-sys.stdout.write(data)
-sys.stdout.write(str(waited) + "\\n")
+    started = time()
+    data = sys.stdin.read(len("done\\n"))
+    waited = time() - started
+    sys.stdout.write(data)
+    sys.stdout.write(str(waited) + "\\n")
 
-sys.stdout.flush()
-"""
+    sys.stdout.flush()
+    """
         )
 
         # we'll feed in text incrementally, sleeping strategically before
@@ -3091,9 +3091,9 @@ sys.stdout.flush()
 
         py = create_tmp_test(
             """
-import time
-time.sleep(3)
-"""
+    import time
+    time.sleep(3)
+    """
         )
         try:
             python(py.name, _timeout=1, _timeout_signal=signal.SIGHUP)
@@ -3109,9 +3109,9 @@ time.sleep(3)
 
         py = create_tmp_test(
             """
-import time
-time.sleep(0.05)
-"""
+    import time
+    time.sleep(0.05)
+    """
         )
         # Run multiple times to increase likelihood of hitting the race condition
         for _ in range(50):
@@ -3124,10 +3124,10 @@ time.sleep(0.05)
     def test_append_stdout(self):
         py = create_tmp_test(
             """
-import sys
-num = sys.stdin.read()
-sys.stdout.write(num)
-"""
+    import sys
+    num = sys.stdin.read()
+    sys.stdout.write(num)
+    """
         )
         append_file = tempfile.NamedTemporaryFile(mode="a+b")
         python(py.name, _in="1", _out=append_file)
@@ -3139,9 +3139,9 @@ sys.stdout.write(num)
     def test_shadowed_subcommand(self):
         py = create_tmp_test(
             """
-import sys
-sys.stdout.write(sys.argv[1])
-"""
+    import sys
+    sys.stdout.write(sys.argv[1])
+    """
         )
         out = pythons.bake(py.name).bake_()
         self.assertEqual("bake", out)
@@ -3156,9 +3156,9 @@ sys.stdout.write(sys.argv[1])
 
         py = create_tmp_test(
             """
-for i in range(10):
+    for i in range(10):
     print(i)
-"""
+    """
         )
 
         output = []
@@ -3186,36 +3186,36 @@ for i in range(10):
         # child process that will write to a file if it receives a SIGHUP
         child = create_tmp_test(
             """
-import signal
-import sys
-import time
+    import signal
+    import sys
+    import time
 
-output_file = sys.argv[1]
-with open(output_file, "w") as f:
+    output_file = sys.argv[1]
+    with open(output_file, "w") as f:
     def handle_sighup(signum, frame):
         f.write("got signal %d" % signum)
         sys.exit(signum)
     signal.signal(signal.SIGHUP, handle_sighup)
     time.sleep(2)
     f.write("made it!\\n")
-"""
+    """
         )
 
         # the parent that will terminate before the child writes to the output
         # file, potentially causing a SIGHUP
         parent = create_tmp_test(
             """
-import os
-import time
-import sys
+    import os
+    import time
+    import sys
 
-child_file = sys.argv[1]
-output_file = sys.argv[2]
+    child_file = sys.argv[1]
+    output_file = sys.argv[2]
 
-python_name = os.path.basename(sys.executable)
-os.spawnlp(os.P_NOWAIT, python_name, python_name, child_file, output_file)
-time.sleep(1) # give child a chance to set up
-"""
+    python_name = os.path.basename(sys.executable)
+    os.spawnlp(os.P_NOWAIT, python_name, python_name, child_file, output_file)
+    time.sleep(1) # give child a chance to set up
+    """
         )
 
         output_file = tempfile.NamedTemporaryFile(delete=True)
@@ -3230,19 +3230,19 @@ time.sleep(1) # give child a chance to set up
 
         producer = create_tmp_test(
             """
-import sys
-for i in range(10):
+    import sys
+    for i in range(10):
     print(i)
-sys.exit(2)
-"""
+    sys.exit(2)
+    """
         )
 
         consumer = create_tmp_test(
             """
-import sys
-for line in sys.stdin:
+    import sys
+    for line in sys.stdin:
     pass
-"""
+    """
         )
 
         direct_pipe = python(producer.name, _piped=True)
@@ -3256,27 +3256,27 @@ for line in sys.stdin:
 
         producer = create_tmp_test(
             """
-import sys
-for i in range(10):
+    import sys
+    for i in range(10):
     print(i)
-sys.exit(2)
-"""
+    sys.exit(2)
+    """
         )
 
         middleman = create_tmp_test(
             """
-import sys
-for line in sys.stdin:
+    import sys
+    for line in sys.stdin:
     print("> " + line)
-"""
+    """
         )
 
         consumer = create_tmp_test(
             """
-import sys
-for line in sys.stdin:
+    import sys
+    for line in sys.stdin:
     pass
-"""
+    """
         )
 
         producer_normal_pipe = python(producer.name, _piped=True)
@@ -3291,12 +3291,12 @@ for line in sys.stdin:
         # test all bad signal are correctly raised
         py = create_tmp_test(
             """
-import time
-import sys
+    import time
+    import sys
 
-time.sleep(2)
-sys.exit(1)
-"""
+    time.sleep(2)
+    sys.exit(1)
+    """
         )
         for sig in SIGNALS_THAT_SHOULD_THROW_EXCEPTION:
             if sig == signal.SIGPIPE:
@@ -3317,12 +3317,12 @@ sys.exit(1)
         # Test if I have [-sig] in _ok_code, the exception won't be raised
         py = create_tmp_test(
             """
-import time
-import sys
+    import time
+    import sys
 
-time.sleep(2)
-sys.exit(1)
-"""
+    time.sleep(2)
+    sys.exit(1)
+    """
         )
         for sig in SIGNALS_THAT_SHOULD_THROW_EXCEPTION:
             if sig == signal.SIGPIPE:
