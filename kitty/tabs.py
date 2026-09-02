@@ -81,6 +81,29 @@ def update_tab_bar_visibility(func: Callable[Concatenate['TabManager', P], T]) -
     return cast(Callable[Concatenate['TabManager', P], T], wrapper)
 
 
+def SpecialWindow(
+    cmd: list[str] | None,
+    stdin: bytes | None = None,
+    override_title: str | None = None,
+    cwd_from: CwdRequest | None = None,
+    cwd: str | None = None,
+    overlay_for: int | None = None,
+    env: dict[str, str] | None = None,
+    watchers: Watchers | None = None,
+    overlay_behind: bool = False,
+    hold: bool = False,
+) -> SpecialWindowInstance:
+    return SpecialWindowInstance(cmd, stdin, override_title, cwd_from, cwd, overlay_for, env, watchers, overlay_behind, hold)
+
+
+def add_active_id_to_history(items: Deque[int], item_id: int, maxlen: int = 64) -> None:
+    with suppress(ValueError):
+        items.remove(item_id)
+    items.append(item_id)
+    if len(items) > maxlen:
+        items.popleft()
+
+
 class TabMouseEvent(NamedTuple):
     button: int
     modifiers: int
@@ -114,29 +137,6 @@ class SpecialWindowInstance(NamedTuple):
     watchers: Watchers | None
     overlay_behind: bool
     hold: bool
-
-
-def SpecialWindow(
-    cmd: list[str] | None,
-    stdin: bytes | None = None,
-    override_title: str | None = None,
-    cwd_from: CwdRequest | None = None,
-    cwd: str | None = None,
-    overlay_for: int | None = None,
-    env: dict[str, str] | None = None,
-    watchers: Watchers | None = None,
-    overlay_behind: bool = False,
-    hold: bool = False,
-) -> SpecialWindowInstance:
-    return SpecialWindowInstance(cmd, stdin, override_title, cwd_from, cwd, overlay_for, env, watchers, overlay_behind, hold)
-
-
-def add_active_id_to_history(items: Deque[int], item_id: int, maxlen: int = 64) -> None:
-    with suppress(ValueError):
-        items.remove(item_id)
-    items.append(item_id)
-    if len(items) > maxlen:
-        items.popleft()
 
 
 class Tab:  # {{{
