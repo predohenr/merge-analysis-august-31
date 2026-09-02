@@ -19,7 +19,6 @@ import * as FES from './strands_FES'
 import { getNodeDataFromID } from './ir_dag'
 import { StrandsNode, createStrandsNode } from './strands_node'
 import noiseGLSL from '../webgl/shaders/functions/noise3DGLSL.glsl';
-
 //////////////////////////////////////////////
 // User nodes
 //////////////////////////////////////////////
