@@ -60,8 +60,8 @@ var (
 		"builtwith",
 		"hudsonrock",
 		"digitalyama",
-		"merklemap",
 		"thc",
+		"merklemap",
 	}
 
 	expectedDefaultSources = []string{
@@ -141,10 +141,6 @@ func TestSourceCategorization(t *testing.T) {
 	assert.ElementsMatch(t, expectedDefaultRecursiveSources, recursiveSources)
 	assert.ElementsMatch(t, expectedAllSources, maps.Keys(NameSourceMap))
 }
-
-// Review: not sure if this test is necessary/useful
-// implementation is straightforward where sources are stored in maps and filtered based on options
-// the test is just checking if the filtering works as expected using count of sources
 func TestSourceFiltering(t *testing.T) {
 	someSources := []string{
 		"alienvault",
@@ -189,3 +185,7 @@ func TestSourceFiltering(t *testing.T) {
 		})
 	}
 }
+
+// Review: not sure if this test is necessary/useful
+// implementation is straightforward where sources are stored in maps and filtered based on options
+// the test is just checking if the filtering works as expected using count of sources
