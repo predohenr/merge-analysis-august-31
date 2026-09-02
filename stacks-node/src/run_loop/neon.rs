@@ -62,6 +62,24 @@ use crate::{
     run_loop, BitcoinRegtestController, BurnchainController, Config, EventDispatcher, Keychain,
 };
 
+/// Write to stderr in an async-safe manner.
+/// See signal-safety(7)
+fn async_safe_write_stderr(msg: &str) {
+    #[cfg(windows)]
+    unsafe {
+        // write(2) inexplicably has a different ABI only on Windows.
+        libc::write(
+            STDERR,
+            msg.as_ptr() as *const libc::c_void,
+            msg.len() as u32,
+        );
+    }
+    #[cfg(not(windows))]
+    unsafe {
+        libc::write(STDERR, msg.as_ptr() as *const libc::c_void, msg.len());
+    }
+}
+
 pub const STDERR: i32 = 2;
 
 #[cfg(test)]
@@ -130,12 +148,9 @@ pub struct Counters {
     pub sortitions_processed: RunLoopCounter,
 
     pub naka_submitted_vrfs: RunLoopCounter,
-    /// the number of submitted commits
     pub neon_submitted_commits: RunLoopCounter,
-    /// the burn block height when the last commit was submitted
     pub neon_submitted_commit_last_burn_height: RunLoopCounter,
     pub naka_submitted_commits: RunLoopCounter,
-    /// the burn block height when the last commit was submitted
     pub naka_submitted_commit_last_burn_height: RunLoopCounter,
     pub naka_mined_blocks: RunLoopCounter,
     pub naka_rejected_blocks: RunLoopCounter,
@@ -149,9 +164,12 @@ pub struct Counters {
 
     pub naka_miner_current_rejections: RunLoopCounter,
     pub naka_miner_current_rejections_timeout_secs: RunLoopCounter,
-
-    #[cfg(test)]
     pub naka_skip_commit_op: TestFlag<bool>,
+    /// the number of submitted commits,
+    /// the burn block height when the last commit was submitted,
+    /// the burn block height when the last commit was submitted,
+
+    #[cfg(test)],
 }
 
 impl Counters {
@@ -292,32 +310,14 @@ pub struct RunLoop {
     coordinator_channels: Option<(CoordinatorReceivers, CoordinatorChannels)>,
     should_keep_running: Arc<AtomicBool>,
     event_dispatcher: EventDispatcher,
-    pox_watchdog: Option<PoxSyncWatchdog>, // can't be instantiated until .start() is called
-    is_miner: Option<bool>,                // not known until .start() is called
-    burnchain: Option<Burnchain>,          // not known until .start() is called
+    pox_watchdog: Option<PoxSyncWatchdog>,
+    is_miner: Option<bool>,
+    burnchain: Option<Burnchain>,
     pox_watchdog_comms: PoxSyncWatchdogComms,
-    /// NOTE: this is duplicated in self.globals, but it needs to be accessible before globals is
-    /// instantiated (namely, so the test framework can access it).
     miner_status: Arc<Mutex<MinerStatus>>,
-    monitoring_thread: Option<JoinHandle<Result<(), MonitoringError>>>,
-}
-
-/// Write to stderr in an async-safe manner.
-/// See signal-safety(7)
-fn async_safe_write_stderr(msg: &str) {
-    #[cfg(windows)]
-    unsafe {
-        // write(2) inexplicably has a different ABI only on Windows.
-        libc::write(
-            STDERR,
-            msg.as_ptr() as *const libc::c_void,
-            msg.len() as u32,
-        );
-    }
-    #[cfg(not(windows))]
-    unsafe {
-        libc::write(STDERR, msg.as_ptr() as *const libc::c_void, msg.len());
-    }
+    monitoring_thread: Option<JoinHandle<Result<(), MonitoringError>>>, // can't be instantiated until .start() is called,                // not known until .start() is called,          // not known until .start() is called,
+    /// NOTE: this is duplicated in self.globals, but it needs to be accessible before globals is
+    /// instantiated (namely, so the test framework can access it).,
 }
 
 impl RunLoop {
