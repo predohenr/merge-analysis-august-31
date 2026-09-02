@@ -160,6 +160,7 @@ func PartitionsWithContext(ctx context.Context, _ bool) ([]PartitionStat, error)
 			if len(warnings.List) > maxWarningsInDrive {
 				break
 			}
+
 		}
 	}
 	return partitionStats, nil
