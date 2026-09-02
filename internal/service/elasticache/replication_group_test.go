@@ -3872,6 +3872,45 @@ func TestAccElastiCacheReplicationGroup_RemoveNodeGroups_Redis7ToValkey8_3NodeGr
 	})
 }
 
+func TestAccElastiCacheReplicationGroup_PendingNodeType_Valkey(t *testing.T) {
+	ctx := acctest.Context(t)
+	if testing.Short() {
+		t.Skip("skipping long-running test in short mode")
+	}
+
+	var rg awstypes.ReplicationGroup
+	rName := acctest.RandomWithPrefix(t, acctest.ResourcePrefix)
+	resourceName := "aws_elasticache_replication_group.test"
+
+	acctest.ParallelTest(ctx, t, resource.TestCase{
+		PreCheck:                 func() { acctest.PreCheck(ctx, t) },
+		ErrorCheck:               acctest.ErrorCheck(t, names.ElastiCacheServiceID),
+		ProtoV5ProviderFactories: acctest.ProtoV5ProviderFactories,
+		CheckDestroy:             testAccCheckReplicationGroupDestroy(ctx, t),
+		Steps: []resource.TestStep{
+			{
+				Config: testAccReplicationGroupConfig_pendingNodeType(rName, "cache.t3.small", true, "valkey"),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					testAccCheckReplicationGroupExists(ctx, t, resourceName, &rg),
+					resource.TestCheckResourceAttr(resourceName, "node_type", "cache.t3.small"),
+				),
+			},
+			{
+				Config: testAccReplicationGroupConfig_pendingNodeType(rName, "cache.t3.medium", false, "valkey"),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					testAccCheckReplicationGroupExists(ctx, t, resourceName, &rg),
+					resource.TestCheckResourceAttr(resourceName, "node_type", "cache.t3.medium"),
+				),
+			},
+			{
+				Config:             testAccReplicationGroupConfig_pendingNodeType(rName, "cache.t3.medium", false, "valkey"),
+				PlanOnly:           true,
+				ExpectNonEmptyPlan: false,
+			},
+		},
+	})
+}
+
 func TestAccElastiCacheReplicationGroup_Snapshot_ClusterModeDisabled_Redis7(t *testing.T) {
 	ctx := acctest.Context(t)
 	if testing.Short() {
@@ -4106,7 +4145,7 @@ func TestAccElastiCacheReplicationGroup_Snapshot_ClusterModeDisabled_Valkey7(t *
 	})
 }
 
-func TestAccElastiCacheReplicationGroup_Snapshot_ClusterModeEnabled_Redis7(t *testing.T) {
+func TestAccElastiCacheReplicationGroup_PendingNodeType_Redis(t *testing.T) {
 	ctx := acctest.Context(t)
 	if testing.Short() {
 		t.Skip("skipping long-running test in short mode")
@@ -4123,40 +4162,23 @@ func TestAccElastiCacheReplicationGroup_Snapshot_ClusterModeEnabled_Redis7(t *te
 		CheckDestroy:             testAccCheckReplicationGroupDestroy(ctx, t),
 		Steps: []resource.TestStep{
 			{
-				Config: testAccReplicationGroupConfig_snapshotDisabledClusterModeEnabled(rName, "redis", "7.1"),
+				Config: testAccReplicationGroupConfig_pendingNodeType(rName, "cache.t3.small", true, "redis"),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					testAccCheckReplicationGroupExists(ctx, t, resourceName, &rg),
-					resource.TestCheckResourceAttr(resourceName, names.AttrEngine, "redis"),
-					resource.TestCheckResourceAttr(resourceName, names.AttrEngineVersion, "7.1"),
-					resource.TestCheckResourceAttr(resourceName, "multi_az_enabled", acctest.CtFalse),
-					resource.TestCheckResourceAttr(resourceName, "automatic_failover_enabled", acctest.CtTrue),
-					resource.TestCheckResourceAttr(resourceName, "num_node_groups", "2"),
-					resource.TestCheckResourceAttr(resourceName, "cluster_enabled", acctest.CtTrue),
-					resource.TestCheckResourceAttr(resourceName, "at_rest_encryption_enabled", acctest.CtFalse),
-					resource.TestCheckResourceAttr(resourceName, "transit_encryption_enabled", acctest.CtFalse),
-					resource.TestCheckResourceAttr(resourceName, "snapshot_retention_limit", "0"),
+					resource.TestCheckResourceAttr(resourceName, "node_type", "cache.t3.small"),
 				),
 			},
 			{
-				ResourceName:            resourceName,
-				ImportState:             true,
-				ImportStateVerify:       true,
-				ImportStateVerifyIgnore: []string{names.AttrApplyImmediately, "auth_token_update_strategy"},
-			},
-			{
-				Config: testAccReplicationGroupConfig_snapshotEnabledClusterModeEnabled(rName, "redis", "7.1"),
+				Config: testAccReplicationGroupConfig_pendingNodeType(rName, "cache.t3.medium", false, "redis"),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					testAccCheckReplicationGroupExists(ctx, t, resourceName, &rg),
-					resource.TestCheckResourceAttr(resourceName, names.AttrEngine, "redis"),
-					resource.TestCheckResourceAttr(resourceName, names.AttrEngineVersion, "7.1"),
-					resource.TestCheckResourceAttr(resourceName, "multi_az_enabled", acctest.CtFalse),
-					resource.TestCheckResourceAttr(resourceName, "automatic_failover_enabled", acctest.CtTrue),
-					resource.TestCheckResourceAttr(resourceName, "num_node_groups", "2"),
-					resource.TestCheckResourceAttr(resourceName, "cluster_enabled", acctest.CtTrue),
-					resource.TestCheckResourceAttr(resourceName, "at_rest_encryption_enabled", acctest.CtFalse),
-					resource.TestCheckResourceAttr(resourceName, "transit_encryption_enabled", acctest.CtFalse),
-					resource.TestCheckResourceAttr(resourceName, "snapshot_retention_limit", "10"),
+					resource.TestCheckResourceAttr(resourceName, "node_type", "cache.t3.medium"),
 				),
+			},
+			{
+				Config:             testAccReplicationGroupConfig_pendingNodeType(rName, "cache.t3.medium", false, "redis"),
+				PlanOnly:           true,
+				ExpectNonEmptyPlan: false,
 			},
 		},
 	})
@@ -4218,7 +4240,7 @@ func TestAccElastiCacheReplicationGroup_Snapshot_ClusterModeEnabled_Valkey7(t *t
 	})
 }
 
-func TestAccElastiCacheReplicationGroup_PendingNodeType_Redis(t *testing.T) {
+func TestAccElastiCacheReplicationGroup_Snapshot_ClusterModeEnabled_Redis7(t *testing.T) {
 	ctx := acctest.Context(t)
 	if testing.Short() {
 		t.Skip("skipping long-running test in short mode")
@@ -4235,62 +4257,40 @@ func TestAccElastiCacheReplicationGroup_PendingNodeType_Redis(t *testing.T) {
 		CheckDestroy:             testAccCheckReplicationGroupDestroy(ctx, t),
 		Steps: []resource.TestStep{
 			{
-				Config: testAccReplicationGroupConfig_pendingNodeType(rName, "cache.t3.small", true, "redis"),
+				Config: testAccReplicationGroupConfig_snapshotDisabledClusterModeEnabled(rName, "redis", "7.1"),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					testAccCheckReplicationGroupExists(ctx, t, resourceName, &rg),
-					resource.TestCheckResourceAttr(resourceName, "node_type", "cache.t3.small"),
+					resource.TestCheckResourceAttr(resourceName, names.AttrEngine, "redis"),
+					resource.TestCheckResourceAttr(resourceName, names.AttrEngineVersion, "7.1"),
+					resource.TestCheckResourceAttr(resourceName, "multi_az_enabled", acctest.CtFalse),
+					resource.TestCheckResourceAttr(resourceName, "automatic_failover_enabled", acctest.CtTrue),
+					resource.TestCheckResourceAttr(resourceName, "num_node_groups", "2"),
+					resource.TestCheckResourceAttr(resourceName, "cluster_enabled", acctest.CtTrue),
+					resource.TestCheckResourceAttr(resourceName, "at_rest_encryption_enabled", acctest.CtFalse),
+					resource.TestCheckResourceAttr(resourceName, "transit_encryption_enabled", acctest.CtFalse),
+					resource.TestCheckResourceAttr(resourceName, "snapshot_retention_limit", "0"),
 				),
 			},
 			{
-				Config: testAccReplicationGroupConfig_pendingNodeType(rName, "cache.t3.medium", false, "redis"),
+				ResourceName:            resourceName,
+				ImportState:             true,
+				ImportStateVerify:       true,
+				ImportStateVerifyIgnore: []string{names.AttrApplyImmediately, "auth_token_update_strategy"},
+			},
+			{
+				Config: testAccReplicationGroupConfig_snapshotEnabledClusterModeEnabled(rName, "redis", "7.1"),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					testAccCheckReplicationGroupExists(ctx, t, resourceName, &rg),
-					resource.TestCheckResourceAttr(resourceName, "node_type", "cache.t3.medium"),
+					resource.TestCheckResourceAttr(resourceName, names.AttrEngine, "redis"),
+					resource.TestCheckResourceAttr(resourceName, names.AttrEngineVersion, "7.1"),
+					resource.TestCheckResourceAttr(resourceName, "multi_az_enabled", acctest.CtFalse),
+					resource.TestCheckResourceAttr(resourceName, "automatic_failover_enabled", acctest.CtTrue),
+					resource.TestCheckResourceAttr(resourceName, "num_node_groups", "2"),
+					resource.TestCheckResourceAttr(resourceName, "cluster_enabled", acctest.CtTrue),
+					resource.TestCheckResourceAttr(resourceName, "at_rest_encryption_enabled", acctest.CtFalse),
+					resource.TestCheckResourceAttr(resourceName, "transit_encryption_enabled", acctest.CtFalse),
+					resource.TestCheckResourceAttr(resourceName, "snapshot_retention_limit", "10"),
 				),
-			},
-			{
-				Config:             testAccReplicationGroupConfig_pendingNodeType(rName, "cache.t3.medium", false, "redis"),
-				PlanOnly:           true,
-				ExpectNonEmptyPlan: false,
-			},
-		},
-	})
-}
-
-func TestAccElastiCacheReplicationGroup_PendingNodeType_Valkey(t *testing.T) {
-	ctx := acctest.Context(t)
-	if testing.Short() {
-		t.Skip("skipping long-running test in short mode")
-	}
-
-	var rg awstypes.ReplicationGroup
-	rName := acctest.RandomWithPrefix(t, acctest.ResourcePrefix)
-	resourceName := "aws_elasticache_replication_group.test"
-
-	acctest.ParallelTest(ctx, t, resource.TestCase{
-		PreCheck:                 func() { acctest.PreCheck(ctx, t) },
-		ErrorCheck:               acctest.ErrorCheck(t, names.ElastiCacheServiceID),
-		ProtoV5ProviderFactories: acctest.ProtoV5ProviderFactories,
-		CheckDestroy:             testAccCheckReplicationGroupDestroy(ctx, t),
-		Steps: []resource.TestStep{
-			{
-				Config: testAccReplicationGroupConfig_pendingNodeType(rName, "cache.t3.small", true, "valkey"),
-				Check: resource.ComposeAggregateTestCheckFunc(
-					testAccCheckReplicationGroupExists(ctx, t, resourceName, &rg),
-					resource.TestCheckResourceAttr(resourceName, "node_type", "cache.t3.small"),
-				),
-			},
-			{
-				Config: testAccReplicationGroupConfig_pendingNodeType(rName, "cache.t3.medium", false, "valkey"),
-				Check: resource.ComposeAggregateTestCheckFunc(
-					testAccCheckReplicationGroupExists(ctx, t, resourceName, &rg),
-					resource.TestCheckResourceAttr(resourceName, "node_type", "cache.t3.medium"),
-				),
-			},
-			{
-				Config:             testAccReplicationGroupConfig_pendingNodeType(rName, "cache.t3.medium", false, "valkey"),
-				PlanOnly:           true,
-				ExpectNonEmptyPlan: false,
 			},
 		},
 	})
