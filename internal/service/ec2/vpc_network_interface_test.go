@@ -442,18 +442,18 @@ func TestAccVPCNetworkInterface_enaSrdSpecification(t *testing.T) {
 	ctx := acctest.Context(t)
 	var conf awstypes.NetworkInterface
 	resourceName := "aws_network_interface.test"
-	rName := acctest.RandomWithPrefix(t, acctest.ResourcePrefix)
+	rName := sdkacctest.RandomWithPrefix(acctest.ResourcePrefix)
 
 	resource.ParallelTest(t, resource.TestCase{
 		PreCheck:                 func() { acctest.PreCheck(ctx, t) },
 		ErrorCheck:               acctest.ErrorCheck(t, names.EC2ServiceID),
 		ProtoV5ProviderFactories: acctest.ProtoV5ProviderFactories,
-		CheckDestroy:             testAccCheckENIDestroy(ctx, t),
+		CheckDestroy:             testAccCheckENIDestroy(ctx),
 		Steps: []resource.TestStep{
 			{
 				Config: testAccVPCNetworkInterfaceConfig_enaSrdSpecification(rName, true, false),
 				Check: resource.ComposeTestCheckFunc(
-					testAccCheckENIExists(ctx, t, resourceName, &conf),
+					testAccCheckENIExists(ctx, resourceName, &conf),
 					resource.TestCheckResourceAttr(resourceName, "ena_srd_specification.#", "1"),
 					resource.TestCheckResourceAttr(resourceName, "ena_srd_specification.0.ena_srd_enabled", acctest.CtTrue),
 				),
@@ -461,7 +461,7 @@ func TestAccVPCNetworkInterface_enaSrdSpecification(t *testing.T) {
 			{
 				Config: testAccVPCNetworkInterfaceConfig_enaSrdSpecification(rName, true, true),
 				Check: resource.ComposeTestCheckFunc(
-					testAccCheckENIExists(ctx, t, resourceName, &conf),
+					testAccCheckENIExists(ctx, resourceName, &conf),
 					resource.TestCheckResourceAttr(resourceName, "ena_srd_specification.#", "1"),
 					resource.TestCheckResourceAttr(resourceName, "ena_srd_specification.0.ena_srd_enabled", acctest.CtTrue),
 					resource.TestCheckResourceAttr(resourceName, "ena_srd_specification.0.ena_srd_udp_specification.#", "1"),
@@ -471,14 +471,14 @@ func TestAccVPCNetworkInterface_enaSrdSpecification(t *testing.T) {
 			{
 				Config: testAccVPCNetworkInterfaceConfig_enaSrdSpecificationDisabled(rName),
 				Check: resource.ComposeTestCheckFunc(
-					testAccCheckENIExists(ctx, t, resourceName, &conf),
+					testAccCheckENIExists(ctx, resourceName, &conf),
 					resource.TestCheckResourceAttr(resourceName, "ena_srd_specification.#", "0"),
 				),
 			},
 			{
 				Config: testAccVPCNetworkInterfaceConfig_enaSrdSpecification(rName, true, false),
 				Check: resource.ComposeTestCheckFunc(
-					testAccCheckENIExists(ctx, t, resourceName, &conf),
+					testAccCheckENIExists(ctx, resourceName, &conf),
 					resource.TestCheckResourceAttr(resourceName, "ena_srd_specification.#", "1"),
 					resource.TestCheckResourceAttr(resourceName, "ena_srd_specification.0.ena_srd_enabled", acctest.CtTrue),
 				),
