@@ -313,12 +313,6 @@ def _parseContentType(line: bytes) -> bytes:
     return encodedKey
 
 
-class _MultiPartParseException(Exception):
-    """
-    Failed to parse the multipart/form-data payload.
-    """
-
-
 def _getMultiPartArgs(content: bytes, ctype: bytes) -> dict[bytes, list[bytes]]:
     """
     Parse the content of a multipart/form-data request.
@@ -565,6 +559,98 @@ def parseContentRange(header):
     else:
         realLength = int(realLength)
     return (start, end, realLength)
+
+
+def _getContentFile(length):
+    """
+    Get a writeable file-like object to which request content can be written.
+    """
+    if length is not None and length < 100000:
+        return BytesIO()
+    return tempfile.TemporaryFile()
+
+
+def _escape(s):
+    """
+    Return a string like python repr, but always escaped as if surrounding
+    quotes were double quotes.
+
+    @param s: The string to escape.
+    @type s: L{bytes} or L{str}
+
+    @return: An escaped string.
+    @rtype: L{str}
+    """
+    if not isinstance(s, bytes):
+        s = s.encode("ascii")
+
+    r = repr(s)
+    if not isinstance(r, str):
+        r = r.decode("ascii")
+    if r.startswith("b"):
+        r = r[1:]
+    if r.startswith("'"):
+        return r[1:-1].replace('"', '\\"').replace("\\'", "'")
+    return r[1:-1]
+
+
+@provider(IAccessLogFormatter)
+def combinedLogFormatter(timestamp, request):
+    """
+    @return: A combined log formatted log line for the given request.
+
+    @see: L{IAccessLogFormatter}
+    """
+    clientAddr = request.getClientAddress()
+    if isinstance(
+        clientAddr, (address.IPv4Address, address.IPv6Address, _XForwardedForAddress)
+    ):
+        ip = clientAddr.host
+    else:
+        ip = b"-"
+    referrer = _escape(request.getHeader(b"referer") or b"-")
+    agent = _escape(request.getHeader(b"user-agent") or b"-")
+    line = (
+        '"%(ip)s" - - %(timestamp)s "%(method)s %(uri)s %(protocol)s" '
+        '%(code)d %(length)s "%(referrer)s" "%(agent)s"'
+        % dict(
+            ip=_escape(ip),
+            timestamp=timestamp,
+            method=_escape(request.method),
+            uri=_escape(request.uri),
+            protocol=_escape(request.clientproto),
+            code=request.code,
+            length=request.sentLength or "-",
+            referrer=referrer,
+            agent=agent,
+        )
+    )
+    return line
+
+
+@provider(IAccessLogFormatter)
+def proxiedLogFormatter(timestamp, request):
+    """
+    @return: A combined log formatted log line for the given request but use
+        the value of the I{X-Forwarded-For} header as the value for the client
+        IP address.
+
+    @see: L{IAccessLogFormatter}
+    """
+    return combinedLogFormatter(timestamp, _XForwardedForRequest(request))
+
+
+def _genericHTTPChannelProtocolFactory(self):
+    """
+    Returns an appropriately initialized _GenericHTTPChannelProtocol.
+    """
+    return _GenericHTTPChannelProtocol(HTTPChannel())
+
+
+class _MultiPartParseException(Exception):
+    """
+    Failed to parse the multipart/form-data payload.
+    """
 
 
 class _IDeprecatedHTTPChannelToRequestInterface(Interface):
@@ -840,15 +926,6 @@ NO_BODY_CODES = (204, 304)
 
 # Sentinel object that detects people explicitly passing `queued` to Request.
 _QUEUED_SENTINEL = object()
-
-
-def _getContentFile(length):
-    """
-    Get a writeable file-like object to which request content can be written.
-    """
-    if length is not None and length < 100000:
-        return BytesIO()
-    return tempfile.TemporaryFile()
 
 
 _hostHeaderExpression = re.compile(rb"^\[?(?P<host>.*?)\]?(:\d+)?$")
@@ -2950,64 +3027,6 @@ class HTTPChannel(basic.LineReceiver, policies.TimeoutMixin):
         self.loseConnection()
 
 
-def _escape(s):
-    """
-    Return a string like python repr, but always escaped as if surrounding
-    quotes were double quotes.
-
-    @param s: The string to escape.
-    @type s: L{bytes} or L{str}
-
-    @return: An escaped string.
-    @rtype: L{str}
-    """
-    if not isinstance(s, bytes):
-        s = s.encode("ascii")
-
-    r = repr(s)
-    if not isinstance(r, str):
-        r = r.decode("ascii")
-    if r.startswith("b"):
-        r = r[1:]
-    if r.startswith("'"):
-        return r[1:-1].replace('"', '\\"').replace("\\'", "'")
-    return r[1:-1]
-
-
-@provider(IAccessLogFormatter)
-def combinedLogFormatter(timestamp, request):
-    """
-    @return: A combined log formatted log line for the given request.
-
-    @see: L{IAccessLogFormatter}
-    """
-    clientAddr = request.getClientAddress()
-    if isinstance(
-        clientAddr, (address.IPv4Address, address.IPv6Address, _XForwardedForAddress)
-    ):
-        ip = clientAddr.host
-    else:
-        ip = b"-"
-    referrer = _escape(request.getHeader(b"referer") or b"-")
-    agent = _escape(request.getHeader(b"user-agent") or b"-")
-    line = (
-        '"%(ip)s" - - %(timestamp)s "%(method)s %(uri)s %(protocol)s" '
-        '%(code)d %(length)s "%(referrer)s" "%(agent)s"'
-        % dict(
-            ip=_escape(ip),
-            timestamp=timestamp,
-            method=_escape(request.method),
-            uri=_escape(request.uri),
-            protocol=_escape(request.clientproto),
-            code=request.code,
-            length=request.sentLength or "-",
-            referrer=referrer,
-            agent=agent,
-        )
-    )
-    return line
-
-
 @implementer(interfaces.IAddress)
 class _XForwardedForAddress:
     """
@@ -3045,8 +3064,6 @@ class _XForwardedForRequest(proxyForInterface(IRequest, "_request")):  # type: i
             .strip()
         )
         return _XForwardedForAddress(host)
-
-    # These are missing from the interface.  Forward them manually.
     @property
     def clientproto(self):
         """
@@ -3071,17 +3088,7 @@ class _XForwardedForRequest(proxyForInterface(IRequest, "_request")):  # type: i
         """
         return self._request.sentLength
 
-
-@provider(IAccessLogFormatter)
-def proxiedLogFormatter(timestamp, request):
-    """
-    @return: A combined log formatted log line for the given request but use
-        the value of the I{X-Forwarded-For} header as the value for the client
-        IP address.
-
-    @see: L{IAccessLogFormatter}
-    """
-    return combinedLogFormatter(timestamp, _XForwardedForRequest(request))
+    # These are missing from the interface.  Forward them manually.
 
 
 class _GenericHTTPChannelProtocol(proxyForInterface(IProtocol, "_channel")):  # type: ignore[misc]
@@ -3273,13 +3280,6 @@ class _GenericHTTPChannelProtocol(proxyForInterface(IProtocol, "_channel")):  # 
         return self._channel.dataReceived(data)
 
 
-def _genericHTTPChannelProtocolFactory(self):
-    """
-    Returns an appropriately initialized _GenericHTTPChannelProtocol.
-    """
-    return _GenericHTTPChannelProtocol(HTTPChannel())
-
-
 class _MinimalLogFile(TypingProtocol):
     def write(self, data: str, /) -> object:
         """
@@ -3370,18 +3370,6 @@ class HTTPFactory(protocol.ServerFactory):
         self._logDateTime: str | None = None
         self._logDateTimeCall: IDelayedCall | None = None
 
-    logFile = property()
-    """
-    A file (object with C{write(data: str)} and C{close()} methods) that will
-    be used for logging HTTP requests and responses in the standard U{Combined
-    Log Format <https://en.wikipedia.org/wiki/Common_Log_Format>} .
-
-    @note: for backwards compatibility purposes, this may be I{set} to an
-        object with a C{write(data: bytes)} method, but these will be detected
-        (by checking if it's an instance of L{BufferedIOBase}) and replaced
-        with a L{TextIOWrapper} when retrieved by getting the attribute again.
-    """
-
     @logFile.getter
     def _get_logFile(self) -> _MinimalLogFile:
         if self._logFile is None:
@@ -3398,8 +3386,6 @@ class HTTPFactory(protocol.ServerFactory):
                 newline="\n",
             )
         self._logFile = newLogFile
-
-    logFile = _set_logFile
 
     def _updateLogDateTime(self) -> None:
         """
@@ -3458,3 +3444,17 @@ class HTTPFactory(protocol.ServerFactory):
         if logFile is not None:
             line = self._logFormatter(self._logDateTime, request) + "\n"
             logFile.write(line)
+
+    logFile = property()
+    """
+    A file (object with C{write(data: str)} and C{close()} methods) that will
+    be used for logging HTTP requests and responses in the standard U{Combined
+    Log Format <https://en.wikipedia.org/wiki/Common_Log_Format>} .
+
+    @note: for backwards compatibility purposes, this may be I{set} to an
+        object with a C{write(data: bytes)} method, but these will be detected
+        (by checking if it's an instance of L{BufferedIOBase}) and replaced
+        with a L{TextIOWrapper} when retrieved by getting the attribute again.
+    """
+
+    logFile = _set_logFile
