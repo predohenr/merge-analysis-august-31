@@ -184,6 +184,10 @@ func (r *gatewayResource) Schema(ctx context.Context, request resource.SchemaReq
 						names.AttrARN: schema.StringAttribute{
 							CustomType: fwtypes.ARNType,
 							Required:   true,
+							Validators: []validator.String{
+								stringvalidator.LengthBetween(1, 170),
+								stringvalidator.RegexMatches(regexache.MustCompile(`^arn:aws:bedrock-agentcore:[a-z0-9-]+:[0-9]{12}:policy-engine\/[a-zA-Z][a-zA-Z0-9-_]{0,99}-[a-zA-Z0-9_]{10}$`), ""),
+							},
 						},
 						names.AttrMode: schema.StringAttribute{
 							CustomType: fwtypes.StringEnumType[awstypes.GatewayPolicyEngineMode](),
