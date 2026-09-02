@@ -469,7 +469,6 @@ func resourceReplicationGroup() *schema.Resource {
 		},
 
 		CustomizeDiff: customdiff.All(
-			suppressDiffIfBelongsToGlobalReplicationGroup,
 			replicationGroupValidateMultiAZAutomaticFailover,
 			customizeDiffEngineVersionForceNewOnDowngrade,
 			authTokenUpdateStrategyValidate,
@@ -508,6 +507,7 @@ func resourceReplicationGroup() *schema.Resource {
 				return semver.LessThan(d.Get("engine_version_actual").(string), "7.0.5")
 			}),
 			replicationGroupValidateAutomaticFailoverNumCacheClusters,
+			suppressDiffIfBelongsToGlobalReplicationGroup,
 		),
 	}
 }
@@ -1639,15 +1639,15 @@ func authTokenUpdateStrategyValidate(_ context.Context, diff *schema.ResourceDif
 }
 
 func suppressDiffIfBelongsToGlobalReplicationGroup(_ context.Context, diff *schema.ResourceDiff, v any) error {
-	val, ok := diff.GetOk("global_replication_group_id")
-	belongs := ok && val.(string) != ""
+	v, ok := diff.GetOk("global_replication_group_id")
+	belongs := ok && v.(string) != ""
 
 	if belongs {
 		for _, attr := range []string{names.AttrEngine, names.AttrEngineVersion, names.AttrParameterGroupName} {
 			if diff.HasChange(attr) {
 				old, _ := diff.GetChange(attr)
 				if err := diff.SetNew(attr, old); err != nil {
-					return fmt.Errorf("unable to set %q: %w", attr, err)
+					return fmt.Errorf(`unable to set %q`, attr)
 				}
 			}
 		}
