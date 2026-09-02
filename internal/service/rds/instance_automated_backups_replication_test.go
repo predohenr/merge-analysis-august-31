@@ -176,11 +176,11 @@ func TestAccRDSInstanceAutomatedBackupsReplication_withFinalSnapshot(t *testing.
 		t.Skip("skipping long-running test in short mode")
 	}
 
-	rName := acctest.RandomWithPrefix(t, acctest.ResourcePrefix)
-	resourceName := "aws_db_instance_automated_backups_replication.test"
+	rName := sdkacctest.RandomWithPrefix(acctest.ResourcePrefix)
+	replicationResourceName := "aws_db_instance_automated_backups_replication.test"
 	instanceResourceName := "aws_db_instance.test"
 
-	acctest.ParallelTest(ctx, t, resource.TestCase{
+	resource.ParallelTest(t, resource.TestCase{
 		PreCheck: func() {
 			acctest.PreCheck(ctx, t)
 			acctest.PreCheckMultipleRegion(t, 2)
@@ -190,13 +190,13 @@ func TestAccRDSInstanceAutomatedBackupsReplication_withFinalSnapshot(t *testing.
 		TerraformVersionChecks: []tfversion.TerraformVersionCheck{
 			tfversion.SkipBelow(tfversion.Version1_11_0),
 		},
-		CheckDestroy: testAccCheckInstanceAutomatedBackupsReplicationDestroy(ctx, t),
+		CheckDestroy: testAccCheckInstanceAutomatedBackupsReplicationDestroy(ctx),
 		Steps: []resource.TestStep{
 			{
 				Config: testAccInstanceAutomatedBackupsReplicationConfig_withFinalSnapshot(rName),
 				Check: resource.ComposeTestCheckFunc(
-					testAccCheckInstanceAutomatedBackupsReplicationExist(ctx, t, resourceName),
-					resource.TestCheckResourceAttr(resourceName, names.AttrRetentionPeriod, "7"),
+					testAccCheckInstanceAutomatedBackupsReplicationExist(ctx, replicationResourceName),
+					resource.TestCheckResourceAttr(replicationResourceName, names.AttrRetentionPeriod, "7"),
 					resource.TestCheckResourceAttr(instanceResourceName, "skip_final_snapshot", "false"),
 					resource.TestCheckResourceAttr(instanceResourceName, names.AttrFinalSnapshotIdentifier, rName),
 				),
