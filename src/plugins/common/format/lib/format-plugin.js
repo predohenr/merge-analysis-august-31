@@ -712,33 +712,96 @@ define('format/format-plugin', [
 	 */
 	var plugin = {
 
-		// These are old/deprecated nodes and will be converted to the modern equivalent
-		conversionNames: {
-			'strong': 'b',
-			'em': 'i',
+		makeTextLevelButton: function (nodeType, settings) {
+			var name = settings.name || nodeType;
+			var component = Ui.adopt(name, ToggleButton, {
+				tooltip: settings.label,
+				icon: settings.icon,
+				pure: true,
+				click: function () {
+					return textLevelButtonClickHandler(nodeType, name);
+				}
+			});
+
+			return component;
 		},
-
-		headerNodeNames: ['h1', 'h2', 'h3', 'h4', 'h5', 'h6'],
-
-		/**
-		 * General button configuration for the plugin
-		 */
-		buttonConfig: structuredClone(DEFAULT_BUTTON_CONFIG),
 
 		/**
 		 * Array of which buttons are available/visible/enabled for the user
-		 */
-		config: Object.keys(DEFAULT_BUTTON_CONFIG).concat(REMOVE_FORMAT_ID),
+		 */,
+
+		buttonConfig: structuredClone(DEFAULT_BUTTON_CONFIG),
+
+		activeTypography: null,
 
 		/**
-		 * Map for the currently created/managed buttons
-		 * @type {Object<string, { markup: string, handle: ToggleButton }>}
-		 */
-		buttons: {},
+		 * initialize the buttons and register them on floating menu
+		 * @param event event object
+		 * @param editable current editable object
+		 */,
+
+		_createTypographyContext: function () {
+			var latestOptions = (plugin.typographyOptions || []).map(function (nodeName) {
+				var settings = plugin.buttonConfig[nodeName];
+
+				// If there's no settings, we have to ignore it
+				if (!settings) {
+					return null;
+				}
+
+				// Only check for typography buttons
+				if (!settings.typography) {
+					return null;
+				}
+
+				var out = {
+					id: nodeName,
+					label: settings.label,
+					icon: settings.icon,
+				};
+
+				return out;
+			}).filter(function (option) {
+				return option != null;
+			});
+
+			// In case there's only one option, and we already have it selected,
+			// then we can skip opening the context all together, as the user can't
+			// change it to something else anyways.
+			if (latestOptions.length === 1 && latestOptions[0].id === plugin.activeTypography) {
+				return null;
+			}
+
+			return {
+				type: 'select-menu',
+				options: {
+					iconsOnly: false,
+					options: latestOptions,
+				},
+				initialValue: plugin.activeTypography,
+			};
+		},
+
+		/**
+		 * 
+		 * @param {FormattingOption} settings
+		 */,
+
+		/**
+		 * Removes all formatting from the current selection.
+		 * And deconstructs lists via unformatList method.
+		 */,
+
+		/**
+		 * Initialize the plugin and set initialize flag on true
+		 */,
+
+		typographyButton: null,
 
 		/**
 		 * HotKeys used for special actions
-		 */
+		 */,
+
 		hotKey: {
 			formatBold: 'ctrl+b meta+b',
 			formatItalic: 'ctrl+i meta+i',
@@ -756,193 +819,6 @@ define('format/format-plugin', [
 			formatSup: 'ctrl+shift+s'
 		},
 
-		activeTypography: null,
-		formatOptions: [],
-		typographyOptions: [],
-
-		/** @type {SplitButton} */
-		typographyButton: null,
-
-		/**
-		 * Initialize the plugin and set initialize flag on true
-		 */
-		init: function () {
-			Ephemera.classes(CLASS_HIERACHY_VIOLATION);
-
-			Ephemera.classes('aloha-heading-hierarchy-violated');
-
-			if (typeof plugin.settings.hotKey !== 'undefined') {
-				$.extend(true, plugin.hotKey, plugin.settings.hotKey);
-			}
-
-			if (typeof plugin.settings.config !== 'undefined') {
-				plugin.config = plugin.settings.config;
-			}
-
-			plugin.initButtons();
-
-			var shouldCheckHeadingHierarchy = Strings.parseBoolean(plugin.settings.checkHeadingHierarchy);
-
-			var checkHeadings = function () {
-				checkHeadingHierarchy(plugin.formatOptions);
-			};
-
-			if (shouldCheckHeadingHierarchy) {
-				Aloha.bind('aloha-smart-content-changed', checkHeadings);
-				Aloha.bind('aloha-markup-change', checkHeadings);
-			}
-
-			// apply specific configuration if an editable has been activated
-			PubSub.sub('aloha.editable.activated', function (message) {
-				var editable = message.editable;
-				plugin.applyButtonConfig(editable.obj);
-
-				if (shouldCheckHeadingHierarchy) {
-					checkHeadings();
-				}
-
-				var createAdder = function (tagname) {
-					if (isFormatAllowed(tagname, plugin, editable)) {
-						return function addFormat() {
-							plugin.addMarkup(tagname);
-							return false;
-						};
-					}
-					return function () {
-						return false;
-					};
-				};
-
-				var createChanger = function (tagname) {
-					if (isFormatAllowed(tagname, plugin, editable)) {
-						return function changeFormat() {
-							plugin.changeMarkup(tagname);
-							return false;
-						};
-					}
-					return function () {
-						return false;
-					};
-				};
-
-				var $editable = editable.obj;
-				$editable.on('keydown.aloha.format', plugin.hotKey.formatBold, createAdder('b'));
-				$editable.on('keydown.aloha.format', plugin.hotKey.formatItalic, createAdder('i'));
-				$editable.on('keydown.aloha.format', plugin.hotKey.formatUnderline, createAdder('u'));
-				$editable.on('keydown.aloha.format', plugin.hotKey.formatDel, createAdder('del'));
-				$editable.on('keydown.aloha.format', plugin.hotKey.formatSub, createAdder('sub'));
-				$editable.on('keydown.aloha.format', plugin.hotKey.formatSup, createAdder('sup'));
-				$editable.on('keydown.aloha.format', plugin.hotKey.formatParagraph, createChanger('p'));
-				$editable.on('keydown.aloha.format', plugin.hotKey.formatH1, createChanger('h1'));
-				$editable.on('keydown.aloha.format', plugin.hotKey.formatH2, createChanger('h2'));
-				$editable.on('keydown.aloha.format', plugin.hotKey.formatH3, createChanger('h3'));
-				$editable.on('keydown.aloha.format', plugin.hotKey.formatH4, createChanger('h4'));
-				$editable.on('keydown.aloha.format', plugin.hotKey.formatH5, createChanger('h5'));
-				$editable.on('keydown.aloha.format', plugin.hotKey.formatH6, createChanger('h6'));
-				$editable.on('keydown.aloha.format', plugin.hotKey.formatPre, createChanger('pre'));
-			});
-
-			PubSub.sub('aloha.selection.context-change', function (message) {
-				onSelectionChanged(message.range);
-			});
-
-			PubSub.sub('aloha.selection.context-change', function (message) {
-				onSelectionChanged(plugin, message.range);
-			});
-
-			PubSub.sub('aloha.editable.deactivated', function (message) {
-				message.editable.obj.unbind('keydown.aloha.format');
-
-				// Set all buttons to inactive if we leave the editable, and hide them
-				if (plugin.buttons) {
-					Object.values(plugin.buttons).forEach(function (button) {
-						if (typeof button.handle.setActive === 'function') {
-							button.handle.setActive(false);
-						}
-						button.handle.hide();
-					});
-				}
-
-				plugin.typographyButton.hide();
-			});
-		},
-
-		/**
-		 * applys a configuration specific for an editable
-		 * buttons not available in this configuration are hidden
-		 * @param {jQuery} $editable The editable object
-		 * @return void
-		 */
-		applyButtonConfig: function ($editable) {
-			var config = [];
-			
-			if ($editable != null) {
-				config = plugin.getEditableConfig($editable);
-			}
-
-			if (config != null && typeof config === 'object' && !Array.isArray(config)) {
-				config = Object.entries(config).reduce(function(acc, entry) {
-					if (entry[1]) {
-						acc.push(entry[0]);
-					}
-					return acc;
-				}, []);
-			}
-
-			plugin.formatOptions = config;
-
-			// now iterate all buttons and show/hide them according to the config
-			Object.entries(plugin.buttons).forEach(function(entry) {
-				var buttonName = entry[0];
-				var button = entry[1];
-
-				if (
-					$editable == null
-					|| !ContentRules.isAllowed($editable[0], buttonName)
-					|| !config.includes(buttonName)
-				) {
-					button.handle.hide();
-				} else {
-					button.handle.show();
-				}
-			});
-
-			plugin.typographyOptions = Object.entries(plugin.buttonConfig).map(function(entry) {
-				var name = entry[0];
-				var elemConfig = entry[1];
-
-				// Ignore non-typography elements
-				if (!elemConfig.typography) {
-					return null;
-				}
-
-				// Skip elements which aren't allowed
-				if (
-					$editable == null
-					||!ContentRules.isAllowed($editable[0], name)
-					|| !config.includes(name)
-				) {
-					return null;
-				}
-
-				return name;
-			}).filter(function(value) {
-				return value != null;
-			});
-
-			// We need at least two options, otherwise the button/selection wouldn't make sense
-			if (plugin.typographyOptions.length <= 1) {
-				plugin.typographyButton.hide();
-			} else {
-				plugin.typographyButton.show();
-			}
-		},
-
-		/**
-		 * initialize the buttons and register them on floating menu
-		 * @param event event object
-		 * @param editable current editable object
-		 */
 		initButtons: function () {
 			plugin.buttons = {};
 
@@ -1029,74 +905,79 @@ define('format/format-plugin', [
 			}
 		},
 
-		_createTypographyContext: function () {
-			var latestOptions = (plugin.typographyOptions || []).map(function (nodeName) {
-				var settings = plugin.buttonConfig[nodeName];
+		addMarkup: addMarkup,
 
-				// If there's no settings, we have to ignore it
-				if (!settings) {
-					return null;
-				}
+		config: Object.keys(DEFAULT_BUTTON_CONFIG).concat(REMOVE_FORMAT_ID),
 
-				// Only check for typography buttons
-				if (!settings.typography) {
-					return null;
-				}
-
-				var out = {
-					id: nodeName,
-					label: settings.label,
-					icon: settings.icon,
-				};
-
-				return out;
-			}).filter(function (option) {
-				return option != null;
-			});
-
-			// In case there's only one option, and we already have it selected,
-			// then we can skip opening the context all together, as the user can't
-			// change it to something else anyways.
-			if (latestOptions.length === 1 && latestOptions[0].id === plugin.activeTypography) {
-				return null;
+		applyButtonConfig: function ($editable) {
+			var config = [];
+			
+			if ($editable != null) {
+				config = plugin.getEditableConfig($editable);
 			}
 
-			return {
-				type: 'select-menu',
-				options: {
-					iconsOnly: false,
-					options: latestOptions,
-				},
-				initialValue: plugin.activeTypography,
-			};
-		},
+			if (config != null && typeof config === 'object' && !Array.isArray(config)) {
+				config = Object.entries(config).reduce(function(acc, entry) {
+					if (entry[1]) {
+						acc.push(entry[0]);
+					}
+					return acc;
+				}, []);
+			}
 
-		/**
-		 * @param {string} typography
-		 */
-		_applyTypography: function (typography) {
-			var oldTypography = plugin.activeTypography;
-			plugin.activeTypography = typography;
+			plugin.formatOptions = config;
 
-			PubSub.pub('aloha.format.pre_change', {
-				level: 'block',
-				oldFormat: oldTypography,
-				newFormat: plugin.activeTypography,
+			// now iterate all buttons and show/hide them according to the config
+			Object.entries(plugin.buttons).forEach(function(entry) {
+				var buttonName = entry[0];
+				var button = entry[1];
+
+				if (
+					$editable == null
+					|| !ContentRules.isAllowed($editable[0], buttonName)
+					|| !config.includes(buttonName)
+				) {
+					button.handle.hide();
+				} else {
+					button.handle.show();
+				}
 			});
 
-			changeMarkup(plugin.activeTypography);
+			plugin.typographyOptions = Object.entries(plugin.buttonConfig).map(function(entry) {
+				var name = entry[0];
+				var elemConfig = entry[1];
 
-			PubSub.pub('aloha.format.changed', {
-				level: 'block',
-				oldFormat: oldTypography,
-				newFormat: plugin.activeTypography,
+				// Ignore non-typography elements
+				if (!elemConfig.typography) {
+					return null;
+				}
+
+				// Skip elements which aren't allowed
+				if (
+					$editable == null
+					||!ContentRules.isAllowed($editable[0], name)
+					|| !config.includes(name)
+				) {
+					return null;
+				}
+
+				return name;
+			}).filter(function(value) {
+				return value != null;
 			});
+
+			// We need at least two options, otherwise the button/selection wouldn't make sense
+			if (plugin.typographyOptions.length <= 1) {
+				plugin.typographyButton.hide();
+			} else {
+				plugin.typographyButton.show();
+			}
 		},
 
-		/**
-		 * 
-		 * @param {FormattingOption} settings
-		 */
+		changeMarkup: changeMarkup,
+
+		typographyOptions: [],
+
 		_createHeaderIdContext: function (settings) {
 			var headerId = null;
 			if (plugin.typographyElement$) {
@@ -1112,58 +993,6 @@ define('format/format-plugin', [
 			};
 		},
 
-		_applyHeaderId: function (value) {
-			if (!plugin.typographyElement$) {
-				return;
-			}
-
-			$(plugin.typographyElement$).attr(ATTR_HEADER_ID, value);
-
-			// Add the customized class if a ID has been set. Otherwise remove it, so the headerids plugin
-			// could automatically add it again if needed/enabled.
-			if (value) {
-				$(plugin.typographyElement$).addClass(CLASS_CUSTOMIZED);
-			} else {
-				$(plugin.typographyElement$).removeClass(CLASS_CUSTOMIZED);
-			}
-		},
-
-		makeTextLevelButton: function (nodeType, settings) {
-			var name = settings.name || nodeType;
-			var component = Ui.adopt(name, ToggleButton, {
-				tooltip: settings.label,
-				icon: settings.icon,
-				pure: true,
-				click: function () {
-					return textLevelButtonClickHandler(nodeType, name);
-				}
-			});
-
-			return component;
-		},
-
-		// duplicated code from link-plugin
-		//Creates string with this component's namepsace prefixed the each classname
-		nsClass: function () {
-			return Array.from(arguments).map(function(className) {
-				return pluginNamespace + (className == '' ? '' : '-' + className);
-			}).join(' ').trim();
-		},
-
-		// duplicated code from link-plugin
-		nsSel: function () {
-			return Array.from(arguments).map(function(selector) {
-				return '.' + pluginNamespace + (selector == '' ? '' : '-' + selector);
-			}).join(' ').trim();
-		},
-
-		addMarkup: addMarkup,
-		changeMarkup: changeMarkup,
-
-		/**
-		 * Removes all formatting from the current selection.
-		 * And deconstructs lists via unformatList method.
-		 */
 		removeFormat: function () {
 			var formats = [
 				'u', 'strong', 'em', 'b', 'i', 'q', 'del', 's', 'code', 'sub', 'sup',
@@ -1218,6 +1047,193 @@ define('format/format-plugin', [
 				Aloha.activeEditable.smartContentChange({ type: 'block-change' });
 			}
 		},
+
+		buttons: {},
+
+		/**
+		 * General button configuration for the plugin
+		 */,
+
+		/** @type {SplitButton} */,
+
+		formatOptions: [],
+
+		/**
+		 * @param {string} typography
+		 */,
+
+		/**
+		 * Map for the currently created/managed buttons
+		 * @type {Object<string, { markup: string, handle: ToggleButton }>}
+		 */,
+
+		conversionNames: {
+			'strong': 'b',
+			'em': 'i',
+		},
+
+		headerNodeNames: ['h1', 'h2', 'h3', 'h4', 'h5', 'h6'],
+
+		//Creates string with this component's namepsace prefixed the each classname,
+
+		_applyTypography: function (typography) {
+			var oldTypography = plugin.activeTypography;
+			plugin.activeTypography = typography;
+
+			PubSub.pub('aloha.format.pre_change', {
+				level: 'block',
+				oldFormat: oldTypography,
+				newFormat: plugin.activeTypography,
+			});
+
+			changeMarkup(plugin.activeTypography);
+
+			PubSub.pub('aloha.format.changed', {
+				level: 'block',
+				oldFormat: oldTypography,
+				newFormat: plugin.activeTypography,
+			});
+		},
+
+		nsClass: function () {
+			return Array.from(arguments).map(function(className) {
+				return pluginNamespace + (className == '' ? '' : '-' + className);
+			}).join(' ').trim();
+		},
+
+		// duplicated code from link-plugin,
+
+		// These are old/deprecated nodes and will be converted to the modern equivalent,
+
+		init: function () {
+			Ephemera.classes(CLASS_HIERACHY_VIOLATION);
+
+			Ephemera.classes('aloha-heading-hierarchy-violated');
+
+			if (typeof plugin.settings.hotKey !== 'undefined') {
+				$.extend(true, plugin.hotKey, plugin.settings.hotKey);
+			}
+
+			if (typeof plugin.settings.config !== 'undefined') {
+				plugin.config = plugin.settings.config;
+			}
+
+			plugin.initButtons();
+
+			var shouldCheckHeadingHierarchy = Strings.parseBoolean(plugin.settings.checkHeadingHierarchy);
+
+			var checkHeadings = function () {
+				checkHeadingHierarchy(plugin.formatOptions);
+			};
+
+			if (shouldCheckHeadingHierarchy) {
+				Aloha.bind('aloha-smart-content-changed', checkHeadings);
+				Aloha.bind('aloha-markup-change', checkHeadings);
+			}
+
+			// apply specific configuration if an editable has been activated
+			PubSub.sub('aloha.editable.activated', function (message) {
+				var editable = message.editable;
+				plugin.applyButtonConfig(editable.obj);
+
+				if (shouldCheckHeadingHierarchy) {
+					checkHeadings();
+				}
+
+				var createAdder = function (tagname) {
+					if (isFormatAllowed(tagname, plugin, editable)) {
+						return function addFormat() {
+							plugin.addMarkup(tagname);
+							return false;
+						};
+					}
+					return function () {
+						return false;
+					};
+				};
+
+				var createChanger = function (tagname) {
+					if (isFormatAllowed(tagname, plugin, editable)) {
+						return function changeFormat() {
+							plugin.changeMarkup(tagname);
+							return false;
+						};
+					}
+					return function () {
+						return false;
+					};
+				};
+
+				var $editable = editable.obj;
+				$editable.on('keydown.aloha.format', plugin.hotKey.formatBold, createAdder('b'));
+				$editable.on('keydown.aloha.format', plugin.hotKey.formatItalic, createAdder('i'));
+				$editable.on('keydown.aloha.format', plugin.hotKey.formatUnderline, createAdder('u'));
+				$editable.on('keydown.aloha.format', plugin.hotKey.formatDel, createAdder('del'));
+				$editable.on('keydown.aloha.format', plugin.hotKey.formatSub, createAdder('sub'));
+				$editable.on('keydown.aloha.format', plugin.hotKey.formatSup, createAdder('sup'));
+				$editable.on('keydown.aloha.format', plugin.hotKey.formatParagraph, createChanger('p'));
+				$editable.on('keydown.aloha.format', plugin.hotKey.formatH1, createChanger('h1'));
+				$editable.on('keydown.aloha.format', plugin.hotKey.formatH2, createChanger('h2'));
+				$editable.on('keydown.aloha.format', plugin.hotKey.formatH3, createChanger('h3'));
+				$editable.on('keydown.aloha.format', plugin.hotKey.formatH4, createChanger('h4'));
+				$editable.on('keydown.aloha.format', plugin.hotKey.formatH5, createChanger('h5'));
+				$editable.on('keydown.aloha.format', plugin.hotKey.formatH6, createChanger('h6'));
+				$editable.on('keydown.aloha.format', plugin.hotKey.formatPre, createChanger('pre'));
+			});
+
+			PubSub.sub('aloha.selection.context-change', function (message) {
+				onSelectionChanged(message.range);
+			});
+
+			PubSub.sub('aloha.editable.deactivated', function (message) {
+				message.editable.obj.unbind('keydown.aloha.format');
+
+				// Set all buttons to inactive if we leave the editable, and hide them
+				if (plugin.buttons) {
+					Object.values(plugin.buttons).forEach(function (button) {
+						if (typeof button.handle.setActive === 'function') {
+							button.handle.setActive(false);
+						}
+						button.handle.hide();
+					});
+				}
+
+				plugin.typographyButton.hide();
+			});
+		},
+
+		/** @type {SplitButton} */,
+
+		_applyHeaderId: function (value) {
+			if (!plugin.typographyElement$) {
+				return;
+			}
+
+			$(plugin.typographyElement$).attr(ATTR_HEADER_ID, value);
+
+			// Add the customized class if a ID has been set. Otherwise remove it, so the headerids plugin
+			// could automatically add it again if needed/enabled.
+			if (value) {
+				$(plugin.typographyElement$).addClass(CLASS_CUSTOMIZED);
+			} else {
+				$(plugin.typographyElement$).removeClass(CLASS_CUSTOMIZED);
+			}
+		},
+
+		nsSel: function () {
+			return Array.from(arguments).map(function(selector) {
+				return '.' + pluginNamespace + (selector == '' ? '' : '-' + selector);
+			}).join(' ').trim();
+		},
+
+		/**
+		 * applys a configuration specific for an editable
+		 * buttons not available in this configuration are hidden
+		 * @param {jQuery} $editable The editable object
+		 * @return void
+		 */,
+
+		// duplicated code from link-plugin,
 
 		/**
 		 * toString method
