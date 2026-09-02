@@ -10,6 +10,7 @@ import base64
 import inspect
 import re
 from io import BytesIO
+from typing import Any
 from typing import Any, List, Optional, Tuple, Type, cast
 
 from zope.interface import directlyProvides, implementer
@@ -221,18 +222,6 @@ class SMTPClientTests(TestCase, LoopbackMixin):
             b">>> HELO foo.baz\n",
         )
 
-    expected_output = [
-        b"HELO foo.baz",
-        b"MAIL FROM:<moshez@foo.bar>",
-        b"RCPT TO:<moshez@foo.bar>",
-        b"DATA",
-        b"Subject: hello",
-        b"",
-        b"Goodbye",
-        b".",
-        b"RSET",
-    ]
-
     def test_messages(self):
         """
         L{smtp.SMTPClient} sends I{HELO}, I{MAIL FROM}, I{RCPT TO}, and I{DATA}
@@ -311,6 +300,18 @@ class SMTPClientTests(TestCase, LoopbackMixin):
         client.sendError(Exception("foo"))
         self.assertEqual(transport.value(), b"")
         self.assertTrue(transport.disconnecting)
+
+    expected_output = [
+        b"HELO foo.baz",
+        b"MAIL FROM:<moshez@foo.bar>",
+        b"RCPT TO:<moshez@foo.bar>",
+        b"DATA",
+        b"Subject: hello",
+        b"",
+        b"Goodbye",
+        b".",
+        b"RSET",
+    ]
 
 
 class DummySMTPMessage:
