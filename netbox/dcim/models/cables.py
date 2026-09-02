@@ -740,7 +740,6 @@ class CablePath(models.Model):
             self.save()
         else:
             self.delete()
-    retrace.alters_data = True
 
     def _get_path(self):
         """
@@ -835,3 +834,4 @@ class CablePath(models.Model):
                 asymmetric_nodes.extend([node for node in nodes if node.link is None])
 
         return asymmetric_nodes
+    retrace.alters_data = True
