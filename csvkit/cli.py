@@ -593,9 +593,6 @@ def parse_list(pairs):
             pass
         options[key] = value
     return options
-
-
-# Adapted from https://github.com/pallets/click/blame/main/src/click/utils.py
 def _expand_args(args):
     out = []
 
@@ -614,3 +611,6 @@ def _expand_args(args):
             out.append(arg)
 
     return out
+
+
+# Adapted from https://github.com/pallets/click/blame/main/src/click/utils.py
