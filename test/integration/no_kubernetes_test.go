@@ -29,8 +29,8 @@ import (
 	"strings"
 	"testing"
 
-	"k8s.io/minikube/pkg/minikube/localpath"
 	"k8s.io/minikube/pkg/minikube/constants"
+	"k8s.io/minikube/pkg/minikube/localpath"
 )
 
 // TestNoKubernetes tests starting minikube without Kubernetes,
