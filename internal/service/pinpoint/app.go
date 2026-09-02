@@ -223,6 +223,12 @@ func resourceAppRead(ctx context.Context, d *schema.ResourceData, meta any) diag
 		return sdkdiag.AppendErrorf(diags, "reading End User Messaging App (%s): %s", d.Id(), err)
 	}
 
+	settings, err := findAppSettingsByID(ctx, conn, d.Id())
+
+	if err != nil {
+		return sdkdiag.AppendErrorf(diags, "reading End User Messaging App (%s) settings: %s", d.Id(), err)
+	}
+
 	d.Set(names.AttrApplicationID, app.Id)
 	d.Set(names.AttrARN, app.Arn)
 	d.Set(names.AttrName, app.Name)
