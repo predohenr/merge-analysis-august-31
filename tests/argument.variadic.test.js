@@ -128,6 +128,6 @@ describe('Command variadic argument using .argument()', (t) => {
       });
 
     program.parse(['one', 'two'], { from: 'user' });
-    assert.deepEqual(passedArg, ['one', 'two']);
+    expect(passedArg).toEqual(['one', 'two']);
   });
 });
