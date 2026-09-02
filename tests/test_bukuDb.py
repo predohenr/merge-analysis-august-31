@@ -8,13 +8,11 @@ import re
 import sqlite3
 import sys
 import unittest
-from genericpath import exists
-from tempfile import NamedTemporaryFile, TemporaryDirectory
-from random import shuffle
 from unittest import mock
-
+from tempfile import NamedTemporaryFile, TemporaryDirectory
 from genericpath import exists
 import pytest
+from random import shuffle
 import yaml
 from hypothesis import example, given, settings
 from hypothesis import strategies as st
