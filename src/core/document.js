@@ -1040,9 +1040,6 @@ class PDFDocument {
     }
     return shadow(this, "startXRef", startXRef);
   }
-
-  // Find the header, get the PDF format version and setup the
-  // stream to start from the header.
   checkHeader() {
     const stream = this.stream;
     stream.reset();
@@ -1091,10 +1088,6 @@ class PDFDocument {
     }
     return shadow(this, "numPages", num);
   }
-
-  /**
-   * @private
-   */
   _hasOnlyDocumentSignatures(fields, recursionDepth = 0) {
     const RECURSION_LIMIT = 10;
 
@@ -1413,11 +1406,6 @@ class PDFDocument {
       ? this.xfaFactory.serializeData(annotationStorage)
       : null;
   }
-
-  /**
-   * The specification states in section 7.5.2 that the version from
-   * the catalog, if present, should overwrite the version from the header.
-   */
   get version() {
     return this.catalog.version || this._version;
   }
@@ -1940,10 +1928,6 @@ class PDFDocument {
     const promise = this.pdfManager.ensureDoc("_parseHasJSActions");
     return shadow(this, "hasJSActions", promise);
   }
-
-  /**
-   * @private
-   */
   async _parseHasJSActions() {
     const [catalogJsActions, fieldObjects] = await Promise.all([
       this.pdfManager.ensureCatalog("jsActions"),
@@ -1983,6 +1967,22 @@ class PDFDocument {
       AnnotationFactory.createGlobals(this.pdfManager)
     );
   }
+
+  // Find the header, get the PDF format version and setup the
+  // stream to start from the header.
+
+  /**
+   * @private
+   */
+
+  /**
+   * The specification states in section 7.5.2 that the version from
+   * the catalog, if present, should overwrite the version from the header.
+   */
+
+  /**
+   * @private
+   */
 }
 
 export { Page, PDFDocument };
