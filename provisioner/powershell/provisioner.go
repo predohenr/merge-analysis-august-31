@@ -66,42 +66,47 @@ type Config struct {
 	shell.Provisioner `mapstructure:",squash"`
 
 	shell.ProvisionerRemoteSpecific `mapstructure:",squash"`
-
-	// The remote path where the file containing the environment variables
-	// will be uploaded to. This should be set to a writable file that is in a
-	// pre-existing directory.
 	RemoteEnvVarPath string `mapstructure:"remote_env_var_path"`
-
-	// The command used to execute the elevated script. The '{{ .Path }}'
-	// variable should be used to specify where the script goes, {{ .Vars }}
-	// can be used to inject the environment_vars into the environment.
 	ElevatedExecuteCommand string `mapstructure:"elevated_execute_command"`
-
-	// Whether to clean scripts up after executing the provisioner.
-	// Defaults to false. When true any script created by a non-elevated Powershell
-	// provisioner will be removed from the remote machine. Elevated scripts,
-	// along with the scheduled tasks, will always be removed regardless of the
-	// value set for `skip_clean`.
 	SkipClean bool `mapstructure:"skip_clean"`
-
-	// The timeout for retrying to start the process. Until this timeout is
-	// reached, if the provisioner can't start a process, it retries.  This
-	// can be set high to allow for reboots.
 	StartRetryTimeout time.Duration `mapstructure:"start_retry_timeout"`
-
-	// This is used in the template generation to format environment variables
-	// inside the `ElevatedExecuteCommand` template.
 	ElevatedEnvVarFormat string `mapstructure:"elevated_env_var_format"`
-
-	// Instructs the communicator to run the remote script as a Windows
-	// scheduled task, effectively elevating the remote user by impersonating
-	// a logged-in user
 	ElevatedUser     string `mapstructure:"elevated_user"`
 	ElevatedPassword string `mapstructure:"elevated_password"`
 
 	ExecutionPolicy ExecutionPolicy `mapstructure:"execution_policy"`
 
 	remoteCleanUpScriptPath string
+	DebugMode int `mapstructure:"debug_mode"`
+	PauseAfter time.Duration `mapstructure:"pause_after"`
+	UsePwsh bool `mapstructure:"use_pwsh"`
+
+	ctx interpolate.Context
+
+	// The remote path where the file containing the environment variables
+	// will be uploaded to. This should be set to a writable file that is in a
+	// pre-existing directory.
+
+	// The command used to execute the elevated script. The '{{ .Path }}'
+	// variable should be used to specify where the script goes, {{ .Vars }}
+	// can be used to inject the environment_vars into the environment.
+
+	// Whether to clean scripts up after executing the provisioner.
+	// Defaults to false. When true any script created by a non-elevated Powershell
+	// provisioner will be removed from the remote machine. Elevated scripts,
+	// along with the scheduled tasks, will always be removed regardless of the
+	// value set for `skip_clean`.
+
+	// The timeout for retrying to start the process. Until this timeout is
+	// reached, if the provisioner can't start a process, it retries.  This
+	// can be set high to allow for reboots.
+
+	// This is used in the template generation to format environment variables
+	// inside the `ElevatedExecuteCommand` template.
+
+	// Instructs the communicator to run the remote script as a Windows
+	// scheduled task, effectively elevating the remote user by impersonating
+	// a logged-in user
 
 	// If set, sets PowerShell's [PSDebug mode
 	// on](https://docs.microsoft.com/en-us/powershell/module/microsoft.powershell.core/set-psdebug?view=powershell-7)
@@ -111,15 +116,10 @@ type Config struct {
 	//    ``` powershell
 	//    Set-PSDebug -Trace 1
 	//    ```
-	DebugMode int `mapstructure:"debug_mode"`
 
 	// A duration of how long to pause after the provisioner
-	PauseAfter time.Duration `mapstructure:"pause_after"`
 
 	// Run pwsh.exe instead of powershell.exe - latest version of powershell.
-	UsePwsh bool `mapstructure:"use_pwsh"`
-
-	ctx interpolate.Context
 }
 
 type Provisioner struct {
@@ -298,46 +298,6 @@ func (p *Provisioner) Prepare(raws ...interface{}) error {
 	return nil
 }
 
-// Takes the inline scripts, adds a wrapper around the inline scripts, concatenates them into a temporary file and
-// returns a string containing the location of said file.
-func extractInlineScript(p *Provisioner) (string, error) {
-	temp, err := tmp.File("powershell-provisioner")
-	if err != nil {
-		return "", err
-	}
-
-	defer temp.Close()
-
-	var commandBuilder strings.Builder
-
-	// we concatenate all the inline commands
-	for _, command := range p.config.Inline {
-		log.Printf("Found command: %s", command)
-		if _, err := commandBuilder.WriteString(command + "\n\t"); err != nil {
-			return "", fmt.Errorf("failed to wrap script contents: %w", err)
-		}
-	}
-
-	// injecting all the variables in the string
-	ctxData := p.generatedData
-	ctxData["Vars"] = p.createFlattenedEnvVars(p.config.ElevatedUser != "")
-	ctxData["Payload"] = commandBuilder.String()
-	ctxData["DebugMode"] = p.config.DebugMode
-	p.config.ctx.Data = ctxData
-
-	data, err := interpolate.Render(wrapPowershellString, &p.config.ctx)
-	if err != nil {
-		return "", fmt.Errorf("Error building powershell wrapper: %w", err)
-	}
-
-	log.Printf("Writing PowerShell script to file: %s", temp.Name())
-	if _, err := temp.WriteString(data); err != nil {
-		return "", fmt.Errorf("Error writing PowerShell script: %w", err)
-	}
-
-	return temp.Name(), nil
-}
-
 func (p *Provisioner) Provision(ctx context.Context, ui packersdk.Ui, comm packersdk.Communicator, generatedData map[string]interface{}) error {
 	ui.Say("Provisioning with Powershell...")
 	p.communicator = comm
@@ -438,9 +398,6 @@ func (p *Provisioner) Provision(ctx context.Context, ui packersdk.Ui, comm packe
 
 	return nil
 }
-
-// createRemoteCleanUpCommand will generated a powershell script that will remove remote files;
-// returning a command that can be executed remotely to do the cleanup.
 func (p *Provisioner) createRemoteCleanUpCommand(remoteFiles []string) (string, error) {
 	if len(remoteFiles) == 0 {
 		return "", fmt.Errorf("no remoteFiles provided for cleanup")
@@ -466,10 +423,6 @@ func (p *Provisioner) createRemoteCleanUpCommand(remoteFiles []string) (string, 
 	p.config.ctx.Data = data
 	return interpolate.Render(p.config.ExecuteCommand, &p.config.ctx)
 }
-
-// Environment variables required within the remote environment are uploaded
-// within a PS script and then enabled by 'dot sourcing' the script
-// immediately prior to execution of the main command
 func (p *Provisioner) prepareEnvVars(elevated bool) (err error) {
 	// Collate all required env vars into a plain string with required
 	// formatting applied
@@ -652,3 +605,50 @@ func (p *Provisioner) ElevatedPassword() string {
 
 	return elevatedPassword
 }
+
+// Takes the inline scripts, adds a wrapper around the inline scripts, concatenates them into a temporary file and
+// returns a string containing the location of said file.
+func extractInlineScript(p *Provisioner) (string, error) {
+	temp, err := tmp.File("powershell-provisioner")
+	if err != nil {
+		return "", err
+	}
+
+	defer temp.Close()
+
+	var commandBuilder strings.Builder
+
+	// we concatenate all the inline commands
+	for _, command := range p.config.Inline {
+		log.Printf("Found command: %s", command)
+		if _, err := commandBuilder.WriteString(command + "\n\t"); err != nil {
+			return "", fmt.Errorf("failed to wrap script contents: %w", err)
+		}
+	}
+
+	// injecting all the variables in the string
+	ctxData := p.generatedData
+	ctxData["Vars"] = p.createFlattenedEnvVars(p.config.ElevatedUser != "")
+	ctxData["Payload"] = commandBuilder.String()
+	ctxData["DebugMode"] = p.config.DebugMode
+	p.config.ctx.Data = ctxData
+
+	data, err := interpolate.Render(wrapPowershellString, &p.config.ctx)
+	if err != nil {
+		return "", fmt.Errorf("Error building powershell wrapper: %w", err)
+	}
+
+	log.Printf("Writing PowerShell script to file: %s", temp.Name())
+	if _, err := temp.WriteString(data); err != nil {
+		return "", fmt.Errorf("Error writing PowerShell script: %w", err)
+	}
+
+	return temp.Name(), nil
+}
+
+// createRemoteCleanUpCommand will generated a powershell script that will remove remote files;
+// returning a command that can be executed remotely to do the cleanup.
+
+// Environment variables required within the remote environment are uploaded
+// within a PS script and then enabled by 'dot sourcing' the script
+// immediately prior to execution of the main command
