@@ -366,7 +366,7 @@ func TestCrictlUpdateContainerResources(t *testing.T) {
 		t.Fatalf("start failed: %v", err)
 	}
 	defer func() {
-		if err := crictl.StopPodAndContainers(podID, []string{contID}); err != nil {
+		if err := crictl.StopPodAndContainer(podID, contID); err != nil {
 			t.Logf("cleanup stop: %v", err)
 		}
 	}()
