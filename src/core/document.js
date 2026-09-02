@@ -124,10 +124,6 @@ class Page {
       }
     };
   }
-
-  /**
-   * @private
-   */
   _getInheritableProperty(key, getArray = false) {
     const value = getInheritableProperty({
       dict: this.pageDict,
@@ -238,10 +234,6 @@ class Page {
     }
     return shadow(this, "rotate", rotate);
   }
-
-  /**
-   * @private
-   */
   _onSubStreamError(reason, objId) {
     if (this.evaluatorOptions.ignoreErrors) {
       warn(`getContentStream - ignoring sub-stream (${objId}): "${reason}".`);
@@ -249,10 +241,6 @@ class Page {
     }
     throw reason;
   }
-
-  /**
-   * @returns {Promise<BaseStream>}
-   */
   async getContentStream() {
     const content = await this.pdfManager.ensure(this, "content");
 
@@ -720,10 +708,6 @@ class Page {
       return null;
     }
   }
-
-  /**
-   * @private
-   */
   _parseStructTree(structTreeRoot) {
     const tree = new StructTreePage(structTreeRoot, this.pageDict);
     tree.parse(this.ref);
@@ -867,6 +851,22 @@ class Page {
     );
     return shadow(this, "jsActions", actions);
   }
+
+  /**
+   * @private
+   */
+
+  /**
+   * @private
+   */
+
+  /**
+   * @returns {Promise<BaseStream>}
+   */
+
+  /**
+   * @private
+   */
 }
 
 const PDF_HEADER_SIGNATURE = new Uint8Array([0x25, 0x50, 0x44, 0x46, 0x2d]);
