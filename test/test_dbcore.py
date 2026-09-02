@@ -24,7 +24,8 @@ from typing import ClassVar
 import pytest
 
 from beets import dbcore
-from beets.dbcore import query, sort, types
+from beets.dbcore import query, sort
+from beets.dbcore import types
 from beets.dbcore.db import DBCustomFunctionError, Index
 from beets.library import Album, Item, LibModel
 from beets.util import cached_classproperty
