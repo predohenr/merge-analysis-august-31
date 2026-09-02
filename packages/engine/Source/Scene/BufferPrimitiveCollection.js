@@ -242,42 +242,15 @@ class BufferPrimitiveCollection {
     this._allocatePositionBuffer();
     this._allocateMaterialBuffer();
   }
-
-  /**
-   * Accessing `this.constructor` can cause JSDoc builds to fail, so use this
-   * protected getter function instead.
-   * @protected
-   * @return {*}
-   * @ignore
-   */
   _getCollectionClass() {
     DeveloperError.throwInstantiationError();
   }
-
-  /**
-   * @protected
-   * @return {*}
-   * @ignore
-   */
   _getPrimitiveClass() {
     DeveloperError.throwInstantiationError();
   }
-
-  /**
-   * @return {*}
-   * @ignore
-   */
   _getMaterialClass() {
     DeveloperError.throwInstantiationError();
   }
-
-  /////////////////////////////////////////////////////////////////////////////
-  // COLLECTION LIFECYCLE
-
-  /**
-   * @private
-   * @ignore
-   */
   _allocatePrimitiveBuffer() {
     const layout = this._getPrimitiveClass().Layout;
 
@@ -290,11 +263,6 @@ class BufferPrimitiveCollection {
       new ArrayBuffer(this._primitiveCountMax * layout.__BYTE_LENGTH),
     );
   }
-
-  /**
-   * @private
-   * @ignore
-   */
   _allocatePositionBuffer() {
     // @ts-expect-error https://github.com/CesiumGS/cesium/issues/13420
     this._positionView = ComponentDatatype.createTypedArray(
@@ -302,28 +270,15 @@ class BufferPrimitiveCollection {
       this._positionCountMax * 3,
     );
   }
-
-  /**
-   * @private
-   * @ignore
-   */
   _allocateMaterialBuffer() {
     const MaterialClass = this._getMaterialClass();
     this._materialView = new DataView(
       new ArrayBuffer(this._primitiveCountMax * MaterialClass.packedLength),
     );
   }
-
-  /**
-   * Returns true if this object was destroyed; otherwise, false.
-   *
-   * @returns {boolean} True if this object was destroyed; otherwise, false.
-   */
   isDestroyed() {
     return false;
   }
-
-  /** Destroys collection and its GPU resources. */
   destroy() {
     this._pickObjects.length = 0;
 
@@ -340,19 +295,6 @@ class BufferPrimitiveCollection {
       this._dirtyCount = this.primitiveCount;
     }
   }
-
-  /**
-   * Sorts primitives of the collection.
-   *
-   * Because sorting changes the indices (but not the feature IDs) of primitives
-   * in the collection, the function also returns an array mapping from previous
-   * index to new index. When sorting repeatedly, the array can be reused and
-   * passed as the 'result' argument for each call.
-   *
-   * @param {Function} sortFn
-   * @param {Uint32Array} result
-   * @returns {Uint32Array} Mapping from previous index to new index.
-   */
   sort(sortFn, result = new Uint32Array(this.primitiveCount)) {
     const PrimitiveClass = this._getPrimitiveClass();
     const CollectionClass = this._getCollectionClass();
@@ -391,24 +333,6 @@ class BufferPrimitiveCollection {
 
     return result;
   }
-
-  /**
-   * Duplicates the contents of this collection into the result collection.
-   * Result collection is not resized, and must contain enough space for all
-   * primitives in the source collection. Existing primitives in the result
-   * collection will be overwritten.
-   *
-   * <p>Useful when allocating more space for a collection that has reached its
-   * capacity, and efficiently transferring features to the new collection.</p>
-   *
-   * @example
-   * const result = new BufferPrimitiveCollection({ ... }); // allocate larger 'result' collection
-   * BufferPrimitiveCollection.clone(collection, result);   // copy primitives from 'collection' into 'result'
-   *
-   * @param {BufferPrimitiveCollection<T>} collection
-   * @param {BufferPrimitiveCollection<T>} result
-   * @template T extends BufferPrimitive
-   */
   static clone(collection, result) {
     //>>includeStart('debug', pragmas.debug);
     const { ERR_CAPACITY } = BufferPrimitiveCollection.Error;
@@ -456,44 +380,14 @@ class BufferPrimitiveCollection {
 
     return result;
   }
-
-  /**
-   * Returns an empty collection with the same buffer sizes as this collection.
-   * Internal utility for operations requiring a working copy of memory.
-   *
-   * @param {BufferPrimitiveCollection<T>} collection
-   * @returns {BufferPrimitiveCollection<T>}
-   * @template T extends BufferPrimitive
-   * @protected
-   * @abstract
-   * @ignore
-   */
   static _cloneEmpty(collection) {
     DeveloperError.throwInstantiationError();
   }
-
-  /**
-   * Assigns buffers from source collection to target collection, without
-   * validation or side effects. Callers must handle any validation, dirty
-   * flag updates, etc.
-   *
-   * @param {BufferPrimitiveCollection<T>} src
-   * @param {BufferPrimitiveCollection<T>} dst
-   * @template T extends BufferPrimitive
-   * @protected
-   * @ignore
-   */
   static _replaceBuffers(src, dst) {
     dst._primitiveView = src._primitiveView;
     dst._positionView = src._positionView;
     dst._materialView = src._materialView;
   }
-
-  /**
-   * Rebuilds collection bounding volume.
-   * @protected
-   * @ignore
-   */
   _updateBoundingVolume() {
     // Exclude unused space in the position buffer.
     let vertices = this._positionView.subarray(0, this._positionCount * 3);
@@ -522,13 +416,6 @@ class BufferPrimitiveCollection {
     );
     this._dirtyBoundingVolume = false;
   }
-
-  /**
-   * Updates PickIds for the given context.
-   * @param {Context} context
-   * @protected
-   * @ignore
-   */
   _updatePickIds(context) {
     let pickIds = this._pickIds.get(context);
     if (pickIds && pickIds.length === this._primitiveCount) {
@@ -562,6 +449,238 @@ class BufferPrimitiveCollection {
       pickIds.push(pickId);
     }
   }
+  get(index, result) {
+    //>>includeStart('debug', pragmas.debug);
+    Check.typeOf.number.greaterThanOrEquals("index", index, 0);
+    Check.typeOf.number.lessThan("index", index, this._primitiveCount);
+    //>>includeEnd('debug');
+
+    result._collection = this;
+    result._index = index;
+    result._byteOffset = index * this._getPrimitiveClass().Layout.__BYTE_LENGTH;
+    return result;
+  }
+  add(options = Frozen.EMPTY_OBJECT, result) {
+    //>>includeStart('debug', pragmas.debug);
+    const { ERR_CAPACITY } = BufferPrimitiveCollection.Error;
+    assert(this.primitiveCount < this.primitiveCountMax, ERR_CAPACITY);
+    //>>includeEnd('debug');
+
+    const MaterialClass = this._getMaterialClass();
+    const index = this._primitiveCount++;
+
+    result = this.get(index, result);
+    result.featureId = options.featureId ?? index;
+    result.show = options.show ?? true;
+    result.setMaterial(options.material ?? MaterialClass.DEFAULT_MATERIAL);
+    result._pickId = 0; // unset
+    result._dirty = true;
+
+    if (defined(options.pickObject)) {
+      this._pickObjects[index] = options.pickObject;
+    }
+
+    return result;
+  }
+  _makeDirty(index) {
+    if (this._dirtyCount === 0) {
+      this._dirtyCount = 1;
+      this._dirtyOffset = index;
+    } else if (index < this._dirtyOffset) {
+      this._dirtyCount += this._dirtyOffset - index;
+      this._dirtyOffset = index;
+    } else if (index + 1 > this._dirtyOffset + this._dirtyCount) {
+      this._dirtyCount = index + 1 - this._dirtyOffset;
+    }
+  }
+  _makeDirtyBoundingVolume() {
+    if (this._boundingVolumeAutoUpdate) {
+      this._dirtyBoundingVolume = true;
+    }
+  }
+  update(frameState) {
+    if (/** @type {FrameState} */ (frameState).mode !== SceneMode.SCENE3D) {
+      oneTimeWarning(
+        "bufferprim-scenemode",
+        "BufferPrimitiveCollection requires SceneMode.SCENE3D.",
+      );
+    }
+
+    if (this._dirtyBoundingVolume) {
+      this._updateBoundingVolume();
+    }
+    if (this._allowPicking && this._dirtyCount > 0) {
+      this._updatePickIds(/** @type {FrameState} */ (frameState).context);
+    }
+  }
+  get primitiveCount() {
+    return this._primitiveCount;
+  }
+  get primitiveCountMax() {
+    return this._primitiveCountMax;
+  }
+  get byteLength() {
+    return (
+      this._primitiveView.byteLength +
+      this._positionView.byteLength +
+      this._materialView.byteLength
+    );
+  }
+  get vertexCount() {
+    return this._positionCount;
+  }
+  get vertexCountMax() {
+    return this._positionCountMax;
+  }
+  get modelMatrix() {
+    return this._modelMatrix;
+  }
+  get boundingVolume() {
+    return this._boundingVolume;
+  }
+  get positionDatatype() {
+    return this._positionDatatype;
+  }
+  get positionNormalized() {
+    return this._positionNormalized;
+  }
+  static _copySubArray(src, dst, count) {
+    for (let i = 0; i < count; i++) {
+      dst[i] = src[i];
+    }
+  }
+  static _copySubDataView(src, dst, byteLength) {
+    // No need to match the original array type, just copy in 4-byte chunks.
+    this._copySubArray(
+      new Uint32Array(src.buffer, src.byteOffset, src.byteLength / 4),
+      new Uint32Array(dst.buffer, dst.byteOffset, dst.byteLength / 4),
+      byteLength / 4,
+    );
+  }
+  toJSON() {
+    const PrimitiveClass = this._getPrimitiveClass();
+    const primitive = new PrimitiveClass();
+
+    const results = [];
+    for (let i = 0, il = this.primitiveCount; i < il; i++) {
+      results.push(this.get(i, primitive).toJSON());
+    }
+
+    return results;
+  }
+
+  /**
+ * Accessing `this.constructor` can cause JSDoc builds to fail, so use this
+ * protected getter function instead.
+ * @protected
+ * @return {*}
+ * @ignore
+ */
+
+  /**
+   * @protected
+   * @return {*}
+   * @ignore
+   */
+
+  /**
+   * @return {*}
+   * @ignore
+   */
+
+  /////////////////////////////////////////////////////////////////////////////
+  // COLLECTION LIFECYCLE
+
+  /**
+   * @private
+   * @ignore
+   */
+
+  /**
+   * @private
+   * @ignore
+   */
+
+  /**
+   * @private
+   * @ignore
+   */
+
+  /**
+   * Returns true if this object was destroyed; otherwise, false.
+   *
+   * @returns {boolean} True if this object was destroyed; otherwise, false.
+   */
+
+  /** Destroys collection and its GPU resources. */
+
+  /**
+   * Sorts primitives of the collection.
+   *
+   * Because sorting changes the indices (but not the feature IDs) of primitives
+   * in the collection, the function also returns an array mapping from previous
+   * index to new index. When sorting repeatedly, the array can be reused and
+   * passed as the 'result' argument for each call.
+   *
+   * @param {Function} sortFn
+   * @param {Uint32Array} result
+   * @returns {Uint32Array} Mapping from previous index to new index.
+   */
+
+  /**
+   * Duplicates the contents of this collection into the result collection.
+   * Result collection is not resized, and must contain enough space for all
+   * primitives in the source collection. Existing primitives in the result
+   * collection will be overwritten.
+   *
+   * <p>Useful when allocating more space for a collection that has reached its
+   * capacity, and efficiently transferring features to the new collection.</p>
+   *
+   * @example
+   * const result = new BufferPrimitiveCollection({ ... }); // allocate larger 'result' collection
+   * BufferPrimitiveCollection.clone(collection, result);   // copy primitives from 'collection' into 'result'
+   *
+   * @param {BufferPrimitiveCollection<T>} collection
+   * @param {BufferPrimitiveCollection<T>} result
+   * @template T extends BufferPrimitive
+   */
+
+  /**
+   * Returns an empty collection with the same buffer sizes as this collection.
+   * Internal utility for operations requiring a working copy of memory.
+   *
+   * @param {BufferPrimitiveCollection<T>} collection
+   * @returns {BufferPrimitiveCollection<T>}
+   * @template T extends BufferPrimitive
+   * @protected
+   * @abstract
+   * @ignore
+   */
+
+  /**
+   * Assigns buffers from source collection to target collection, without
+   * validation or side effects. Callers must handle any validation, dirty
+   * flag updates, etc.
+   *
+   * @param {BufferPrimitiveCollection<T>} src
+   * @param {BufferPrimitiveCollection<T>} dst
+   * @template T extends BufferPrimitive
+   * @protected
+   * @ignore
+   */
+
+  /**
+   * Rebuilds collection bounding volume.
+   * @protected
+   * @ignore
+   */
+
+  /**
+   * Updates PickIds for the given context.
+   * @param {Context} context
+   * @protected
+   * @ignore
+   */
 
   /////////////////////////////////////////////////////////////////////////////
   // PRIMITIVE LIFECYCLE
@@ -586,17 +705,6 @@ class BufferPrimitiveCollection {
    * @returns {BufferPrimitive} The BufferPrimitive instance passed as the
    * 'result' argument, now bound to the specified primitive index.
    */
-  get(index, result) {
-    //>>includeStart('debug', pragmas.debug);
-    Check.typeOf.number.greaterThanOrEquals("index", index, 0);
-    Check.typeOf.number.lessThan("index", index, this._primitiveCount);
-    //>>includeEnd('debug');
-
-    result._collection = this;
-    result._index = index;
-    result._byteOffset = index * this._getPrimitiveClass().Layout.__BYTE_LENGTH;
-    return result;
-  }
 
   /**
    * Adds a new primitive to the collection, with the specified options. A
@@ -609,76 +717,23 @@ class BufferPrimitiveCollection {
    * @param {BufferPrimitive} result
    * @returns {BufferPrimitive}
    */
-  add(options = Frozen.EMPTY_OBJECT, result) {
-    //>>includeStart('debug', pragmas.debug);
-    const { ERR_CAPACITY } = BufferPrimitiveCollection.Error;
-    assert(this.primitiveCount < this.primitiveCountMax, ERR_CAPACITY);
-    //>>includeEnd('debug');
-
-    const MaterialClass = this._getMaterialClass();
-    const index = this._primitiveCount++;
-
-    result = this.get(index, result);
-    result.featureId = options.featureId ?? index;
-    result.show = options.show ?? true;
-    result.setMaterial(options.material ?? MaterialClass.DEFAULT_MATERIAL);
-    result._pickId = 0; // unset
-    result._dirty = true;
-
-    if (defined(options.pickObject)) {
-      this._pickObjects[index] = options.pickObject;
-    }
-
-    return result;
-  }
 
   /**
    * Marks primitive at given index as 'dirty', to be updated on next render.
    * @param {number} index
    * @ignore
    */
-  _makeDirty(index) {
-    if (this._dirtyCount === 0) {
-      this._dirtyCount = 1;
-      this._dirtyOffset = index;
-    } else if (index < this._dirtyOffset) {
-      this._dirtyCount += this._dirtyOffset - index;
-      this._dirtyOffset = index;
-    } else if (index + 1 > this._dirtyOffset + this._dirtyCount) {
-      this._dirtyCount = index + 1 - this._dirtyOffset;
-    }
-  }
 
   /**
    * Marks collection bounding volume as 'dirty', to be updated on next render,
    * if automatic bounding volume updates are enabled.
    * @ignore
    */
-  _makeDirtyBoundingVolume() {
-    if (this._boundingVolumeAutoUpdate) {
-      this._dirtyBoundingVolume = true;
-    }
-  }
 
   /////////////////////////////////////////////////////////////////////////////
   // RENDER
 
   /** @param {object} frameState */
-  update(frameState) {
-    if (/** @type {FrameState} */ (frameState).mode !== SceneMode.SCENE3D) {
-      oneTimeWarning(
-        "bufferprim-scenemode",
-        "BufferPrimitiveCollection requires SceneMode.SCENE3D.",
-      );
-    }
-
-    if (this._dirtyBoundingVolume) {
-      this._updateBoundingVolume();
-    }
-    if (this._allowPicking && this._dirtyCount > 0) {
-      this._updatePickIds(/** @type {FrameState} */ (frameState).context);
-    }
-  }
 
   /////////////////////////////////////////////////////////////////////////////
   // ACCESSORS
@@ -689,9 +744,6 @@ class BufferPrimitiveCollection {
    * @type {number}
    * @readonly
    */
-  get primitiveCount() {
-    return this._primitiveCount;
-  }
 
   /**
    * Maximum number of primitives this collection can contain. Must be >=
@@ -701,9 +753,6 @@ class BufferPrimitiveCollection {
    * @readonly
    * @default {@link BufferPrimitiveCollection.DEFAULT_CAPACITY}
    */
-  get primitiveCountMax() {
-    return this._primitiveCountMax;
-  }
 
   /**
    * Total byte length of buffers owned by this collection. Includes any unused
@@ -713,13 +762,6 @@ class BufferPrimitiveCollection {
    * @type {number}
    * @readonly
    */
-  get byteLength() {
-    return (
-      this._primitiveView.byteLength +
-      this._positionView.byteLength +
-      this._materialView.byteLength
-    );
-  }
 
   /**
    * Number of vertices in collection. Must be <= {@link vertexCountMax}.
@@ -727,9 +769,6 @@ class BufferPrimitiveCollection {
    * @type {number}
    * @readonly
    */
-  get vertexCount() {
-    return this._positionCount;
-  }
 
   /**
    * Maximum number of vertices this collection can contain. Must be >=
@@ -739,9 +778,6 @@ class BufferPrimitiveCollection {
    * @readonly
    * @default {@link BufferPrimitiveCollection.DEFAULT_CAPACITY}
    */
-  get vertexCountMax() {
-    return this._positionCountMax;
-  }
 
   /**
    * Transforms geometry from model to world coordinates.
@@ -749,9 +785,6 @@ class BufferPrimitiveCollection {
    * @default Matrix4.IDENTITY
    * @readonly
    */
-  get modelMatrix() {
-    return this._modelMatrix;
-  }
 
   /**
    * World-space bounding volume for all primitives in the collection, including both
@@ -759,18 +792,6 @@ class BufferPrimitiveCollection {
    * @type {BoundingSphere}
    * @readonly
    */
-  get boundingVolume() {
-    return this._boundingVolume;
-  }
-
-  /**
-   * The component datatype used to store position values.
-   * @type {ComponentDatatype}
-   * @readonly
-   */
-  get positionDatatype() {
-    return this._positionDatatype;
-  }
 
   /**
    * When <code>true</code>, integer position values are treated as normalized
@@ -779,9 +800,11 @@ class BufferPrimitiveCollection {
    * @type {boolean}
    * @readonly
    */
-  get positionNormalized() {
-    return this._positionNormalized;
-  }
+  /**
+   * The component datatype used to store position values.
+   * @type {ComponentDatatype}
+   * @readonly
+   */
 
   /////////////////////////////////////////////////////////////////////////////
   // UTILS
@@ -793,11 +816,6 @@ class BufferPrimitiveCollection {
    * @protected
    * @ignore
    */
-  static _copySubArray(src, dst, count) {
-    for (let i = 0; i < count; i++) {
-      dst[i] = src[i];
-    }
-  }
 
   /**
    * @param {DataView} src
@@ -806,14 +824,6 @@ class BufferPrimitiveCollection {
    * @protected
    * @ignore
    */
-  static _copySubDataView(src, dst, byteLength) {
-    // No need to match the original array type, just copy in 4-byte chunks.
-    this._copySubArray(
-      new Uint32Array(src.buffer, src.byteOffset, src.byteLength / 4),
-      new Uint32Array(dst.buffer, dst.byteOffset, dst.byteLength / 4),
-      byteLength / 4,
-    );
-  }
 
   /////////////////////////////////////////////////////////////////////////////
   // DEBUG
@@ -829,17 +839,6 @@ class BufferPrimitiveCollection {
    * @returns {Array<Object>} List of JSON-serializable objects, one for each
    * primitive in the collection.
    */
-  toJSON() {
-    const PrimitiveClass = this._getPrimitiveClass();
-    const primitive = new PrimitiveClass();
-
-    const results = [];
-    for (let i = 0, il = this.primitiveCount; i < il; i++) {
-      results.push(this.get(i, primitive).toJSON());
-    }
-
-    return results;
-  }
 }
 
 /**

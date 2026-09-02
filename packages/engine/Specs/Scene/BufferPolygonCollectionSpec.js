@@ -424,8 +424,7 @@ describe("Scene/BufferPolygonCollection", () => {
     collection.get(1, polygon);
     expect(polygon.getPositions()).toEqual(positions.slice(9, 18));
 
-    collection.update({ mode: SceneMode.SCENE3D, passes: {} });
-
+    collection._updateBoundingVolume();
     expect(collection.boundingVolume.center).toEqual(center);
     expect(collection.boundingVolume.radius).toEqual(1);
   });
@@ -470,16 +469,16 @@ describe("Scene/BufferPolygonCollection", () => {
     collection.get(0, polygon);
     expect(polygon.getPositions()).toEqual(positions);
 
-    collection.update({ mode: SceneMode.SCENE3D, passes: {} });
-
     // Bounding volume is computed in local space, then transformed by modelMatrix.
     // The 3 vertices span (1,0,0), (0,1,0), (0,0,1) → bounding sphere center
     // is at (0.5, 0.5, 0.5) in local space, radius ≈ 0.866.
+    collection._updateBoundingVolume();
+    expect(collection.boundingVolume.center.x).toBeCloseTo(0.5, 1);
+    expect(collection.boundingVolume.center.y).toBeCloseTo(0.5, 1);
+    expect(collection.boundingVolume.center.z).toBeCloseTo(0.5, 1);
     // World-space: center and radius both scaled by modelMatrix (× 1000).
-    expect(collection.boundingVolume.center.x).toBeCloseTo(500, 0);
-    expect(collection.boundingVolume.center.y).toBeCloseTo(500, 0);
-    expect(collection.boundingVolume.center.z).toBeCloseTo(500, 0);
-    expect(collection.boundingVolume.radius).toBeCloseTo(866, 0);
+    expect(collection.boundingVolumeWC.center.x).toBeCloseTo(500, 0);
+    expect(collection.boundingVolumeWC.radius).toBeCloseTo(866, 0);
   });
 });
 
