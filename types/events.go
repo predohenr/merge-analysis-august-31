@@ -127,30 +127,30 @@ type MemBwInfo struct {
 type IntelRdt struct {
 	// The read-only L3 cache information
 	L3CacheInfo *L3CacheInfo `json:"l3_cache_info,omitempty"`
+	L3CacheSchemaRoot string `json:"l3_cache_schema_root,omitempty"`
+	L3CacheSchema string `json:"l3_cache_schema,omitempty"`
+	MemBwInfo *MemBwInfo `json:"mem_bw_info,omitempty"`
+	MemBwSchemaRoot string `json:"mem_bw_schema_root,omitempty"`
+	MemBwSchema string `json:"mem_bw_schema,omitempty"`
+	Schemata []string `json:"schemata,omitempty"`
+	MBMStats *[]intelrdt.MBMNumaNodeStats `json:"mbm_stats,omitempty"`
+	CMTStats *[]intelrdt.CMTNumaNodeStats `json:"cmt_stats,omitempty"`
 
 	// The read-only L3 cache schema in root
-	L3CacheSchemaRoot string `json:"l3_cache_schema_root,omitempty"`
 
 	// The L3 cache schema in 'container_id' group
-	L3CacheSchema string `json:"l3_cache_schema,omitempty"`
 
 	// The read-only memory bandwidth information
-	MemBwInfo *MemBwInfo `json:"mem_bw_info,omitempty"`
 
 	// The read-only memory bandwidth schema in root
-	MemBwSchemaRoot string `json:"mem_bw_schema_root,omitempty"`
 
 	// The memory bandwidth schema in 'container_id' group
-	MemBwSchema string `json:"mem_bw_schema,omitempty"`
 
 	// Schemata contains the full schemata of the ClosID (resctrl group) that the container is assigned to.
-	Schemata []string `json:"schemata,omitempty"`
 
 	// The memory bandwidth monitoring statistics from NUMA nodes in 'container_id' group
-	MBMStats *[]intelrdt.MBMNumaNodeStats `json:"mbm_stats,omitempty"`
 
 	// The cache monitoring technology statistics from NUMA nodes in 'container_id' group
-	CMTStats *[]intelrdt.CMTNumaNodeStats `json:"cmt_stats,omitempty"`
 }
 
 type NetworkInterface struct {
