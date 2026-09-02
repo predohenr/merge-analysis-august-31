@@ -3,9 +3,16 @@ package tests
 import (
 	"bytes"
 	"fmt"
+	"github.com/fatih/color"
+	"github.com/olekukonko/tablewriter"
+	"github.com/olekukonko/tablewriter/renderer"
+	"github.com/olekukonko/tablewriter/tw"
+)
+import (
+	"bytes"
+	"fmt"
 	"testing"
 
-	"github.com/fatih/color"
 	"github.com/olekukonko/tablewriter"
 	"github.com/olekukonko/tablewriter/renderer"
 	"github.com/olekukonko/tablewriter/tw"
@@ -17,13 +24,13 @@ type Cleaner string
 func (c Cleaner) Format() string {
 	return clean(string(c))
 }
+func (a Age) String() string {
+	return fmt.Sprintf("%dyrs", a)
+}
 
 type Age int
 
 // Age int will be ignore and string will be used
-func (a Age) String() string {
-	return fmt.Sprintf("%dyrs", a)
-}
 
 type Person struct {
 	Name string
@@ -236,7 +243,6 @@ func TestBug254(t *testing.T) {
 			t.Error(table.Debug())
 		}
 	})
-
 }
 
 func TestBug260(t *testing.T) {
