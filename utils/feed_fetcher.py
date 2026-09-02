@@ -146,21 +146,6 @@ def preprocess_feed_encoding(raw_xml):
     return raw_xml
 
 
-# from utils.feed_functions import mail_feed_error_to_admin
-
-
-# Refresh feed code adapted from Feedjack.
-# http://feedjack.googlecode.com
-
-MAX_ENTRIES_TO_PROCESS = 100
-MAX_ENTRIES_HIGH_VOLUME = 250
-HIGH_VOLUME_FEED_URLS = ["arxiv.org"]  # Feeds that can handle more stories per fetch
-
-FEED_OK, FEED_SAME, FEED_ERRPARSE, FEED_ERRHTTP, FEED_ERREXC = list(range(5))
-
-NO_UNDERSCORE_ADDRESSES = ["jwz"]
-
-
 def fetch_url_with_scrapingbee(url):
     """Fetch a URL using ScrapingBee without requiring a Feed object.
     Used for feed discovery when direct requests are blocked.
@@ -184,6 +169,26 @@ def fetch_url_with_scrapingbee(url):
     except Exception as e:
         logging.debug("   ***> ScrapingBee standalone fetch error for %s: %s" % (url, e))
         return None, None
+
+
+def dispatch_workers(feed_queue, options):
+    worker = FeedFetcherWorker(options)
+    return worker.process_feed_wrapper(feed_queue)
+
+
+# from utils.feed_functions import mail_feed_error_to_admin
+
+
+# Refresh feed code adapted from Feedjack.
+# http://feedjack.googlecode.com
+
+MAX_ENTRIES_TO_PROCESS = 100
+MAX_ENTRIES_HIGH_VOLUME = 250
+HIGH_VOLUME_FEED_URLS = ["arxiv.org"]  # Feeds that can handle more stories per fetch
+
+FEED_OK, FEED_SAME, FEED_ERRPARSE, FEED_ERRHTTP, FEED_ERREXC = list(range(5))
+
+NO_UNDERSCORE_ADDRESSES = ["jwz"]
 
 
 class FetchFeed:
@@ -1848,8 +1853,3 @@ class Dispatcher:
                 )
             for i in range(self.num_threads):
                 self.workers[i].start()
-
-
-def dispatch_workers(feed_queue, options):
-    worker = FeedFetcherWorker(options)
-    return worker.process_feed_wrapper(feed_queue)
