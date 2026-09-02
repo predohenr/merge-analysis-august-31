@@ -3111,8 +3111,6 @@ func getVirtqemudPid(pod *k8sv1.Pod) (string, error) {
 	return strings.TrimSuffix(stdout, "\n"), nil
 
 }
-
-// runCommandOnVmiTargetPod runs specified command on the target virt-launcher pod of a migration
 func runCommandOnVmiTargetPod(vmi *v1.VirtualMachineInstance, command []string) (string, error) {
 	virtClient := kubevirt.Client()
 
@@ -3201,3 +3199,5 @@ func withSubdomain(subdomain string) libvmi.Option {
 		vmi.Spec.Subdomain = subdomain
 	}
 }
+
+// runCommandOnVmiTargetPod runs specified command on the target virt-launcher pod of a migration
