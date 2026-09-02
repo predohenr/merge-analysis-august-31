@@ -85,7 +85,7 @@ const (
 type Cluster struct {
 	Name                 string              `json:"name,omitempty"`
 	ClusterType          ClusterType         `json:"type,omitempty"`
-	SubType              string              `json:"sub_type,omitempty"` //not used yet
+	SubType              string              `json:"sub_type,omitempty"`
 	LbType               LbType              `json:"lb_type,omitempty"`
 	MaxRequestPerConn    uint32              `json:"max_request_per_conn,omitempty"`
 	ConnBufferLimitBytes uint32              `json:"conn_buffer_limit_bytes,omitempty"`
@@ -103,7 +103,7 @@ type Cluster struct {
 	DnsLookupFamily      DnsLookupFamily     `json:"dns_lookup_family,omitempty"`
 	DnsResolverConfig    DnsResolverConfig   `json:"dns_resolvers,omitempty"`
 	DnsResolverFile      string              `json:"dns_resolver_file,omitempty"`
-	DnsResolverPort      string              `json:"dns_resolver_port,omitempty"`
+	DnsResolverPort      string              `json:"dns_resolver_port,omitempty"` //not used yet
 }
 
 type DnsResolverConfig struct {
@@ -142,12 +142,6 @@ func (hc *HealthCheck) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
-// Host represenets a host information
-type Host struct {
-	HostConfig
-	MetaData api.Metadata `json:"-"`
-}
-
 func (h Host) MarshalJSON() (b []byte, err error) {
 	h.HostConfig.MetaDataConfig = metadataToConfig(h.MetaData)
 	return json.Marshal(h.HostConfig)
@@ -160,66 +154,11 @@ func (h *Host) UnmarshalJSON(b []byte) error {
 	h.MetaData = configToMetadata(h.MetaDataConfig)
 	return nil
 }
-
-// CircuitBreakers is a configuration of circuit breakers
-// CircuitBreakers implements json.Marshaler and json.Unmarshaler
-type CircuitBreakers struct {
-	Thresholds []Thresholds
-}
-
-// CircuitBreakers's implements json.Marshaler and json.Unmarshaler
 func (cb CircuitBreakers) MarshalJSON() (b []byte, err error) {
 	return json.Marshal(cb.Thresholds)
 }
 func (cb *CircuitBreakers) UnmarshalJSON(b []byte) (err error) {
 	return json.Unmarshal(b, &cb.Thresholds)
-}
-
-type Thresholds struct {
-	MaxConnections     uint32 `json:"max_connections,omitempty"`
-	MaxPendingRequests uint32 `json:"max_pending_requests,omitempty"`
-	MaxRequests        uint32 `json:"max_requests,omitempty"`
-	MaxRetries         uint32 `json:"max_retries,omitempty"`
-}
-
-// ClusterSpecInfo is a configuration of subscribe
-type ClusterSpecInfo struct {
-	Subscribes []SubscribeSpec `json:"subscribe,omitempty"`
-}
-
-// SubscribeSpec describes the subscribe server
-type SubscribeSpec struct {
-	Subscriber  string `json:"subscriber,omitempty"`
-	ServiceName string `json:"service_name,omitempty"`
-}
-
-// LBSubsetConfig is a configuration of load balance subset
-type LBSubsetConfig struct {
-	FallBackPolicy  uint8             `json:"fall_back_policy,omitempty"`
-	DefaultSubset   map[string]string `json:"default_subset,omitempty"`
-	SubsetSelectors [][]string        `json:"subset_selectors,omitempty"`
-}
-
-// LBOriDstConfig for OriDst load balancer.
-type LBOriDstConfig struct {
-	UseHeader  bool   `json:"use_header,omitempty"`
-	HeaderName string `json:"header_name,omitempty"`
-}
-
-// ClusterManagerConfig for making up cluster manager
-// Cluster is the global cluster of mosn
-type ClusterManagerConfig struct {
-	ClusterManagerConfigJson
-	Clusters []Cluster `json:"-"`
-}
-
-type ClusterManagerConfigJson struct {
-	// Note: consider to use standard configure
-	AutoDiscovery bool `json:"auto_discovery,omitempty"`
-	// Note: this is a hack method to realize cluster's  health check which push by registry
-	RegistryUseHealthCheck bool      `json:"registry_use_health_check,omitempty"`
-	ClusterConfigPath      string    `json:"clusters_configs,omitempty"`
-	ClustersJson           []Cluster `json:"clusters,omitempty"`
 }
 
 func (cc *ClusterManagerConfig) UnmarshalJSON(b []byte) error {
@@ -256,8 +195,6 @@ func (cc *ClusterManagerConfig) UnmarshalJSON(b []byte) error {
 	}
 	return nil
 }
-
-// Marshal memory config into json, if dynamic mode is configured, write json file
 func (cc ClusterManagerConfig) MarshalJSON() (b []byte, err error) {
 	if cc.ClusterConfigPath == "" {
 		cc.ClustersJson = cc.Clusters
@@ -301,3 +238,66 @@ func (cc ClusterManagerConfig) MarshalJSON() (b []byte, err error) {
 	}
 	return json.Marshal(cc.ClusterManagerConfigJson)
 }
+
+// Host represenets a host information
+type Host struct {
+	HostConfig
+	MetaData api.Metadata `json:"-"`
+}
+
+// CircuitBreakers is a configuration of circuit breakers
+// CircuitBreakers implements json.Marshaler and json.Unmarshaler
+type CircuitBreakers struct {
+	Thresholds []Thresholds
+}
+
+// CircuitBreakers's implements json.Marshaler and json.Unmarshaler
+
+type Thresholds struct {
+	MaxConnections     uint32 `json:"max_connections,omitempty"`
+	MaxPendingRequests uint32 `json:"max_pending_requests,omitempty"`
+	MaxRequests        uint32 `json:"max_requests,omitempty"`
+	MaxRetries         uint32 `json:"max_retries,omitempty"`
+}
+
+// ClusterSpecInfo is a configuration of subscribe
+type ClusterSpecInfo struct {
+	Subscribes []SubscribeSpec `json:"subscribe,omitempty"`
+}
+
+// SubscribeSpec describes the subscribe server
+type SubscribeSpec struct {
+	Subscriber  string `json:"subscriber,omitempty"`
+	ServiceName string `json:"service_name,omitempty"`
+}
+
+// LBSubsetConfig is a configuration of load balance subset
+type LBSubsetConfig struct {
+	FallBackPolicy  uint8             `json:"fall_back_policy,omitempty"`
+	DefaultSubset   map[string]string `json:"default_subset,omitempty"`
+	SubsetSelectors [][]string        `json:"subset_selectors,omitempty"`
+}
+
+// LBOriDstConfig for OriDst load balancer.
+type LBOriDstConfig struct {
+	UseHeader  bool   `json:"use_header,omitempty"`
+	HeaderName string `json:"header_name,omitempty"`
+}
+
+// ClusterManagerConfig for making up cluster manager
+// Cluster is the global cluster of mosn
+type ClusterManagerConfig struct {
+	ClusterManagerConfigJson
+	Clusters []Cluster `json:"-"`
+}
+
+type ClusterManagerConfigJson struct {
+	// Note: consider to use standard configure
+	AutoDiscovery bool `json:"auto_discovery,omitempty"`
+	RegistryUseHealthCheck bool      `json:"registry_use_health_check,omitempty"`
+	ClusterConfigPath      string    `json:"clusters_configs,omitempty"`
+	ClustersJson           []Cluster `json:"clusters,omitempty"`
+	// Note: this is a hack method to realize cluster's  health check which push by registry
+}
+
+// Marshal memory config into json, if dynamic mode is configured, write json file
