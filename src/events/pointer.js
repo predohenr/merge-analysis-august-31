@@ -6,8 +6,6 @@
  * @requires constants
  */
 
-import * as constants from '../core/constants';
-
 function pointer(p5, fn, lifecycles){
   lifecycles.presetup = function(){
     const events = [
@@ -974,18 +972,15 @@ function pointer(p5, fn, lifecycles){
 
   fn._setMouseButton = function(e) {
     // Check all active touches to determine button states
-    this.mouseButton.left = Array.from(this._activePointers.values())
-      .some(touch =>
-        (touch.buttons & 1) !== 0
-      );
-    this.mouseButton.center = Array.from(this._activePointers.values())
-      .some(touch =>
-        (touch.buttons & 4) !== 0
-      );
-    this.mouseButton.right = Array.from(this._activePointers.values())
-      .some(touch =>
-        (touch.buttons & 2) !== 0
-      );
+    this.mouseButton.left = Array.from(this._activePointers.values()).some(touch =>
+      (touch.buttons & 1) !== 0
+    );
+    this.mouseButton.center = Array.from(this._activePointers.values()).some(touch =>
+      (touch.buttons & 4) !== 0
+    );
+    this.mouseButton.right = Array.from(this._activePointers.values()).some(touch =>
+      (touch.buttons & 2) !== 0
+    );
   };
 
   /**
@@ -1167,18 +1162,12 @@ function pointer(p5, fn, lifecycles){
     this._activePointers.set(e.pointerId, e);
     this._setMouseButton(e);
 
-    if (
-      !this.mouseIsPressed &&
-      typeof this._customActions.mouseMoved === 'function'
-    ) {
+    if (!this.mouseIsPressed && this._customActions.mouseMoved) {
       executeDefault = this._customActions.mouseMoved(e);
       if (executeDefault === false) {
         e.preventDefault();
       }
-    } else if (
-      this.mouseIsPressed &&
-      typeof this._customActions.mouseDragged === 'function'
-    ) {
+    } else if (this.mouseIsPressed && this._customActions.mouseDragged) {
       executeDefault = this._customActions.mouseDragged(e);
       if (executeDefault === false) {
         e.preventDefault();
@@ -1496,7 +1485,7 @@ function pointer(p5, fn, lifecycles){
 
     this._updatePointerCoords(e);
 
-    if (typeof this._customActions.mouseReleased === 'function') {
+    if (this._customActions.mouseReleased) {
       executeDefault = this._customActions.mouseReleased(e);
       if (executeDefault === false) {
         e.preventDefault();
