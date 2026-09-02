@@ -35,6 +35,30 @@ import (
 	"helm.sh/helm/v4/internal/test"
 	chart "helm.sh/helm/v4/pkg/chart/v2"
 	chartutil "helm.sh/helm/v4/pkg/chart/v2/util"
+	kubefake "helm.sh/helm/v4/pkg/kube/fake"
+	"helm.sh/helm/v4/pkg/release"
+	"helm.sh/helm/v4/pkg/storage/driver"
+	helmtime "helm.sh/helm/v4/pkg/time"
+)
+import (
+	"bytes"
+	"context"
+	"fmt"
+	"io"
+	"os"
+	"path/filepath"
+	"regexp"
+	"runtime"
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
+	"helm.sh/helm/v4/internal/test"
+	"helm.sh/helm/v4/pkg/chart"
+	chartutil "helm.sh/helm/v4/pkg/chart/util"
 	"helm.sh/helm/v4/pkg/kube"
 	kubefake "helm.sh/helm/v4/pkg/kube/fake"
 	"helm.sh/helm/v4/pkg/release"
@@ -296,8 +320,6 @@ func TestInstallRelease_DryRunHiddenSecret(t *testing.T) {
 		t.Fatalf("Did not get expected an error when dry-run false and hide secret is true")
 	}
 }
-
-// Regression test for #7955
 func TestInstallRelease_DryRun_Lookup(t *testing.T) {
 	is := assert.New(t)
 	instAction := installAction(t)
@@ -803,3 +825,5 @@ func TestInstallWithSystemLabels(t *testing.T) {
 
 	is.Equal(fmt.Errorf("user supplied labels contains system reserved label name. System labels: %+v", driver.GetSystemLabels()), err)
 }
+
+// Regression test for #7955
