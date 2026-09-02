@@ -130,12 +130,6 @@ Object.assign(Mongo.Collection, {
     // return the observeHandle in case it needs to be stopped early
     return observeHandle;
   },
-
-  // protect against dangerous selectors.  falsey and {_id: falsey} are both
-  // likely programmer error, and not what you want, particularly for destructive
-  // operations. If a falsey _id is sent in, a new string _id will be
-  // generated and returned; if a fallbackId is provided, it will be returned
-  // instead.
   _rewriteSelector(selector, { fallbackId } = {}) {
     // shorthand -- scalars match _id
     if (LocalCollection._selectorIsId(selector)) selector = { _id: selector };
@@ -153,6 +147,12 @@ Object.assign(Mongo.Collection, {
 
     return selector;
   },
+
+  // protect against dangerous selectors.  falsey and {_id: falsey} are both
+  // likely programmer error, and not what you want, particularly for destructive
+  // operations. If a falsey _id is sent in, a new string _id will be
+  // generated and returned; if a fallbackId is provided, it will be returned
+  // instead.,
 });
 
 Object.assign(Mongo.Collection.prototype, ReplicationMethods, SyncMethods, AsyncMethods, IndexMethods);
@@ -180,13 +180,6 @@ Object.assign(Mongo.Collection.prototype, {
       );
     await self._collection.createCappedCollectionAsync(byteSize, maxDocuments);
   },
-
-  /**
-   * @summary Returns the [`Collection`](http://mongodb.github.io/node-mongodb-native/3.0/api/Collection.html) object corresponding to this collection from the [npm `mongodb` driver module](https://www.npmjs.com/package/mongodb) which is wrapped by `Mongo.Collection`.
-   * @locus Server
-   * @memberof Mongo.Collection
-   * @instance
-   */
   rawCollection() {
     var self = this;
     if (!self._collection.rawCollection) {
@@ -194,13 +187,6 @@ Object.assign(Mongo.Collection.prototype, {
     }
     return self._collection.rawCollection();
   },
-
-  /**
-   * @summary Returns the [`Db`](http://mongodb.github.io/node-mongodb-native/3.0/api/Db.html) object corresponding to this collection's database connection from the [npm `mongodb` driver module](https://www.npmjs.com/package/mongodb) which is wrapped by `Mongo.Collection`.
-   * @locus Server
-   * @memberof Mongo.Collection
-   * @instance
-   */
   rawDatabase() {
     var self = this;
     if (!(self._driver.mongo && self._driver.mongo.db)) {
@@ -208,6 +194,20 @@ Object.assign(Mongo.Collection.prototype, {
     }
     return self._driver.mongo.db;
   },
+
+  /**
+   * @summary Returns the [`Collection`](http://mongodb.github.io/node-mongodb-native/3.0/api/Collection.html) object corresponding to this collection from the [npm `mongodb` driver module](https://www.npmjs.com/package/mongodb) which is wrapped by `Mongo.Collection`.
+   * @locus Server
+   * @memberof Mongo.Collection
+   * @instance
+   */,
+
+  /**
+   * @summary Returns the [`Db`](http://mongodb.github.io/node-mongodb-native/3.0/api/Db.html) object corresponding to this collection's database connection from the [npm `mongodb` driver module](https://www.npmjs.com/package/mongodb) which is wrapped by `Mongo.Collection`.
+   * @locus Server
+   * @memberof Mongo.Collection
+   * @instance
+   */,
 });
 
 Object.assign(Mongo, {
