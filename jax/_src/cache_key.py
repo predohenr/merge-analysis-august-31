@@ -209,9 +209,9 @@ def _strip_mosaic_debug_info(m: ir.Module) -> None:
 
   def _strip_kernel(op: ir.Operation) -> ir.WalkResult:
     if (op.name != "stablehlo.custom_call"
-        or op.attributes["call_target_name"].value != "tpu_custom_call"):  # type: ignore
+        or op.attributes["call_target_name"].value != "tpu_custom_call"):
       return ir.WalkResult.ADVANCE
-    bc = json.loads(op.attributes["backend_config"].value)  # type: ignore
+    bc = json.loads(op.attributes["backend_config"].value)
     body = bc.get("custom_call_config", {}).get("body")
     if not body:
       return ir.WalkResult.ADVANCE
