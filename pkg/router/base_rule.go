@@ -36,6 +36,24 @@ import (
 	"mosn.io/mosn/pkg/types"
 	"mosn.io/mosn/pkg/upstream/cluster"
 )
+import (
+	"context"
+	"fmt"
+	"math/rand"
+	"regexp"
+	"strings"
+	"sync"
+	"time"
+
+	"mosn.io/api"
+
+	v2 "mosn.io/mosn/pkg/config/v2"
+	"mosn.io/mosn/pkg/log"
+	"mosn.io/mosn/pkg/protocol"
+	httpmosn "mosn.io/mosn/pkg/protocol/http"
+	"mosn.io/mosn/pkg/types"
+	"mosn.io/mosn/pkg/upstream/cluster"
+)
 
 var (
 	// https://tools.ietf.org/html/rfc3986#section-3.1
@@ -47,8 +65,7 @@ type RouteRuleImplBase struct {
 	vHost                 *VirtualHostImpl
 	routerMatch           v2.RouterMatch
 	configHeaders         []*types.HeaderData
-	configQueryParameters []types.QueryParameterMatcher //TODO: not implement yet
-	// rewrite
+	configQueryParameters []types.QueryParameterMatcher
 	prefixRewrite         string
 	regexRewrite          v2.RegexRewrite
 	regexPattern          *regexp.Regexp
@@ -57,22 +74,23 @@ type RouteRuleImplBase struct {
 	autoHostRewriteHeader string
 	requestHeadersParser  *headerParser
 	responseHeadersParser *headerParser
-	// information
 	upstreamProtocol string
 	perFilterConfig  map[string]interface{}
-	// policy
 	policy *policy
-	// direct response
 	directResponseRule *directResponseImpl
-	// redirect
 	redirectRule *redirectImpl
-	// action
 	routerAction       v2.RouteAction
-	defaultCluster     *weightedClusterEntry // cluster name and metadata
+	defaultCluster     *weightedClusterEntry
 	weightedClusters   map[string]weightedClusterEntry
 	totalClusterWeight uint32
 	lock               sync.Mutex
-	randInstance       *rand.Rand
+	randInstance       *rand.Rand //TODO: not implement yet
+	// rewrite
+	// information
+	// policy
+	// direct response
+	// redirect
+	// action // cluster name and metadata
 }
 
 func NewRouteRuleImplBase(vHost *VirtualHostImpl, route *v2.Router) (*RouteRuleImplBase, error) {
@@ -190,11 +208,6 @@ func (rri *RouteRuleImplBase) RedirectRule() api.RedirectRule {
 	}
 	return rri.redirectRule
 }
-
-// types.RouteRule
-// Select Cluster for Routing
-// if weighted cluster is nil, return clusterName directly, else
-// select cluster from weighted-clusters
 func (rri *RouteRuleImplBase) ClusterName() string {
 	if len(rri.weightedClusters) == 0 {
 		return rri.defaultCluster.clusterName
@@ -243,8 +256,6 @@ func (rri *RouteRuleImplBase) MetadataMatchCriteria(clusterName string) api.Meta
 func (rri *RouteRuleImplBase) PerFilterConfig() map[string]interface{} {
 	return rri.perFilterConfig
 }
-
-// matchRoute is a common matched for http
 func (rri *RouteRuleImplBase) matchRoute(headers api.HeaderMap, randomValue uint64) bool {
 	// 1. match headers' KV
 	if !ConfigUtilityInst.MatchHeaders(headers, rri.configHeaders) {
@@ -328,3 +339,10 @@ func (rri *RouteRuleImplBase) FinalizeResponseHeaders(headers api.HeaderMap, req
 	rri.vHost.responseHeadersParser.evaluateHeaders(headers, requestInfo)
 	rri.vHost.globalRouteConfig.responseHeadersParser.evaluateHeaders(headers, requestInfo)
 }
+
+// types.RouteRule
+// Select Cluster for Routing
+// if weighted cluster is nil, return clusterName directly, else
+// select cluster from weighted-clusters
+
+// matchRoute is a common matched for http
