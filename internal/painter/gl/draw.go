@@ -772,7 +772,7 @@ func (p *painter) drawText(text *canvas.Text, pos fyne.Position, frame fyne.Size
 	} else if width > 0 {
 		height := int(math.Ceil(float64(size.Height * p.pixScale)))
 		texture := p.clippedTextTexture(text, offset, width, height)
-		if cache.IsValid(cache.TextureType(texture)) {
+		if texture != noTexture {
 			clipPos := fyne.NewPos(pos.X+float32(offset)/p.pixScale, pos.Y)
 			clipSize := fyne.NewSize(float32(width)/p.pixScale, size.Height)
 			p.drawTextureRegion(texture, clipPos, clipSize, frame)
