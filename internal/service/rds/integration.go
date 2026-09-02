@@ -359,14 +359,14 @@ func waitIntegrationCreated(ctx context.Context, conn *rds.Client, arn string, t
 	stateConf := &retry.StateChangeConf{
 		Pending: []string{integrationStatusCreating, integrationStatusModifying},
 		Target:  []string{integrationStatusActive},
-		Refresh: statusIntegration(conn, arn),
+		Refresh: statusIntegration(ctx, conn, arn),
 		Timeout: timeout,
 	}
 
 	outputRaw, err := stateConf.WaitForStateContext(ctx)
 
 	if output, ok := outputRaw.(*awstypes.Integration); ok {
-		retry.SetLastError(err, errors.Join(tfslices.ApplyToAll(output.Errors, integrationError)...))
+		tfresource.SetLastError(err, errors.Join(tfslices.ApplyToAll(output.Errors, integrationError)...))
 
 		return output, err
 	}
@@ -378,14 +378,14 @@ func waitIntegrationUpdated(ctx context.Context, conn *rds.Client, arn string, t
 	stateConf := &sdkretry.StateChangeConf{
 		Pending: []string{integrationStatusModifying},
 		Target:  []string{integrationStatusActive},
-		Refresh: statusIntegration(ctx, conn, arn),
+		Refresh: statusIntegration(conn, arn),
 		Timeout: timeout,
 	}
 
 	outputRaw, err := stateConf.WaitForStateContext(ctx)
 
 	if output, ok := outputRaw.(*awstypes.Integration); ok {
-		tfresource.SetLastError(err, errors.Join(tfslices.ApplyToAll(output.Errors, integrationError)...))
+		retry.SetLastError(err, errors.Join(tfslices.ApplyToAll(output.Errors, integrationError)...))
 
 		return output, err
 	}
