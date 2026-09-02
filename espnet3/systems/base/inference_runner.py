@@ -1,9 +1,8 @@
 """Inference runner with output validation."""
 
 from __future__ import annotations
-
-import logging
 from collections.abc import Mapping
+import logging
 from functools import lru_cache
 from importlib import import_module
 from pathlib import Path
@@ -97,6 +96,13 @@ def _materialize_output_value(
         f"'{field_key}'. Supported: str, int, float, bool, "
         "np.ndarray, torch.Tensor."
     )
+
+
+@lru_cache(maxsize=None)
+def _load_output_fn(path: str):
+    module_path, func_name = path.rsplit(".", 1)
+    module = import_module(module_path)
+    return getattr(module, func_name)
 
 
 class InferenceRunner(BaseRunner):
@@ -499,10 +505,3 @@ class InferenceRunner(BaseRunner):
             self._validate_output(item)
 
         return flat_results
-
-
-@lru_cache(maxsize=None)
-def _load_output_fn(path: str):
-    module_path, func_name = path.rsplit(".", 1)
-    module = import_module(module_path)
-    return getattr(module, func_name)
