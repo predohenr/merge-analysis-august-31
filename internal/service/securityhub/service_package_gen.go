@@ -32,7 +32,7 @@ func (p *servicePackage) FrameworkDataSources(ctx context.Context) []*inttypes.S
 			Factory:  newStandardsControlDefinitionsDataSource,
 			TypeName: "aws_securityhub_standards_control_definitions",
 			Name:     "Standards Control Definitions",
-			Region:   inttypes.ResourceRegionDefault(),
+			Region:   unique.Make(inttypes.ResourceRegionDefault()),
 		},
 	}
 }
