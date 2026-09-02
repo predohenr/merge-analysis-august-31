@@ -10634,7 +10634,6 @@ class ShardingInTypesTest(jtu.JaxTestCase):
 
     lowered_text = f.lower(arr).as_text()
     self.assertRegex(lowered_text, r'multiply.*frontend_attributes')
-
   @jtu.with_explicit_mesh((2,), 'x')
   def test_cet_unreduced(self, mesh):
     x = jnp.array([[1, 2], [3, 4]])
