@@ -1,21 +1,19 @@
 """
 Conditional logistic, Poisson, and multinomial logit regression
 """
-
-import collections
-import itertools
-import warnings
-
-import numpy as np
-
-import statsmodels.base.model as base
-import statsmodels.base.wrapper as wrap
+from statsmodels.formula.formulatools import advance_eval_env
 from statsmodels.discrete.discrete_model import (
     MultinomialResults,
     MultinomialResultsWrapper,
 )
-from statsmodels.formula.formulatools import advance_eval_env
+import warnings
 import statsmodels.regression.linear_model as lm
+import statsmodels.base.wrapper as wrap
+import collections
+import itertools
+import statsmodels.base.model as base
+from scipy.special import logsumexp
+import numpy as np
 
 
 class _ConditionalModel(base.LikelihoodModel):
