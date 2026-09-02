@@ -148,11 +148,6 @@ class Base(db.Model):
             return this is not None and other is not None and str(this) == str(other)
         else:
             return NotImplemented
-
-    # we need hashable instances here for sqlalchemy to update collections
-    # in collections.bulk_replace, but auto-incrementing don't always have
-    # a valid primary key, in this case we use the object's id
-    __hashed = None
     def __hash__(self):
         if self.__hashed is None:
             primary = getattr(self, self.__table__.primary_key.columns.values()[0].name)
@@ -162,6 +157,11 @@ class Base(db.Model):
     def dont_change_updated_at(self):
         """ Mark updated_at as modified, but keep the old date when updating the model"""
         flag_modified(self, 'updated_at')
+
+    # we need hashable instances here for sqlalchemy to update collections
+    # in collections.bulk_replace, but auto-incrementing don't always have
+    # a valid primary key, in this case we use the object's id
+    __hashed = None
 
 
 class Config(Base):
@@ -180,6 +180,28 @@ def _save_dkim_keys(session):
 
 def _get_managers():
     return managers
+
+
+def has_domain_access(domain_name, user=None):
+    """Return True if the given user has access to domain_name.
+    Administrators implicitly have access to all domains.
+    """
+    if user is not None and getattr(user, 'global_admin', False):
+        return True
+    
+    if user is not None:
+        domain = Domain.query.get(domain_name)
+        if domain and domain.managers.filter_by(email=user.email).first():
+            return True
+
+    if user is None:
+        return False
+
+    query = DomainAccess.query.filter(
+        DomainAccess.domain_name == domain_name,
+        DomainAccess.user_email == user.email
+    )
+    return db.session.query(query.exists()).scalar()
 
 
 class Domain(Base):
@@ -438,10 +460,6 @@ class Email(object):
         """ the domain part of the email address """
         return db.Column(IdnaDomain, db.ForeignKey(Domain.name),
             nullable=False, default=IdnaDomain)
-
-    # This field is redundant with both localpart and domain name.
-    # It is however very useful for quick lookups without joining tables,
-    # especially when the mail server is reading the database.
     @declarative.declared_attr
     def _email(cls):
         """ the complete email address (localpart@domain) """
@@ -453,9 +471,6 @@ class Email(object):
             return '{localpart}@{domain_name}'.format_map(ctx.current_parameters)
 
         return db.Column('email', IdnaEmail, primary_key=True, nullable=False, onupdate=updater)
-
-    # We need to keep email, localpart and domain_name in sync.
-    # But IMHO using email as primary key was not a good idea in the first place.
     @hybrid_property
     def email(self):
         """ getter for email - gets _email """
@@ -567,6 +582,13 @@ class Email(object):
             return pure_alias.destination
 
         return None
+
+    # This field is redundant with both localpart and domain name.
+    # It is however very useful for quick lookups without joining tables,
+    # especially when the mail server is reading the database.
+
+    # We need to keep email, localpart and domain_name in sync.
+    # But IMHO using email as primary key was not a good idea in the first place.
 
 
 class User(Base, Email):
@@ -923,28 +945,6 @@ class DomainAccess(Base):
 
     def __repr__(self):
         return f'<DomainAccess {self.domain_name} for {self.user_email}>'
-
-
-def has_domain_access(domain_name, user=None):
-    """Return True if the given user has access to domain_name.
-    Administrators implicitly have access to all domains.
-    """
-    if user is not None and getattr(user, 'global_admin', False):
-        return True
-    
-    if user is not None:
-        domain = Domain.query.get(domain_name)
-        if domain and domain.managers.filter_by(email=user.email).first():
-            return True
-
-    if user is None:
-        return False
-
-    query = DomainAccess.query.filter(
-        DomainAccess.domain_name == domain_name,
-        DomainAccess.user_email == user.email
-    )
-    return db.session.query(query.exists()).scalar()
 
 
 class MailuConfig:
