@@ -198,7 +198,7 @@ func main() {
 
 		// any subsequent changes trigger a restart
 		controllerCtrl.restart = cCtrlr.ConfigChan()
-		controllerCtrl.InitControllers(ctx, runCfg, k8sClientset, libcalicoClient, calicoClient, k8sconfig, dataFeed)
+		controllerCtrl.InitControllers(ctx, runCfg, k8sClientset, libcalicoClient, calicoClient, k8sconfig, dataFeed, k8sconfig)
 	}
 
 	if cfg.DatastoreType == utils.Etcdv3 {
@@ -472,6 +472,7 @@ func (cc *controllerControl) InitControllers(
 	v3c clientset.Interface,
 	k8sconfig *rest.Config,
 	dataFeed *utils.DataFeed,
+	k8sconfig *rest.Config,
 ) {
 	// Create a shared informer factory to allow cache sharing between controllers monitoring the
 	// same resource.
