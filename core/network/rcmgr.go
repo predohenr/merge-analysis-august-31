@@ -356,5 +356,5 @@ func (n *NullScope) SetPeer(peer.ID) error                    { return nil }
 func (n *NullScope) ProtocolScope() ProtocolScope             { return &NullScope{} }
 func (n *NullScope) SetProtocol(_ protocol.ID) error      { return nil }
 func (n *NullScope) ServiceScope() ServiceScope               { return &NullScope{} }
-func (n *NullScope) SetService(_ string) error              { return nil }
 func (n *NullScope) VerifySourceAddress(_ net.Addr) bool      { return false }
+func (n *NullScope) SetService(_ string) error              { return nil }
