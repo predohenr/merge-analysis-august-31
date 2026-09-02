@@ -137,25 +137,12 @@ def _compatible_shapes(shape):
     return [shape]
   return (shape[n:] for n in range(len(shape) + 1))
 
-OpRecord = collections.namedtuple(
-  "OpRecord",
-  ["name", "nargs", "dtypes", "shapes", "rng_factory", "diff_modes",
-   "test_name", "check_dtypes", "tolerance", "inexact", "kwargs"])
-
 def op_record(name, nargs, dtypes, shapes, rng_factory, diff_modes,
               test_name=None, check_dtypes=True,
               tolerance=None, inexact=False, kwargs=None):
   test_name = test_name or name
   return OpRecord(name, nargs, dtypes, shapes, rng_factory, diff_modes,
                   test_name, check_dtypes, tolerance, inexact, kwargs)
-
-
-JAX_ARGMINMAX_RECORDS = [
-    op_record("argmin", 1, default_dtypes, nonempty_shapes, jtu.rand_some_equal, []),
-    op_record("argmax", 1, default_dtypes, nonempty_shapes, jtu.rand_some_equal, []),
-    op_record("nanargmin", 1, default_dtypes, nonempty_shapes, jtu.rand_some_nan, []),
-    op_record("nanargmax", 1, default_dtypes, nonempty_shapes, jtu.rand_some_nan, []),
-]
 
 def _shapes_are_broadcast_compatible(shapes):
   try:
@@ -167,6 +154,45 @@ def _shapes_are_broadcast_compatible(shapes):
 
 def _shapes_are_equal_length(shapes):
   return all(len(shape) == len(shapes[0]) for shape in shapes[1:])
+def grad_test_spec(op, nargs, order, rng_factory, dtypes, name=None, tol=None):
+  return GradTestSpec(
+      op, nargs, order, rng_factory, dtypes, name or op.__name__, tol)
+
+
+def _all_numpy_ufuncs() -> Iterator[str]:
+  """Generate the names of all ufuncs in the top-level numpy namespace."""
+  for name in dir(np):
+    f = getattr(np, name)
+    if isinstance(f, np.ufunc) and name not in UNIMPLEMENTED_UFUNCS:
+      yield name
+
+
+def _dtypes_for_ufunc(name: str) -> Iterator[tuple[str, ...]]:
+  """Generate valid dtypes of inputs to the given numpy ufunc."""
+  func = getattr(np, name)
+  for arg_dtypes in itertools.product(_available_numpy_dtypes, repeat=func.nin):
+    args = (np.ones(1, dtype=dtype) for dtype in arg_dtypes)
+    try:
+      with jtu.ignore_warning(
+          category=RuntimeWarning, message="(divide by zero|invalid value)"):
+        _ = func(*args)
+    except TypeError:
+      pass
+    else:
+      yield arg_dtypes
+
+OpRecord = collections.namedtuple(
+  "OpRecord",
+  ["name", "nargs", "dtypes", "shapes", "rng_factory", "diff_modes",
+   "test_name", "check_dtypes", "tolerance", "inexact", "kwargs"])
+
+
+JAX_ARGMINMAX_RECORDS = [
+    op_record("argmin", 1, default_dtypes, nonempty_shapes, jtu.rand_some_equal, []),
+    op_record("argmax", 1, default_dtypes, nonempty_shapes, jtu.rand_some_equal, []),
+    op_record("nanargmin", 1, default_dtypes, nonempty_shapes, jtu.rand_some_nan, []),
+    op_record("nanargmax", 1, default_dtypes, nonempty_shapes, jtu.rand_some_nan, []),
+]
 
 
 class LaxBackedNumpyTests(jtu.JaxTestCase):
@@ -6122,9 +6148,6 @@ class LaxBackedNumpyTests(jtu.JaxTestCase):
 GradTestSpec = collections.namedtuple(
     "GradTestSpec",
     ["op", "nargs", "order", "rng_factory", "dtypes", "name", "tol"])
-def grad_test_spec(op, nargs, order, rng_factory, dtypes, name=None, tol=None):
-  return GradTestSpec(
-      op, nargs, order, rng_factory, dtypes, name or op.__name__, tol)
 
 GRAD_TEST_RECORDS = [
     grad_test_spec(jnp.arcsinh, nargs=1, order=2,
@@ -6490,29 +6513,6 @@ _available_numpy_dtypes: list[str] = [dtype.__name__ for dtype in jtu.dtypes.all
 
 # TODO(jakevdp): implement missing ufuncs.
 UNIMPLEMENTED_UFUNCS = {'spacing', 'matvec', 'vecmat'}
-
-
-def _all_numpy_ufuncs() -> Iterator[str]:
-  """Generate the names of all ufuncs in the top-level numpy namespace."""
-  for name in dir(np):
-    f = getattr(np, name)
-    if isinstance(f, np.ufunc) and name not in UNIMPLEMENTED_UFUNCS:
-      yield name
-
-
-def _dtypes_for_ufunc(name: str) -> Iterator[tuple[str, ...]]:
-  """Generate valid dtypes of inputs to the given numpy ufunc."""
-  func = getattr(np, name)
-  for arg_dtypes in itertools.product(_available_numpy_dtypes, repeat=func.nin):
-    args = (np.ones(1, dtype=dtype) for dtype in arg_dtypes)
-    try:
-      with jtu.ignore_warning(
-          category=RuntimeWarning, message="(divide by zero|invalid value)"):
-        _ = func(*args)
-    except TypeError:
-      pass
-    else:
-      yield arg_dtypes
 
 
 class NumpyUfuncTests(jtu.JaxTestCase):
