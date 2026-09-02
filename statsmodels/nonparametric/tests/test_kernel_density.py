@@ -270,10 +270,11 @@ class TestKDEUnivariate(KDETestBase):
 
     def test_weighted_pdf_non_fft(self, reset_randomstate):
 
+        weights = self.weights.copy()
         kde = nparam.KDEUnivariate(self.noise)
         weights = self.weights_orig.copy()
         kde.fit(weights=weights, fft=False, bw="scott")
-        npt.assert_allclose(weights, self.weights_orig)
+        npt.assert_allclose(weights, self.weights)
 
         grid = kde.support
         testx = np.array([grid[10 * i] for i in range(6)])
