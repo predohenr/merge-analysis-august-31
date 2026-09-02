@@ -26,8 +26,21 @@ import (
 	"helm.sh/helm/v4/pkg/chart/loader"
 	"helm.sh/helm/v4/pkg/chartutil"
 	"helm.sh/helm/v4/pkg/getter"
-	"helm.sh/helm/v4/pkg/repo"
 	"helm.sh/helm/v4/pkg/repo/repotest"
+)
+import (
+	"bytes"
+	"os"
+	"path/filepath"
+	"reflect"
+	"testing"
+
+	"helm.sh/helm/v3/pkg/chart"
+	"helm.sh/helm/v3/pkg/chart/loader"
+	"helm.sh/helm/v3/pkg/chartutil"
+	"helm.sh/helm/v3/pkg/getter"
+	"helm.sh/helm/v3/pkg/repo"
+	"helm.sh/helm/v3/pkg/repo/repotest"
 )
 
 func TestVersionEquals(t *testing.T) {
@@ -358,10 +371,6 @@ func TestUpdateBeforeBuild(t *testing.T) {
 		t.Fatal(err)
 	}
 }
-
-// TestUpdateWithNoRepo is for the case of a dependency that has no repo listed.
-// This happens when the dependency is in the charts directory and does not need
-// to be fetched.
 func TestUpdateWithNoRepo(t *testing.T) {
 	// Set up a fake repo
 	srv, err := repotest.NewTempServerWithCleanup(t, "testdata/*.tgz*")
@@ -428,13 +437,6 @@ func TestUpdateWithNoRepo(t *testing.T) {
 		t.Fatal(err)
 	}
 }
-
-// This function is the skeleton test code of failing tests for #6416 and #6871 and bugs due to #5874.
-//
-// This function is used by below tests that ensures success of build operation
-// with optional fields, alias, condition, tags, and even with ranged version.
-// Parent chart includes local-subchart 0.1.0 subchart from a fake repository, by default.
-// If each of these main fields (name, version, repository) is not supplied by dep param, default value will be used.
 func checkBuildWithOptionalFields(t *testing.T, chartName string, dep chart.Dependency) {
 	// Set up a fake repo
 	srv, err := repotest.NewTempServerWithCleanup(t, "testdata/*.tgz*")
@@ -532,8 +534,6 @@ func TestBuild_WithTags(t *testing.T) {
 		Tags: []string{"tag1", "tag2"},
 	})
 }
-
-// Failing test for #6871
 func TestBuild_WithRepositoryAlias(t *testing.T) {
 	// Dependency repository is aliased in Chart.yaml
 	checkBuildWithOptionalFields(t, "with-repository-alias", chart.Dependency{
@@ -599,8 +599,6 @@ func TestKey(t *testing.T) {
 		}
 	}
 }
-
-// Test dedupeRepos tests that the dedupeRepos function correctly deduplicates
 func TestDedupeRepos(t *testing.T) {
 	tests := []struct {
 		name  string
@@ -667,3 +665,18 @@ func TestDedupeRepos(t *testing.T) {
 		})
 	}
 }
+
+// TestUpdateWithNoRepo is for the case of a dependency that has no repo listed.
+// This happens when the dependency is in the charts directory and does not need
+// to be fetched.
+
+// This function is the skeleton test code of failing tests for #6416 and #6871 and bugs due to #5874.
+//
+// This function is used by below tests that ensures success of build operation
+// with optional fields, alias, condition, tags, and even with ranged version.
+// Parent chart includes local-subchart 0.1.0 subchart from a fake repository, by default.
+// If each of these main fields (name, version, repository) is not supplied by dep param, default value will be used.
+
+// Failing test for #6871
+
+// Test dedupeRepos tests that the dedupeRepos function correctly deduplicates
