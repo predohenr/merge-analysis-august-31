@@ -40,9 +40,9 @@ type VirtualMachineSnapshot struct {
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
 	Spec VirtualMachineSnapshotSpec `json:"spec"`
+	Status *VirtualMachineSnapshotStatus `json:"status,omitempty"`
 
 	// +optional
-	Status *VirtualMachineSnapshotStatus `json:"status,omitempty"`
 }
 
 // DeletionPolicy defines that to do with VirtualMachineSnapshot
@@ -62,16 +62,16 @@ const (
 // VirtualMachineSnapshotSpec is the spec for a VirtualMachineSnapshot resource
 type VirtualMachineSnapshotSpec struct {
 	Source corev1.TypedLocalObjectReference `json:"source"`
+	DeletionPolicy *DeletionPolicy `json:"deletionPolicy,omitempty"`
+	FailureDeadline *metav1.Duration `json:"failureDeadline,omitempty"`
 
 	// +optional
-	DeletionPolicy *DeletionPolicy `json:"deletionPolicy,omitempty"`
 
 	// This time represents the number of seconds we permit the vm snapshot
 	// to take. In case we pass this deadline we mark this snapshot
 	// as failed.
 	// Defaults to DefaultFailureDeadline - 5min
 	// +optional
-	FailureDeadline *metav1.Duration `json:"failureDeadline,omitempty"`
 }
 
 // Indication is a way to indicate the state of the vm when taking the snapshot
@@ -89,8 +89,8 @@ const (
 type SourceIndication struct {
 	// Indication is the indication type
 	Indication Indication `json:"indication"`
-	// Message provides a description message of the indication
 	Message string `json:"message"`
+	// Message provides a description message of the indication
 }
 
 // VirtualMachineSnapshotPhase is the current phase of the VirtualMachineSnapshot
@@ -109,38 +109,38 @@ const (
 type VirtualMachineSnapshotStatus struct {
 	// +optional
 	SourceUID *types.UID `json:"sourceUID,omitempty"`
+	VirtualMachineSnapshotContentName *string `json:"virtualMachineSnapshotContentName,omitempty"`
+	CreationTime *metav1.Time `json:"creationTime,omitempty"`
+	Phase VirtualMachineSnapshotPhase `json:"phase,omitempty"`
+	ReadyToUse *bool `json:"readyToUse,omitempty"`
+	Error *Error `json:"error,omitempty"`
+	Conditions []Condition `json:"conditions,omitempty"`
+	Indications []Indication `json:"indications,omitempty"`
+	SourceIndications []SourceIndication `json:"sourceIndications,omitempty"`
+	SnapshotVolumes *SnapshotVolumesLists `json:"snapshotVolumes,omitempty"`
 
 	// +optional
-	VirtualMachineSnapshotContentName *string `json:"virtualMachineSnapshotContentName,omitempty"`
 
 	// +optional
 	// +nullable
-	CreationTime *metav1.Time `json:"creationTime,omitempty"`
 
 	// +optional
-	Phase VirtualMachineSnapshotPhase `json:"phase,omitempty"`
 
 	// +optional
-	ReadyToUse *bool `json:"readyToUse,omitempty"`
 
 	// +optional
-	Error *Error `json:"error,omitempty"`
 
 	// +optional
 	// +listType=atomic
-	Conditions []Condition `json:"conditions,omitempty"`
 
 	// Deprecated: Use SourceIndications instead. This field will be removed in a future version.
 	// +optional
 	// +listType=set
-	Indications []Indication `json:"indications,omitempty"`
 
 	// +optional
 	// +listType=atomic
-	SourceIndications []SourceIndication `json:"sourceIndications,omitempty"`
 
 	// +optional
-	SnapshotVolumes *SnapshotVolumesLists `json:"snapshotVolumes,omitempty"`
 }
 
 // SnapshotVolumesLists includes the list of volumes which were included in the snapshot and volumes which were excluded from the snapshot
@@ -148,19 +148,19 @@ type SnapshotVolumesLists struct {
 	// +optional
 	// +listType=set
 	IncludedVolumes []string `json:"includedVolumes,omitempty"`
+	ExcludedVolumes []string `json:"excludedVolumes,omitempty"`
 
 	// +optional
 	// +listType=set
-	ExcludedVolumes []string `json:"excludedVolumes,omitempty"`
 }
 
 // Error is the last error encountered during the snapshot/restore
 type Error struct {
 	// +optional
 	Time *metav1.Time `json:"time,omitempty"`
+	Message *string `json:"message,omitempty"`
 
 	// +optional
-	Message *string `json:"message,omitempty"`
 }
 
 // ConditionType is the const type for Conditions
@@ -182,20 +182,20 @@ type Condition struct {
 	Type ConditionType `json:"type"`
 
 	Status corev1.ConditionStatus `json:"status"`
-
-	// +optional
-	// +nullable
 	LastProbeTime metav1.Time `json:"lastProbeTime,omitempty"`
+	LastTransitionTime metav1.Time `json:"lastTransitionTime,omitempty"`
+	Reason string `json:"reason,omitempty"`
+	Message string `json:"message,omitempty"`
 
 	// +optional
 	// +nullable
-	LastTransitionTime metav1.Time `json:"lastTransitionTime,omitempty"`
 
 	// +optional
-	Reason string `json:"reason,omitempty"`
+	// +nullable
 
 	// +optional
-	Message string `json:"message,omitempty"`
+
+	// +optional
 }
 
 // VirtualMachineSnapshotList is a list of VirtualMachineSnapshot resources
@@ -215,9 +215,9 @@ type VirtualMachineSnapshotContent struct {
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
 	Spec VirtualMachineSnapshotContentSpec `json:"spec"`
+	Status *VirtualMachineSnapshotContentStatus `json:"status,omitempty"`
 
 	// +optional
-	Status *VirtualMachineSnapshotContentStatus `json:"status,omitempty"`
 }
 
 // VirtualMachineSnapshotContentSpec is the spec for a VirtualMachineSnapshotContent resource
@@ -225,21 +225,21 @@ type VirtualMachineSnapshotContentSpec struct {
 	VirtualMachineSnapshotName *string `json:"virtualMachineSnapshotName,omitempty"`
 
 	Source SourceSpec `json:"source"`
+	VolumeBackups []VolumeBackup `json:"volumeBackups,omitempty"`
 
 	// +optional
 	// +listType=atomic
-	VolumeBackups []VolumeBackup `json:"volumeBackups,omitempty"`
 }
 
 type VirtualMachine struct {
 	// +kubebuilder:pruning:PreserveUnknownFields
 	// +nullable
 	metav1.ObjectMeta `json:"metadata,omitempty"`
-	// VirtualMachineSpec contains the VirtualMachine specification.
 	Spec v1.VirtualMachineSpec `json:"spec,omitempty" valid:"required"`
+	Status v1.VirtualMachineStatus `json:"status,omitempty"`
+	// VirtualMachineSpec contains the VirtualMachine specification.
 	// Status holds the current state of the controller and brief information
 	// about its associated VirtualMachineInstance
-	Status v1.VirtualMachineStatus `json:"status,omitempty"`
 }
 
 // SourceSpec contains the appropriate spec for the resource being snapshotted
@@ -254,11 +254,11 @@ type PersistentVolumeClaim struct {
 	// +kubebuilder:pruning:PreserveUnknownFields
 	// +optional
 	metav1.ObjectMeta `json:"metadata,omitempty"`
+	Spec corev1.PersistentVolumeClaimSpec `json:"spec,omitempty"`
 
 	// Spec defines the desired characteristics of a volume requested by a pod author.
 	// More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#persistentvolumeclaims
 	// +optional
-	Spec corev1.PersistentVolumeClaimSpec `json:"spec,omitempty"`
 }
 
 // VolumeBackup contains the data neeed to restore a PVC
@@ -266,9 +266,9 @@ type VolumeBackup struct {
 	VolumeName string `json:"volumeName"`
 
 	PersistentVolumeClaim PersistentVolumeClaim `json:"persistentVolumeClaim"`
+	VolumeSnapshotName *string `json:"volumeSnapshotName,omitempty"`
 
 	// +optional
-	VolumeSnapshotName *string `json:"volumeSnapshotName,omitempty"`
 }
 
 // VirtualMachineSnapshotContentStatus is the status for a VirtualMachineSnapshotStatus resource
@@ -276,16 +276,16 @@ type VirtualMachineSnapshotContentStatus struct {
 	// +optional
 	// +nullable
 	CreationTime *metav1.Time `json:"creationTime,omitempty"`
-
-	// +optional
 	ReadyToUse *bool `json:"readyToUse,omitempty"`
+	Error *Error `json:"error,omitempty"`
+	VolumeSnapshotStatus []VolumeSnapshotStatus `json:"volumeSnapshotStatus,omitempty"`
 
 	// +optional
-	Error *Error `json:"error,omitempty"`
+
+	// +optional
 
 	// +optional
 	// +listType=atomic
-	VolumeSnapshotStatus []VolumeSnapshotStatus `json:"volumeSnapshotStatus,omitempty"`
 }
 
 // VirtualMachineSnapshotContentList is a list of VirtualMachineSnapshot resources
@@ -300,16 +300,16 @@ type VirtualMachineSnapshotContentList struct {
 // VolumeSnapshotStatus is the status of a VolumeSnapshot
 type VolumeSnapshotStatus struct {
 	VolumeSnapshotName string `json:"volumeSnapshotName"`
+	CreationTime *metav1.Time `json:"creationTime,omitempty"`
+	ReadyToUse *bool `json:"readyToUse,omitempty"`
+	Error *Error `json:"error,omitempty"`
 
 	// +optional
 	// +nullable
-	CreationTime *metav1.Time `json:"creationTime,omitempty"`
 
 	// +optional
-	ReadyToUse *bool `json:"readyToUse,omitempty"`
 
 	// +optional
-	Error *Error `json:"error,omitempty"`
 }
 
 // VirtualMachineRestore defines the operation of restoring a VM
@@ -320,9 +320,9 @@ type VirtualMachineRestore struct {
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
 	Spec VirtualMachineRestoreSpec `json:"spec"`
+	Status *VirtualMachineRestoreStatus `json:"status,omitempty"`
 
 	// +optional
-	Status *VirtualMachineRestoreStatus `json:"status,omitempty"`
 }
 
 // TargetReadinessPolicy defines how to handle the restore in case
@@ -385,21 +385,22 @@ type VirtualMachineRestoreSpec struct {
 	Target corev1.TypedLocalObjectReference `json:"target"`
 
 	VirtualMachineSnapshotName string `json:"virtualMachineSnapshotName"`
-
-	// +optional
 	TargetReadinessPolicy *TargetReadinessPolicy `json:"targetReadinessPolicy,omitempty"`
-
-	// +optional
 	VolumeRestorePolicy *VolumeRestorePolicy `json:"volumeRestorePolicy,omitempty"`
+	VolumeOwnershipPolicy *VolumeOwnershipPolicy `json:"volumeOwnershipPolicy,omitempty"`
+	VolumeRestoreOverrides []VolumeRestoreOverride `json:"volumeRestoreOverrides,omitempty"`
+	Patches []string `json:"patches,omitempty"`
 
 	// +optional
-	VolumeOwnershipPolicy *VolumeOwnershipPolicy `json:"volumeOwnershipPolicy,omitempty"`
+
+	// +optional
+
+	// +optional
 
 	// VolumeRestoreOverrides gives the option to change properties of each restored volume
 	// For example, specifying the name of the restored volume, or adding labels/annotations to it
 	// +optional
 	// +listType=atomic
-	VolumeRestoreOverrides []VolumeRestoreOverride `json:"volumeRestoreOverrides,omitempty"`
 
 	// If the target for the restore does not exist, it will be created. Patches holds JSON patches that would be
 	// applied to the target manifest before it's created. Patches should fit the target's Kind.
@@ -408,7 +409,6 @@ type VirtualMachineRestoreSpec struct {
 	//
 	// +optional
 	// +listType=atomic
-	Patches []string `json:"patches,omitempty"`
 }
 
 // VirtualMachineRestoreStatus is the status for a VirtualMachineRestore resource
@@ -416,20 +416,20 @@ type VirtualMachineRestoreStatus struct {
 	// +optional
 	// +listType=atomic
 	Restores []VolumeRestore `json:"restores,omitempty"`
+	RestoreTime *metav1.Time `json:"restoreTime,omitempty"`
+	DeletedDataVolumes []string `json:"deletedDataVolumes,omitempty"`
+	Complete *bool `json:"complete,omitempty"`
+	Conditions []Condition `json:"conditions,omitempty"`
 
 	// +optional
-	RestoreTime *metav1.Time `json:"restoreTime,omitempty"`
 
 	// +optional
 	// +listType=set
-	DeletedDataVolumes []string `json:"deletedDataVolumes,omitempty"`
 
 	// +optional
-	Complete *bool `json:"complete,omitempty"`
 
 	// +optional
 	// +listType=atomic
-	Conditions []Condition `json:"conditions,omitempty"`
 }
 
 // VolumeRestore contains the data needed to restore a PVC
@@ -439,20 +439,20 @@ type VolumeRestore struct {
 	PersistentVolumeClaimName string `json:"persistentVolumeClaim"`
 
 	VolumeSnapshotName string `json:"volumeSnapshotName"`
+	DataVolumeName *string `json:"dataVolumeName,omitempty"`
 
 	// +optional
-	DataVolumeName *string `json:"dataVolumeName,omitempty"`
 }
 
 // VolumeRestoreOverride specifies how a volume should be restored from a VirtualMachineSnapshot
 type VolumeRestoreOverride struct {
 	VolumeName string `json:"volumeName,omitempty"`
-	// +optional
 	RestoreName string `json:"restoreName,omitempty"`
-	// +optional
 	Labels map[string]string `json:"labels,omitempty"`
-	// +optional
 	Annotations map[string]string `json:"annotations,omitempty"`
+	// +optional
+	// +optional
+	// +optional
 }
 
 // VirtualMachineRestoreList is a list of VirtualMachineRestore resources
