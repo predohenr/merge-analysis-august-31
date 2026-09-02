@@ -6,8 +6,8 @@ import (
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
-	"fyne.io/fyne/v2/internal"
 	"fyne.io/fyne/v2/internal/cache"
+	"fyne.io/fyne/v2/internal"
 	paint "fyne.io/fyne/v2/internal/painter"
 )
 
