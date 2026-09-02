@@ -226,12 +226,12 @@ func resourceStreamCreate(ctx context.Context, d *schema.ResourceData, meta any)
 		input.MaxRecordSizeInKiB = aws.Int32(int32(v.(int)))
 	}
 
-	if streamMode := getStreamMode(d); streamMode == types.StreamModeProvisioned {
-		input.ShardCount = aws.Int32(int32(d.Get("shard_count").(int)))
-	}
-
 	if v, ok := d.GetOk("stream_mode_details"); ok && len(v.([]any)) > 0 && v.([]any)[0] != nil {
 		input.StreamModeDetails = expandStreamModeDetails(v.([]any)[0].(map[string]any))
+	}
+
+	if streamMode := getStreamMode(d); streamMode == types.StreamModeProvisioned {
+		input.ShardCount = aws.Int32(int32(d.Get("shard_count").(int)))
 	}
 
 	if tags := keyValueTags(ctx, getTagsIn(ctx)).Map(); len(tags) > 0 {
