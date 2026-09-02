@@ -176,10 +176,6 @@ class Connection(ConnectionEventsTarget, inspection.Inspectable["Inspector"]):
         if self._has_events or self.engine._has_events:
             self.dispatch.engine_connect(self)
 
-    # this can be assigned differently via
-    # characteristics.LoggingTokenCharacteristic
-    _message_formatter: Any = None
-
     def _log_info(self, message: str, *arg: Any, **kw: Any) -> None:
         fmt = self._message_formatter
 
@@ -1279,9 +1275,6 @@ class Connection(ConnectionEventsTarget, inspection.Inspectable["Inspector"]):
             # it will be non-None here and in a "closed" state.
             self._dbapi_connection = None
         self.__can_reconnect = False
-
-    # special case to handle mypy issue:
-    # https://github.com/python/mypy/issues/20651
     @overload
     def scalar(
         self,
@@ -2193,9 +2186,6 @@ class Connection(ConnectionEventsTarget, inspection.Inspectable["Inspector"]):
                 "Error closing cursor", exc_info=True
             )
 
-    _reentrant_error = False
-    _is_disconnect = False
-
     def _handle_dbapi_exception(
         self,
         e: BaseException,
@@ -2431,6 +2421,16 @@ class Connection(ConnectionEventsTarget, inspection.Inspectable["Inspector"]):
         visitorcallable(
             dialect=self.dialect, connection=self, **kwargs
         ).traverse_single(element)
+
+    # this can be assigned differently via
+    # characteristics.LoggingTokenCharacteristic
+    _message_formatter: Any = None
+
+    # special case to handle mypy issue:
+    # https://github.com/python/mypy/issues/20651
+
+    _reentrant_error = False
+    _is_disconnect = False
 
 
 class ExceptionContextImpl(ExceptionContext):
