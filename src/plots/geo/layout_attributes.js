@@ -43,16 +43,13 @@ var geoAxesAttrs = {
 
 var attrs = (module.exports = overrideAll(
     {
-        domain: domainAttrs(
-            { name: 'geo' },
-            {
-                description: [
-                    'Note that geo subplots are constrained by domain.',
-                    'In general, when `projection.scale` is set to 1.',
-                    'a map will fit either its x or y domain, but not both.'
-                ].join(' ')
-            }
-        ),
+        domain: domainAttrs({name: 'geo'}, {
+            description: [
+                'Note that geo subplots are constrained by domain.',
+                'In general, when `projection.scale` is set to 1.',
+                'a map will fit either its x or y domain, but not both.'
+            ].join(' ')
+        }),
 
         fitbounds: {
             valType: 'enumerated',
@@ -103,33 +100,14 @@ var attrs = (module.exports = overrideAll(
                 values: sortObjectKeys(constants.projNames),
                 description: 'Sets the projection type.'
             },
-            rotation: {
-                lon: {
-                    valType: 'number',
-                    description: [
-                        'Rotates the map along parallels',
-                        '(in degrees East).',
-                        'Defaults to the center of the `lonaxis.range` values.'
-                    ].join(' ')
-                },
-                lat: {
-                    valType: 'number',
-                    description: ['Rotates the map along meridians', '(in degrees North).'].join(' ')
-                },
-                roll: {
-                    valType: 'number',
-                    description: [
-                        'Roll the map (in degrees)',
-                        'For example, a roll of *180* makes the map appear upside down.'
-                    ].join(' ')
-                }
-            },
-            tilt: {
+            scale: {
                 valType: 'number',
-                dflt: 0,
+                min: 0,
+                dflt: 1,
                 description: [
-                    'For satellite projection type only.',
-                    'Sets the tilt angle of perspective projection.'
+                    'Zooms in or out on the map view.',
+                    'A scale of *1* corresponds to the largest zoom level',
+                    "that fits the map's lon and lat ranges. "
                 ].join(' ')
             },
             distance: {
@@ -140,25 +118,6 @@ var attrs = (module.exports = overrideAll(
                     'For satellite projection type only.',
                     'Sets the distance from the center of the sphere to the point of view',
                     'as a proportion of the sphere’s radius.'
-                ].join(' ')
-            },
-            parallels: {
-                valType: 'info_array',
-                items: [{ valType: 'number' }, { valType: 'number' }],
-                description: [
-                    'For conic projection types only.',
-                    'Sets the parallels (tangent, secant)',
-                    'where the cone intersects the sphere.'
-                ].join(' ')
-            },
-            scale: {
-                valType: 'number',
-                min: 0,
-                dflt: 1,
-                description: [
-                    'Zooms in or out on the map view.',
-                    'A scale of *1* corresponds to the largest zoom level',
-                    "that fits the map's lon and lat ranges. "
                 ].join(' ')
             },
             minscale: {
@@ -172,6 +131,26 @@ var attrs = (module.exports = overrideAll(
                     'The default of *0* imposes no lower bound.'
                 ].join(' ')
             },
+            parallels: {
+                valType: 'info_array',
+                items: [
+                    {valType: 'number'},
+                    {valType: 'number'}
+                ],
+                description: [
+                    'For conic projection types only.',
+                    'Sets the parallels (tangent, secant)',
+                    'where the cone intersects the sphere.'
+                ].join(' ')
+            },
+            tilt: {
+                valType: 'number',
+                dflt: 0,
+                description: [
+                    'For satellite projection type only.',
+                    'Sets the tilt angle of perspective projection.'
+                ].join(' ')
+            },
             maxscale: {
                 valType: 'number',
                 min: 0,
@@ -182,7 +161,31 @@ var attrs = (module.exports = overrideAll(
                     'user from zooming in beyond twice the base zoom level.',
                     'Defaults to *null* for no upper bound.'
                 ].join(' ')
-            }
+            },
+            rotation: {
+                lon: {
+                    valType: 'number',
+                    description: [
+                        'Rotates the map along parallels',
+                        '(in degrees East).',
+                        'Defaults to the center of the `lonaxis.range` values.'
+                    ].join(' ')
+                },
+                lat: {
+                    valType: 'number',
+                    description: [
+                        'Rotates the map along meridians',
+                        '(in degrees North).'
+                    ].join(' ')
+                },
+                roll: {
+                    valType: 'number',
+                    description: [
+                        'Roll the map (in degrees)',
+                        'For example, a roll of *180* makes the map appear upside down.'
+                    ].join(' ')
+                }
+            },
         },
         center: {
             lon: {
