@@ -77,6 +77,73 @@ def get_empty_parameterset_mark(
     return mark
 
 
+def get_unpacked_marks(
+    obj: object | type,
+    *,
+    consider_mro: bool = True,
+) -> list[Mark]:
+    """Obtain the unpacked marks that are stored on an object.
+
+    If obj is a class and consider_mro is true, return marks applied to
+    this class and all of its super-classes in MRO order. If consider_mro
+    is false, only return marks applied directly to this class.
+    """
+    if isinstance(obj, type):
+        if not consider_mro:
+            mark_lists = [obj.__dict__.get("pytestmark", [])]
+        else:
+            mark_lists = [
+                x.__dict__.get("pytestmark", []) for x in reversed(obj.__mro__)
+            ]
+        mark_list = []
+        for item in mark_lists:
+            if isinstance(item, list):
+                mark_list.extend(item)
+            else:
+                mark_list.append(item)
+    else:
+        mark_attribute = getattr(obj, "pytestmark", [])
+        if isinstance(mark_attribute, list):
+            mark_list = mark_attribute
+        else:
+            mark_list = [mark_attribute]
+    return list(normalize_mark_list(mark_list))
+
+
+def normalize_mark_list(
+    mark_list: Iterable[Mark | MarkDecorator],
+) -> Iterable[Mark]:
+    """
+    Normalize an iterable of Mark or MarkDecorator objects into a list of marks
+    by retrieving the `mark` attribute on MarkDecorator instances.
+
+    :param mark_list: marks to normalize
+    :returns: A new list of the extracted Mark objects
+    """
+    for mark in mark_list:
+        mark_obj = getattr(mark, "mark", mark)
+        if not isinstance(mark_obj, Mark):
+            raise TypeError(f"got {mark_obj!r} instead of Mark")
+        yield mark_obj
+
+
+def store_mark(obj, mark: Mark, *, stacklevel: int = 2) -> None:
+    """Store a Mark on an object.
+
+    This is used to implement the Mark declarations/decorators correctly.
+    """
+    assert isinstance(mark, Mark), mark
+
+    from ..fixtures import getfixturemarker
+
+    if getfixturemarker(obj) is not None:
+        warnings.warn(MARKED_FIXTURE, stacklevel=stacklevel)
+
+    # Always reassign name to avoid updating pytestmark in a reference that
+    # was only borrowed.
+    obj.pytestmark = [*get_unpacked_marks(obj, consider_mro=False), mark]
+
+
 class ParameterSet(NamedTuple):
     values: Sequence[object | NotSetType]
     marks: Collection[MarkDecorator | Mark]
@@ -349,10 +416,6 @@ class MarkDecorator:
         """
         mark = Mark(self.name, args, kwargs, _ispytest=True)
         return MarkDecorator(self.mark.combined_with(mark), _ispytest=True)
-
-    # Type ignored because the overloads overlap with an incompatible
-    # return type. Not much we can do about that. Thankfully mypy picks
-    # the first match so it works out even if we break the rules.
     @overload
     def __call__(self, arg: Markable) -> Markable:  # type: ignore[overload-overlap]
         pass
@@ -376,72 +439,9 @@ class MarkDecorator:
                 return func
         return self.with_args(*args, **kwargs)
 
-
-def get_unpacked_marks(
-    obj: object | type,
-    *,
-    consider_mro: bool = True,
-) -> list[Mark]:
-    """Obtain the unpacked marks that are stored on an object.
-
-    If obj is a class and consider_mro is true, return marks applied to
-    this class and all of its super-classes in MRO order. If consider_mro
-    is false, only return marks applied directly to this class.
-    """
-    if isinstance(obj, type):
-        if not consider_mro:
-            mark_lists = [obj.__dict__.get("pytestmark", [])]
-        else:
-            mark_lists = [
-                x.__dict__.get("pytestmark", []) for x in reversed(obj.__mro__)
-            ]
-        mark_list = []
-        for item in mark_lists:
-            if isinstance(item, list):
-                mark_list.extend(item)
-            else:
-                mark_list.append(item)
-    else:
-        mark_attribute = getattr(obj, "pytestmark", [])
-        if isinstance(mark_attribute, list):
-            mark_list = mark_attribute
-        else:
-            mark_list = [mark_attribute]
-    return list(normalize_mark_list(mark_list))
-
-
-def normalize_mark_list(
-    mark_list: Iterable[Mark | MarkDecorator],
-) -> Iterable[Mark]:
-    """
-    Normalize an iterable of Mark or MarkDecorator objects into a list of marks
-    by retrieving the `mark` attribute on MarkDecorator instances.
-
-    :param mark_list: marks to normalize
-    :returns: A new list of the extracted Mark objects
-    """
-    for mark in mark_list:
-        mark_obj = getattr(mark, "mark", mark)
-        if not isinstance(mark_obj, Mark):
-            raise TypeError(f"got {mark_obj!r} instead of Mark")
-        yield mark_obj
-
-
-def store_mark(obj, mark: Mark, *, stacklevel: int = 2) -> None:
-    """Store a Mark on an object.
-
-    This is used to implement the Mark declarations/decorators correctly.
-    """
-    assert isinstance(mark, Mark), mark
-
-    from ..fixtures import getfixturemarker
-
-    if getfixturemarker(obj) is not None:
-        warnings.warn(MARKED_FIXTURE, stacklevel=stacklevel)
-
-    # Always reassign name to avoid updating pytestmark in a reference that
-    # was only borrowed.
-    obj.pytestmark = [*get_unpacked_marks(obj, consider_mro=False), mark]
+    # Type ignored because the overloads overlap with an incompatible
+    # return type. Not much we can do about that. Thankfully mypy picks
+    # the first match so it works out even if we break the rules.
 
 
 # Typing for builtin pytest marks. This is cheating; it gives builtin marks
@@ -599,9 +599,6 @@ class NodeKeywords(MutableMapping[str, Any]):
     def __setitem__(self, key: str, value: Any) -> None:
         self._markers[key] = value
 
-    # Note: we could've avoided explicitly implementing some of the methods
-    # below and use the collections.abc fallback, but that would be slow.
-
     def __contains__(self, key: object) -> bool:
         return key in self._markers or (
             self.parent is not None and key in self.parent.keywords
@@ -633,3 +630,6 @@ class NodeKeywords(MutableMapping[str, Any]):
 
     def __repr__(self) -> str:
         return f"<NodeKeywords for node {self.node}>"
+
+    # Note: we could've avoided explicitly implementing some of the methods
+    # below and use the collections.abc fallback, but that would be slow.
