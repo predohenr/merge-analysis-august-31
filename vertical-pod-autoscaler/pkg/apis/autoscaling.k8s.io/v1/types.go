@@ -27,12 +27,12 @@ import (
 // VerticalPodAutoscalerList is a list of VerticalPodAutoscaler objects.
 type VerticalPodAutoscalerList struct {
 	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata" protobuf:"bytes,1,opt,name=metadata"`
+	Items []VerticalPodAutoscaler `json:"items" protobuf:"bytes,2,rep,name=items"`
 	// metadata is the standard list metadata.
 	// +optional
-	metav1.ListMeta `json:"metadata" protobuf:"bytes,1,opt,name=metadata"`
 
 	// items is the list of vertical pod autoscaler objects.
-	Items []VerticalPodAutoscaler `json:"items" protobuf:"bytes,2,rep,name=items"`
 }
 
 // +genclient
@@ -53,14 +53,14 @@ type VerticalPodAutoscalerList struct {
 type VerticalPodAutoscaler struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
+	Spec VerticalPodAutoscalerSpec `json:"spec" protobuf:"bytes,2,name=spec"`
+	Status VerticalPodAutoscalerStatus `json:"status,omitempty" protobuf:"bytes,3,opt,name=status"`
 
 	// Specification of the behavior of the autoscaler.
 	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status.
-	Spec VerticalPodAutoscalerSpec `json:"spec" protobuf:"bytes,2,name=spec"`
 
 	// Current information about the autoscaler.
 	// +optional
-	Status VerticalPodAutoscalerStatus `json:"status,omitempty" protobuf:"bytes,3,opt,name=status"`
 }
 
 // VerticalPodAutoscalerRecommenderSelector points to a specific Vertical Pod Autoscaler recommender.
@@ -85,12 +85,14 @@ type VerticalPodAutoscalerSpec struct {
 	// The only thing retrieved is a label selector matching pods grouped by
 	// the target resource.
 	TargetRef *autoscaling.CrossVersionObjectReference `json:"targetRef" protobuf:"bytes,1,name=targetRef"`
+	UpdatePolicy *PodUpdatePolicy `json:"updatePolicy,omitempty" protobuf:"bytes,2,opt,name=updatePolicy"`
+	ResourcePolicy *PodResourcePolicy `json:"resourcePolicy,omitempty" protobuf:"bytes,3,opt,name=resourcePolicy"`
+	Recommenders []*VerticalPodAutoscalerRecommenderSelector `json:"recommenders,omitempty" protobuf:"bytes,4,opt,name=recommenders"`
 
 	// Describes the rules on how changes are applied to the pods.
 	// If not specified, all fields in the `PodUpdatePolicy` are set to their
 	// default values.
 	// +optional
-	UpdatePolicy *PodUpdatePolicy `json:"updatePolicy,omitempty" protobuf:"bytes,2,opt,name=updatePolicy"`
 
 	// Controls how the autoscaler computes recommended resources.
 	// The resource policy may be used to set constraints on the recommendations
@@ -100,13 +102,11 @@ type VerticalPodAutoscalerSpec struct {
 	// If not specified, the autoscaler computes recommended resources for all containers in the pod,
 	// without additional constraints.
 	// +optional
-	ResourcePolicy *PodResourcePolicy `json:"resourcePolicy,omitempty" protobuf:"bytes,3,opt,name=resourcePolicy"`
 
 	// Recommender responsible for generating recommendation for this object.
 	// List should be empty (then the default recommender will generate the
 	// recommendation) or contain exactly one recommender.
 	// +optional
-	Recommenders []*VerticalPodAutoscalerRecommenderSelector `json:"recommenders,omitempty" protobuf:"bytes,4,opt,name=recommenders"`
 }
 
 // EvictionChangeRequirement refers to the relationship between the new target recommendation for a Pod and its current requests, what kind of change is necessary for the Pod to be evicted
@@ -136,18 +136,18 @@ type PodUpdatePolicy struct {
 	// The default is 'Auto'.
 	// +optional
 	UpdateMode *UpdateMode `json:"updateMode,omitempty" protobuf:"bytes,1,opt,name=updateMode"`
+	MinReplicas *int32 `json:"minReplicas,omitempty" protobuf:"varint,2,opt,name=minReplicas"`
+	EvictionRequirements []*EvictionRequirement `json:"evictionRequirements,omitempty" protobuf:"bytes,3,opt,name=evictionRequirements"`
 
 	// Minimal number of replicas which need to be alive for Updater to attempt
 	// pod eviction (pending other checks like PDB). Only positive values are
 	// allowed. Overrides global '--min-replicas' flag.
 	// +optional
-	MinReplicas *int32 `json:"minReplicas,omitempty" protobuf:"varint,2,opt,name=minReplicas"`
 
 	// EvictionRequirements is a list of EvictionRequirements that need to
 	// evaluate to true in order for a Pod to be evicted. If more than one
 	// EvictionRequirement is specified, all of them need to be fulfilled to allow eviction.
 	// +optional
-	EvictionRequirements []*EvictionRequirement `json:"evictionRequirements,omitempty" protobuf:"bytes,3,opt,name=evictionRequirements"`
 }
 
 // UpdateMode controls when autoscaler applies changes to the pod resources.
@@ -192,28 +192,28 @@ type ContainerResourcePolicy struct {
 	// case the policy is used by the containers that don't have their own
 	// policy specified.
 	ContainerName string `json:"containerName,omitempty" protobuf:"bytes,1,opt,name=containerName"`
+	Mode *ContainerScalingMode `json:"mode,omitempty" protobuf:"bytes,2,opt,name=mode"`
+	MinAllowed v1.ResourceList `json:"minAllowed,omitempty" protobuf:"bytes,3,rep,name=minAllowed,casttype=ResourceList,castkey=ResourceName"`
+	MaxAllowed v1.ResourceList `json:"maxAllowed,omitempty" protobuf:"bytes,4,rep,name=maxAllowed,casttype=ResourceList,castkey=ResourceName"`
+	ControlledResources *[]v1.ResourceName `json:"controlledResources,omitempty" patchStrategy:"merge" protobuf:"bytes,5,rep,name=controlledResources"`
+	ControlledValues *ContainerControlledValues `json:"controlledValues,omitempty" protobuf:"bytes,6,rep,name=controlledValues"`
 	// Whether autoscaler is enabled for the container. The default is "Auto".
 	// +optional
-	Mode *ContainerScalingMode `json:"mode,omitempty" protobuf:"bytes,2,opt,name=mode"`
 	// Specifies the minimal amount of resources that will be recommended
 	// for the container. The default is no minimum.
 	// +optional
-	MinAllowed v1.ResourceList `json:"minAllowed,omitempty" protobuf:"bytes,3,rep,name=minAllowed,casttype=ResourceList,castkey=ResourceName"`
 	// Specifies the maximum amount of resources that will be recommended
 	// for the container. The default is no maximum.
 	// +optional
-	MaxAllowed v1.ResourceList `json:"maxAllowed,omitempty" protobuf:"bytes,4,rep,name=maxAllowed,casttype=ResourceList,castkey=ResourceName"`
 
 	// Specifies the type of recommendations that will be computed
 	// (and possibly applied) by VPA.
 	// If not specified, the default of [ResourceCPU, ResourceMemory] will be used.
 	// +patchStrategy=merge
-	ControlledResources *[]v1.ResourceName `json:"controlledResources,omitempty" patchStrategy:"merge" protobuf:"bytes,5,rep,name=controlledResources"`
 
 	// Specifies which resource values should be controlled.
 	// The default is "RequestsAndLimits".
 	// +optional
-	ControlledValues *ContainerControlledValues `json:"controlledValues,omitempty" protobuf:"bytes,6,rep,name=controlledValues"`
 }
 
 const (
@@ -252,13 +252,13 @@ type VerticalPodAutoscalerStatus struct {
 	// autoscaler for the controlled pods.
 	// +optional
 	Recommendation *RecommendedPodResources `json:"recommendation,omitempty" protobuf:"bytes,1,opt,name=recommendation"`
+	Conditions []VerticalPodAutoscalerCondition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type" protobuf:"bytes,2,rep,name=conditions"`
 
 	// Conditions is the set of conditions required for this autoscaler to scale its target,
 	// and indicates whether or not those conditions are met.
 	// +optional
 	// +patchMergeKey=type
 	// +patchStrategy=merge
-	Conditions []VerticalPodAutoscalerCondition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type" protobuf:"bytes,2,rep,name=conditions"`
 }
 
 // RecommendedPodResources is the recommendation of resources computed by
@@ -277,18 +277,19 @@ type RecommendedPodResources struct {
 type RecommendedContainerResources struct {
 	// Name of the container.
 	ContainerName string `json:"containerName,omitempty" protobuf:"bytes,1,opt,name=containerName"`
-	// Recommended amount of resources. Observes ContainerResourcePolicy.
 	Target v1.ResourceList `json:"target" protobuf:"bytes,2,rep,name=target,casttype=ResourceList,castkey=ResourceName"`
+	LowerBound v1.ResourceList `json:"lowerBound,omitempty" protobuf:"bytes,3,rep,name=lowerBound,casttype=ResourceList,castkey=ResourceName"`
+	UpperBound v1.ResourceList `json:"upperBound,omitempty" protobuf:"bytes,4,rep,name=upperBound,casttype=ResourceList,castkey=ResourceName"`
+	UncappedTarget v1.ResourceList `json:"uncappedTarget,omitempty" protobuf:"bytes,5,opt,name=uncappedTarget"`
+	// Recommended amount of resources. Observes ContainerResourcePolicy.
 	// Minimum recommended amount of resources. Observes ContainerResourcePolicy.
 	// This amount is not guaranteed to be sufficient for the application to operate in a stable way, however
 	// running with less resources is likely to have significant impact on performance/availability.
 	// +optional
-	LowerBound v1.ResourceList `json:"lowerBound,omitempty" protobuf:"bytes,3,rep,name=lowerBound,casttype=ResourceList,castkey=ResourceName"`
 	// Maximum recommended amount of resources. Observes ContainerResourcePolicy.
 	// Any resources allocated beyond this value are likely wasted. This value may be larger than the maximum
 	// amount of application is actually capable of consuming.
 	// +optional
-	UpperBound v1.ResourceList `json:"upperBound,omitempty" protobuf:"bytes,4,rep,name=upperBound,casttype=ResourceList,castkey=ResourceName"`
 	// The most recent recommended resources target computed by the autoscaler
 	// for the controlled pods, based only on actual resource usage, not taking
 	// into account the ContainerResourcePolicy.
@@ -297,7 +298,6 @@ type RecommendedContainerResources struct {
 	// or higher that MaxAllowed).
 	// Used only as status indication, will not affect actual resource assignment.
 	// +optional
-	UncappedTarget v1.ResourceList `json:"uncappedTarget,omitempty" protobuf:"bytes,5,opt,name=uncappedTarget"`
 }
 
 // VerticalPodAutoscalerConditionType are the valid conditions of
@@ -327,19 +327,19 @@ var (
 type VerticalPodAutoscalerCondition struct {
 	// type describes the current condition
 	Type VerticalPodAutoscalerConditionType `json:"type" protobuf:"bytes,1,name=type"`
-	// status is the status of the condition (True, False, Unknown)
 	Status v1.ConditionStatus `json:"status" protobuf:"bytes,2,name=status"`
+	LastTransitionTime metav1.Time `json:"lastTransitionTime,omitempty" protobuf:"bytes,3,opt,name=lastTransitionTime"`
+	Reason string `json:"reason,omitempty" protobuf:"bytes,4,opt,name=reason"`
+	Message string `json:"message,omitempty" protobuf:"bytes,5,opt,name=message"`
+	// status is the status of the condition (True, False, Unknown)
 	// lastTransitionTime is the last time the condition transitioned from
 	// one status to another
 	// +optional
-	LastTransitionTime metav1.Time `json:"lastTransitionTime,omitempty" protobuf:"bytes,3,opt,name=lastTransitionTime"`
 	// reason is the reason for the condition's last transition.
 	// +optional
-	Reason string `json:"reason,omitempty" protobuf:"bytes,4,opt,name=reason"`
 	// message is a human-readable explanation containing details about
 	// the transition
 	// +optional
-	Message string `json:"message,omitempty" protobuf:"bytes,5,opt,name=message"`
 }
 
 // +genclient
@@ -354,15 +354,15 @@ type VerticalPodAutoscalerCondition struct {
 type VerticalPodAutoscalerCheckpoint struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
+	Spec VerticalPodAutoscalerCheckpointSpec `json:"spec,omitempty" protobuf:"bytes,2,opt,name=spec"`
+	Status VerticalPodAutoscalerCheckpointStatus `json:"status,omitempty" protobuf:"bytes,3,opt,name=status"`
 
 	// Specification of the checkpoint.
 	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status.
 	// +optional
-	Spec VerticalPodAutoscalerCheckpointSpec `json:"spec,omitempty" protobuf:"bytes,2,opt,name=spec"`
 
 	// Data of the checkpoint.
 	// +optional
-	Status VerticalPodAutoscalerCheckpointStatus `json:"status,omitempty" protobuf:"bytes,3,opt,name=status"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -378,9 +378,9 @@ type VerticalPodAutoscalerCheckpointList struct {
 type VerticalPodAutoscalerCheckpointSpec struct {
 	// Name of the VPA object that stored VerticalPodAutoscalerCheckpoint object.
 	VPAObjectName string `json:"vpaObjectName,omitempty" protobuf:"bytes,1,opt,name=vpaObjectName"`
+	ContainerName string `json:"containerName,omitempty" protobuf:"bytes,2,opt,name=containerName"`
 
 	// Name of the checkpointed container.
-	ContainerName string `json:"containerName,omitempty" protobuf:"bytes,2,opt,name=containerName"`
 }
 
 // VerticalPodAutoscalerCheckpointStatus contains data of the checkpoint.
@@ -388,26 +388,26 @@ type VerticalPodAutoscalerCheckpointStatus struct {
 	// The time when the status was last refreshed.
 	// +nullable
 	LastUpdateTime metav1.Time `json:"lastUpdateTime,omitempty" protobuf:"bytes,1,opt,name=lastUpdateTime"`
+	Version string `json:"version,omitempty" protobuf:"bytes,2,opt,name=version"`
+	CPUHistogram HistogramCheckpoint `json:"cpuHistogram,omitempty" protobuf:"bytes,3,rep,name=cpuHistograms"`
+	MemoryHistogram HistogramCheckpoint `json:"memoryHistogram,omitempty" protobuf:"bytes,4,rep,name=memoryHistogram"`
+	FirstSampleStart metav1.Time `json:"firstSampleStart,omitempty" protobuf:"bytes,5,opt,name=firstSampleStart"`
+	LastSampleStart metav1.Time `json:"lastSampleStart,omitempty" protobuf:"bytes,6,opt,name=lastSampleStart"`
+	TotalSamplesCount int `json:"totalSamplesCount,omitempty" protobuf:"bytes,7,opt,name=totalSamplesCount"`
 
 	// Version of the format of the stored data.
-	Version string `json:"version,omitempty" protobuf:"bytes,2,opt,name=version"`
 
 	// Checkpoint of histogram for consumption of CPU.
-	CPUHistogram HistogramCheckpoint `json:"cpuHistogram,omitempty" protobuf:"bytes,3,rep,name=cpuHistograms"`
 
 	// Checkpoint of histogram for consumption of memory.
-	MemoryHistogram HistogramCheckpoint `json:"memoryHistogram,omitempty" protobuf:"bytes,4,rep,name=memoryHistogram"`
 
 	// Timestamp of the fist sample from the histograms.
 	// +nullable
-	FirstSampleStart metav1.Time `json:"firstSampleStart,omitempty" protobuf:"bytes,5,opt,name=firstSampleStart"`
 
 	// Timestamp of the last sample from the histograms.
 	// +nullable
-	LastSampleStart metav1.Time `json:"lastSampleStart,omitempty" protobuf:"bytes,6,opt,name=lastSampleStart"`
 
 	// Total number of samples in the histograms.
-	TotalSamplesCount int `json:"totalSamplesCount,omitempty" protobuf:"bytes,7,opt,name=totalSamplesCount"`
 }
 
 // HistogramCheckpoint contains data needed to reconstruct the histogram.
@@ -415,12 +415,12 @@ type HistogramCheckpoint struct {
 	// Reference timestamp for samples collected within this histogram.
 	// +nullable
 	ReferenceTimestamp metav1.Time `json:"referenceTimestamp,omitempty" protobuf:"bytes,1,opt,name=referenceTimestamp"`
+	BucketWeights map[int]uint32 `json:"bucketWeights,omitempty" protobuf:"bytes,2,opt,name=bucketWeights"`
+	TotalWeight float64 `json:"totalWeight,omitempty" protobuf:"bytes,3,opt,name=totalWeight"`
 
 	// Map from bucket index to bucket weight.
 	// +kubebuilder:validation:Type=object
 	// +kubebuilder:validation:XPreserveUnknownFields
-	BucketWeights map[int]uint32 `json:"bucketWeights,omitempty" protobuf:"bytes,2,opt,name=bucketWeights"`
 
 	// Sum of samples to be used as denominator for weights from BucketWeights.
-	TotalWeight float64 `json:"totalWeight,omitempty" protobuf:"bytes,3,opt,name=totalWeight"`
 }
