@@ -125,7 +125,7 @@ func (p *painter) drawBezierCurve(bezierCurve *canvas.BezierCurve, pos fyne.Posi
 	}
 
 	// Vertex: BEG
-	bounds, points := p.vecRectCoords(pos, bezierCurve, frame, 0.0, canvas.Shadow{})
+	bounds, points := p.vecRectCoords(pos, bezierCurve, frame, 0.0)
 	program := p.bezierCurveProgram
 	p.ctx.UseProgram(program.ref)
 	p.updateBuffer(program.buff, points)
