@@ -378,8 +378,6 @@ class Recipe(metaclass=RecipeMeta):
                 return local_recipe_dir
         return join(self.ctx.root_dir, 'recipes', self.name)
 
-    # Public Recipe API to be subclassed if needed
-
     def download_if_necessary(self):
         if self.ctx.ndk_api < self.min_ndk_api_support:
             error(f"In order to build '{self.name}', you must set minimum ndk api (minapi) to `{self.min_ndk_api_support}`.\n")
@@ -749,6 +747,8 @@ class Recipe(metaclass=RecipeMeta):
         recipe.ctx = ctx
         cls.recipes[name.lower()] = recipe
         return recipe
+
+    # Public Recipe API to be subclassed if needed
 
 
 class IncludedFilesBehaviour(object):
