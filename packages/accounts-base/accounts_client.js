@@ -582,7 +582,28 @@ export class AccountsClient extends AccountsCommon {
       userCallback: callback
     });
   };
-
+  async loginWithCookie() {
+    try {
+      const res = await fetch('/_accounts/cookie/refresh', {
+        method: 'GET',
+        credentials: 'include',
+        headers: { 'Accept': 'application/json' },
+      });
+      if (!res.ok) return;
+      const body = await res.json();
+      if (body && body.token) {
+        this.loginWithToken(body.token, (err) => {
+          if (err) {
+            this.makeClientLoggedOut();
+          }
+        });
+      }
+    } catch (_e) {
+      // ignore
+    }
+  }
+;
+  // Attempt startup login using an HttpOnly cookie by requesting a
   loginWithTokenAsync(token) {
     return new Promise((resolve, reject) => {
       this.loginWithToken(token, (error) => {
@@ -593,7 +614,8 @@ export class AccountsClient extends AccountsCommon {
         }
       });
     });
-  };
+  }
+  // short-lived resume token from the server.
 
   // Semi-internal API. Call this function to re-enable auto login after
   // if it was disabled at startup.
