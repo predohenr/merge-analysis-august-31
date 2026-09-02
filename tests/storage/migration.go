@@ -1209,9 +1209,6 @@ func createUnschedulablePVC(name, namespace, size string) *k8sv1.PersistentVolum
 
 	return createdPvc
 }
-
-// createSmallImageForDestinationMigration creates a smaller raw image on the destination PVC and the PVC is bound to another node then the running
-// virt-launcher in order to allow the migration.
 func createSmallImageForDestinationMigration(vm *virtv1.VirtualMachine, name, size string) {
 	const volName = "vol"
 	const dir = "/disks"
@@ -1325,3 +1322,6 @@ func waitForMigrationToSucceed(virtClient kubecli.KubevirtClient, vmiName, ns st
 		return true
 	}, 120*time.Second, time.Second).Should(BeTrue())
 }
+
+// createSmallImageForDestinationMigration creates a smaller raw image on the destination PVC and the PVC is bound to another node then the running
+// virt-launcher in order to allow the migration.
