@@ -2532,9 +2532,11 @@ class Dash(ObsoleteChecker):
 
                 async def get_layouts():
                     return [
-                        await execute_async_function(page["layout"])
-                        if callable(page["layout"])
-                        else page["layout"]
+                        (
+                            await execute_async_function(page["layout"])
+                            if callable(page["layout"])
+                            else page["layout"]
+                        )
                         for page in _pages.PAGE_REGISTRY.values()
                     ]
 
@@ -2611,7 +2613,11 @@ class Dash(ObsoleteChecker):
                     layout = [self.layout() if callable(self.layout) else self.layout]
                 self.validation_layout = html.Div(
                     [
-                        page["layout"]() if callable(page["layout"]) else page["layout"]
+                        (
+                            page["layout"]()
+                            if callable(page["layout"])
+                            else page["layout"]
+                        )
                         for page in _pages.PAGE_REGISTRY.values()
                     ]
                     + layout
