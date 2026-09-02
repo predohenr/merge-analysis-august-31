@@ -570,13 +570,13 @@ Arguments:
 
      --help`;
 	}
+	getHelp() {
+		return Eleventy.getHelp();
+	}
 
 	/**
 	 * @deprecated since 1.0.1, use static Eleventy.getHelp()
 	 */
-	getHelp() {
-		return Eleventy.getHelp();
-	}
 
 	/* Removed methods */
 	initWatch() {
