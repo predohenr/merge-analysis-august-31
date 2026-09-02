@@ -974,6 +974,22 @@ class AsyncAdapt_asyncpg_dbapi:
             prepared_statement_name_func=prepared_statement_name_func,
         )
 
+    @util.memoized_property
+    def _asyncpg_error_translate(self):
+        import asyncpg
+
+        return {
+            asyncpg.exceptions.IntegrityConstraintViolationError: self.IntegrityError,  # noqa: E501
+            asyncpg.exceptions.PostgresError: self.Error,
+            asyncpg.exceptions.SyntaxOrAccessError: self.ProgrammingError,
+            asyncpg.exceptions.InterfaceError: self.InterfaceError,
+            asyncpg.exceptions.InvalidCachedStatementError: self.InvalidCachedStatementError,  # noqa: E501
+            asyncpg.exceptions.InternalServerError: self.InternalServerError,
+        }
+
+    def Binary(self, value):
+        return value
+
     class Error(Exception):
         pass
 
@@ -1019,22 +1035,6 @@ class AsyncAdapt_asyncpg_dbapi:
     STRING = util.symbol("STRING")
     NUMBER = util.symbol("NUMBER")
     DATETIME = util.symbol("DATETIME")
-
-    @util.memoized_property
-    def _asyncpg_error_translate(self):
-        import asyncpg
-
-        return {
-            asyncpg.exceptions.IntegrityConstraintViolationError: self.IntegrityError,  # noqa: E501
-            asyncpg.exceptions.PostgresError: self.Error,
-            asyncpg.exceptions.SyntaxOrAccessError: self.ProgrammingError,
-            asyncpg.exceptions.InterfaceError: self.InterfaceError,
-            asyncpg.exceptions.InvalidCachedStatementError: self.InvalidCachedStatementError,  # noqa: E501
-            asyncpg.exceptions.InternalServerError: self.InternalServerError,
-        }
-
-    def Binary(self, value):
-        return value
 
 
 class PGDialect_asyncpg(PGDialect):
