@@ -87,9 +87,9 @@ type HTTPConfig struct {
 }
 
 // SetDefaults sets the default values.
-func (h *HTTPConfig) SetDefaults() {
-	h.SanitizePath = ptr.To(true)
-	h.MaxHeaderBytes = http.DefaultMaxHeaderBytes
+func (c *HTTPConfig) SetDefaults() {
+	c.SanitizePath = ptr.To(true)
+	c.MaxHeaderBytes = http.DefaultMaxHeaderBytes
 	h.UnderscoreHeadersStrategy = UnderscoreHeadersStrategyKeep
 }
 
