@@ -6,6 +6,23 @@ import (
 	"maps"
 	"reflect"
 	"slices"
+	"sort"
+	"strings"
+	"text/template"
+	"unicode"
+
+	"github.com/Masterminds/sprig/v3"
+	"github.com/rs/zerolog/log"
+	"github.com/traefik/traefik/v3/pkg/config/dynamic"
+	"github.com/traefik/traefik/v3/pkg/logs"
+	"github.com/traefik/traefik/v3/pkg/tls"
+)
+import (
+	"bytes"
+	"context"
+	"maps"
+	"reflect"
+	"slices"
 	"strings"
 	"text/template"
 	"unicode"
@@ -240,8 +257,6 @@ func Merge(ctx context.Context, configurations map[string]*dynamic.Configuration
 
 	return configuration
 }
-
-// AddServiceTCP adds a service to a configuration.
 func AddServiceTCP(configuration *dynamic.TCPConfiguration, serviceName string, service *dynamic.TCPService) bool {
 	if _, ok := configuration.Services[serviceName]; !ok {
 		configuration.Services[serviceName] = service
@@ -265,8 +280,6 @@ func AddServiceTCP(configuration *dynamic.TCPConfiguration, serviceName string, 
 
 	return true
 }
-
-// AddRouterTCP adds a router to a configuration.
 func AddRouterTCP(configuration *dynamic.TCPConfiguration, routerName string, router *dynamic.TCPRouter) bool {
 	if _, ok := configuration.Routers[routerName]; !ok {
 		configuration.Routers[routerName] = router
@@ -275,8 +288,6 @@ func AddRouterTCP(configuration *dynamic.TCPConfiguration, routerName string, ro
 
 	return reflect.DeepEqual(configuration.Routers[routerName], router)
 }
-
-// AddMiddlewareTCP adds a middleware to a configuration.
 func AddMiddlewareTCP(configuration *dynamic.TCPConfiguration, middlewareName string, middleware *dynamic.TCPMiddleware) bool {
 	if _, ok := configuration.Middlewares[middlewareName]; !ok {
 		configuration.Middlewares[middlewareName] = middleware
@@ -285,8 +296,6 @@ func AddMiddlewareTCP(configuration *dynamic.TCPConfiguration, middlewareName st
 
 	return reflect.DeepEqual(configuration.Middlewares[middlewareName], middleware)
 }
-
-// AddTransportTCP adds a servers transport to a configuration.
 func AddTransportTCP(configuration *dynamic.TCPConfiguration, transportName string, transport *dynamic.TCPServersTransport) bool {
 	if _, ok := configuration.ServersTransports[transportName]; !ok {
 		configuration.ServersTransports[transportName] = transport
@@ -295,8 +304,6 @@ func AddTransportTCP(configuration *dynamic.TCPConfiguration, transportName stri
 
 	return reflect.DeepEqual(configuration.ServersTransports[transportName], transport)
 }
-
-// AddServiceUDP adds a service to a configuration.
 func AddServiceUDP(configuration *dynamic.UDPConfiguration, serviceName string, service *dynamic.UDPService) bool {
 	if _, ok := configuration.Services[serviceName]; !ok {
 		configuration.Services[serviceName] = service
@@ -320,8 +327,6 @@ func AddServiceUDP(configuration *dynamic.UDPConfiguration, serviceName string, 
 
 	return true
 }
-
-// AddRouterUDP adds a router to a configuration.
 func AddRouterUDP(configuration *dynamic.UDPConfiguration, routerName string, router *dynamic.UDPRouter) bool {
 	if _, ok := configuration.Routers[routerName]; !ok {
 		configuration.Routers[routerName] = router
@@ -330,8 +335,6 @@ func AddRouterUDP(configuration *dynamic.UDPConfiguration, routerName string, ro
 
 	return reflect.DeepEqual(configuration.Routers[routerName], router)
 }
-
-// AddService adds a service to a configuration.
 func AddService(configuration *dynamic.HTTPConfiguration, serviceName string, service *dynamic.Service) bool {
 	if _, ok := configuration.Services[serviceName]; !ok {
 		configuration.Services[serviceName] = service
@@ -355,8 +358,6 @@ func AddService(configuration *dynamic.HTTPConfiguration, serviceName string, se
 
 	return true
 }
-
-// AddRouter adds a router to a configuration.
 func AddRouter(configuration *dynamic.HTTPConfiguration, routerName string, router *dynamic.Router) bool {
 	if _, ok := configuration.Routers[routerName]; !ok {
 		configuration.Routers[routerName] = router
@@ -365,8 +366,6 @@ func AddRouter(configuration *dynamic.HTTPConfiguration, routerName string, rout
 
 	return reflect.DeepEqual(configuration.Routers[routerName], router)
 }
-
-// AddTransport adds a servers transport to a configuration.
 func AddTransport(configuration *dynamic.HTTPConfiguration, transportName string, transport *dynamic.ServersTransport) bool {
 	if _, ok := configuration.ServersTransports[transportName]; !ok {
 		configuration.ServersTransports[transportName] = transport
@@ -375,8 +374,6 @@ func AddTransport(configuration *dynamic.HTTPConfiguration, transportName string
 
 	return reflect.DeepEqual(configuration.ServersTransports[transportName], transport)
 }
-
-// AddMiddleware adds a middleware to a configuration.
 func AddMiddleware(configuration *dynamic.HTTPConfiguration, middlewareName string, middleware *dynamic.Middleware) bool {
 	if _, ok := configuration.Middlewares[middlewareName]; !ok {
 		configuration.Middlewares[middlewareName] = middleware
@@ -385,8 +382,6 @@ func AddMiddleware(configuration *dynamic.HTTPConfiguration, middlewareName stri
 
 	return reflect.DeepEqual(configuration.Middlewares[middlewareName], middleware)
 }
-
-// AddStore adds a middleware to a configurations.
 func AddStore(configuration *dynamic.TLSConfiguration, storeName string, store tls.Store) bool {
 	if _, ok := configuration.Stores[storeName]; !ok {
 		configuration.Stores[storeName] = store
@@ -395,8 +390,6 @@ func AddStore(configuration *dynamic.TLSConfiguration, storeName string, store t
 
 	return reflect.DeepEqual(configuration.Stores[storeName], store)
 }
-
-// MakeDefaultRuleTemplate creates the default rule template.
 func MakeDefaultRuleTemplate(defaultRule string, funcMap template.FuncMap) (*template.Template, error) {
 	defaultFuncMap := sprig.TxtFuncMap()
 	defaultFuncMap["normalize"] = Normalize
@@ -407,8 +400,6 @@ func MakeDefaultRuleTemplate(defaultRule string, funcMap template.FuncMap) (*tem
 
 	return template.New("defaultRule").Funcs(defaultFuncMap).Parse(defaultRule)
 }
-
-// BuildTCPRouterConfiguration builds a router configuration.
 func BuildTCPRouterConfiguration(ctx context.Context, configuration *dynamic.TCPConfiguration) {
 	for routerName, router := range configuration.Routers {
 		loggerRouter := log.Ctx(ctx).With().Str(logs.RouterName, routerName).Logger()
@@ -433,8 +424,6 @@ func BuildTCPRouterConfiguration(ctx context.Context, configuration *dynamic.TCP
 		}
 	}
 }
-
-// BuildUDPRouterConfiguration builds a router configuration.
 func BuildUDPRouterConfiguration(ctx context.Context, configuration *dynamic.UDPConfiguration) {
 	for routerName, router := range configuration.Routers {
 		loggerRouter := log.Ctx(ctx).With().Str(logs.RouterName, routerName).Logger()
@@ -456,8 +445,6 @@ func BuildUDPRouterConfiguration(ctx context.Context, configuration *dynamic.UDP
 		}
 	}
 }
-
-// BuildRouterConfiguration builds a router configuration.
 func BuildRouterConfiguration(ctx context.Context, configuration *dynamic.HTTPConfiguration, defaultRouterName string, defaultRuleTpl *template.Template, model interface{}) {
 	if len(configuration.Routers) == 0 {
 		if len(configuration.Services) > 1 {
@@ -504,8 +491,6 @@ func BuildRouterConfiguration(ctx context.Context, configuration *dynamic.HTTPCo
 		}
 	}
 }
-
-// Normalize replaces all special chars with `-`.
 func Normalize(name string) string {
 	fargs := func(c rune) bool {
 		return !unicode.IsLetter(c) && !unicode.IsNumber(c)
@@ -513,3 +498,35 @@ func Normalize(name string) string {
 	// get function
 	return strings.Join(strings.FieldsFunc(name, fargs), "-")
 }
+
+// AddServiceTCP adds a service to a configuration.
+
+// AddRouterTCP adds a router to a configuration.
+
+// AddMiddlewareTCP adds a middleware to a configuration.
+
+// AddTransportTCP adds a servers transport to a configuration.
+
+// AddServiceUDP adds a service to a configuration.
+
+// AddRouterUDP adds a router to a configuration.
+
+// AddService adds a service to a configuration.
+
+// AddRouter adds a router to a configuration.
+
+// AddTransport adds a servers transport to a configuration.
+
+// AddMiddleware adds a middleware to a configuration.
+
+// AddStore adds a middleware to a configurations.
+
+// MakeDefaultRuleTemplate creates the default rule template.
+
+// BuildTCPRouterConfiguration builds a router configuration.
+
+// BuildUDPRouterConfiguration builds a router configuration.
+
+// BuildRouterConfiguration builds a router configuration.
+
+// Normalize replaces all special chars with `-`.
