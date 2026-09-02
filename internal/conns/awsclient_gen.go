@@ -1126,6 +1126,10 @@ func (c *AWSClient) S3FilesClient(ctx context.Context) *s3files.Client {
 	return errs.Must(client[*s3files.Client](ctx, c, names.S3Files, make(map[string]any)))
 }
 
+func (c *AWSClient) S3FilesClient(ctx context.Context) *s3files.Client {
+	return errs.Must(client[*s3files.Client](ctx, c, names.S3Files, make(map[string]any)))
+}
+
 func (c *AWSClient) S3OutpostsClient(ctx context.Context) *s3outposts.Client {
 	return errs.Must(client[*s3outposts.Client](ctx, c, names.S3Outposts, make(map[string]any)))
 }
