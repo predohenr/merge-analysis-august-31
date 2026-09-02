@@ -21,6 +21,24 @@ import (
 	"go.mongodb.org/mongo-driver/v2/internal/require"
 	"go.mongodb.org/mongo-driver/v2/x/bsonx/bsoncore"
 )
+import (
+	"bytes"
+	"encoding/json"
+	"fmt"
+	"reflect"
+	"strconv"
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/google/go-cmp/cmp"
+	"go.mongodb.org/mongo-driver/bson/bsoncodec"
+	"go.mongodb.org/mongo-driver/bson/bsonoptions"
+	"go.mongodb.org/mongo-driver/bson/bsontype"
+	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/internal/assert"
+	"go.mongodb.org/mongo-driver/x/bsonx/bsoncore"
+)
 
 func noerr(t *testing.T, err error) {
 	if err != nil {
@@ -470,53 +488,6 @@ func TestD_UnmarshalJSON(t *testing.T) {
 	})
 }
 
-type stringerString string
-
-func (ss stringerString) String() string {
-	return "bar"
-}
-
-type keyBool bool
-
-func (kb keyBool) MarshalKey() (string, error) {
-	return fmt.Sprintf("%v", kb), nil
-}
-
-func (kb *keyBool) UnmarshalKey(key string) error {
-	switch key {
-	case "true":
-		*kb = true
-	case "false":
-		*kb = false
-	default:
-		return fmt.Errorf("invalid bool value %v", key)
-	}
-	return nil
-}
-
-type keyStruct struct {
-	val int64
-}
-
-func (k keyStruct) MarshalText() (text []byte, err error) {
-	str := strconv.FormatInt(k.val, 10)
-
-	return []byte(str), nil
-}
-
-func (k *keyStruct) UnmarshalText(text []byte) error {
-	val, err := strconv.ParseInt(string(text), 10, 64)
-	if err != nil {
-		return err
-	}
-
-	*k = keyStruct{
-		val: val,
-	}
-
-	return nil
-}
-
 func TestMapCodec(t *testing.T) {
 	t.Run("EncodeKeysWithStringer", func(t *testing.T) {
 		strstr := stringerString("foo")
@@ -591,7 +562,7 @@ func TestExtJSONEscapeKey(t *testing.T) {
 		},
 		{
 			Key:   "regex",
-			Value: Regex{Pattern: "ab\\\\\\\"ab", Options: "\""},
+			Value: primitive.Regex{Pattern: "ab\\\\\\\"ab", Options: "\""},
 		},
 	}
 	b, err := MarshalExtJSON(&doc, false, false)
@@ -645,8 +616,6 @@ func TestBsoncoreArray(t *testing.T) {
 	assert.Equal(t, bsoncore.TypeArray, v.Type, "expected type array, got %v", v.Type)
 }
 
-var baseTime = time.Date(2024, 10, 11, 12, 13, 14, 12345678, time.UTC)
-
 func BenchmarkDateTimeMarshalJSON(b *testing.B) {
 	t := NewDateTimeFromTime(baseTime)
 	data, err := t.MarshalJSON()
@@ -677,3 +646,52 @@ func BenchmarkDateTimeUnmarshalJSON(b *testing.B) {
 		}
 	}
 }
+
+type stringerString string
+
+func (ss stringerString) String() string {
+	return "bar"
+}
+
+func (kb keyBool) MarshalKey() (string, error) {
+	return fmt.Sprintf("%v", kb), nil
+}
+
+func (kb *keyBool) UnmarshalKey(key string) error {
+	switch key {
+	case "true":
+		*kb = true
+	case "false":
+		*kb = false
+	default:
+		return fmt.Errorf("invalid bool value %v", key)
+	}
+	return nil
+}
+
+func (k keyStruct) MarshalText() (text []byte, err error) {
+	str := strconv.FormatInt(k.val, 10)
+
+	return []byte(str), nil
+}
+
+func (k *keyStruct) UnmarshalText(text []byte) error {
+	val, err := strconv.ParseInt(string(text), 10, 64)
+	if err != nil {
+		return err
+	}
+
+	*k = keyStruct{
+		val: val,
+	}
+
+	return nil
+}
+
+type keyBool bool
+
+type keyStruct struct {
+	val int64
+}
+
+var baseTime = time.Date(2024, 10, 11, 12, 13, 14, 12345678, time.UTC)
