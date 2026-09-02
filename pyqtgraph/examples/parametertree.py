@@ -217,8 +217,8 @@ def restoreJson():
     if path:
         parameter_restore_from_json_file(p, path)
 
-p.param('Save/Restore functionality', 'Save State').sigActivated.connect(save)
-p.param('Save/Restore functionality', 'Restore State').sigActivated.connect(restore)
+p.param("Save/Restore functionality", "Save State").sigActivated.connect(save)
+p.param("Save/Restore functionality", "Restore State").sigActivated.connect(restore)
 p.param('Save/Restore functionality', 'Save to JSON').sigActivated.connect(saveJson)
 p.param('Save/Restore functionality', 'Restore from JSON').sigActivated.connect(restoreJson)
 
