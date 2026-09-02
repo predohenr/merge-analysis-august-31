@@ -28,123 +28,6 @@ def get_version() -> str:
         return f.read().split('"')[1]
 
 
-configuration: dict[str, list[str]] = {}
-
-
-PILLOW_VERSION = get_version()
-FREETYPE_ROOT = None
-HARFBUZZ_ROOT = None
-FRIBIDI_ROOT = None
-IMAGEQUANT_ROOT = None
-JPEG2K_ROOT = None
-JPEG_ROOT = None
-LCMS_ROOT = None
-RAQM_ROOT = None
-TIFF_ROOT = None
-WEBP_ROOT = None
-ZLIB_ROOT = None
-FUZZING_BUILD = "LIB_FUZZING_ENGINE" in os.environ
-
-if sys.platform == "win32" and sys.version_info >= (3, 14):
-    import atexit
-
-    atexit.register(
-        lambda: warnings.warn(
-            f"Pillow {PILLOW_VERSION} does not support Python "
-            f"{sys.version_info.major}.{sys.version_info.minor} and does not provide "
-            "prebuilt Windows binaries. We do not recommend building from source on "
-            "Windows.",
-            RuntimeWarning,
-        )
-    )
-
-
-_IMAGING = ("decode", "encode", "map", "display", "outline", "path")
-
-_LIB_IMAGING = (
-    "Access",
-    "AlphaComposite",
-    "Resample",
-    "Reduce",
-    "Bands",
-    "BcnDecode",
-    "BitDecode",
-    "Blend",
-    "Chops",
-    "ColorLUT",
-    "Convert",
-    "ConvertYCbCr",
-    "Copy",
-    "Crop",
-    "Dib",
-    "Draw",
-    "Effects",
-    "EpsEncode",
-    "File",
-    "Fill",
-    "Filter",
-    "FliDecode",
-    "Geometry",
-    "GetBBox",
-    "GifDecode",
-    "GifEncode",
-    "HexDecode",
-    "Histo",
-    "JpegDecode",
-    "JpegEncode",
-    "Matrix",
-    "ModeFilter",
-    "Negative",
-    "Offset",
-    "Pack",
-    "PackDecode",
-    "Palette",
-    "Paste",
-    "Quant",
-    "QuantOctree",
-    "QuantHash",
-    "QuantHeap",
-    "PcdDecode",
-    "PcxDecode",
-    "PcxEncode",
-    "Point",
-    "RankFilter",
-    "RawDecode",
-    "RawEncode",
-    "Storage",
-    "SgiRleDecode",
-    "SunRleDecode",
-    "TgaRleDecode",
-    "TgaRleEncode",
-    "Unpack",
-    "UnpackYCC",
-    "UnsharpMask",
-    "XbmDecode",
-    "XbmEncode",
-    "ZipDecode",
-    "ZipEncode",
-    "TiffDecode",
-    "Jpeg2KDecode",
-    "Jpeg2KEncode",
-    "BoxBlur",
-    "QuantPngQuant",
-    "codec_fd",
-)
-
-DEBUG = False
-
-
-class DependencyException(Exception):
-    pass
-
-
-class RequiredDependencyException(Exception):
-    pass
-
-
-PLATFORM_MINGW = os.name == "nt" and "GCC" in sys.version
-
-
 def _dbg(s: str, tp: Any = None) -> None:
     if DEBUG:
         if tp:
@@ -290,6 +173,127 @@ def _pkg_config(name: str) -> tuple[list[str], list[str]] | None:
         except Exception:
             pass
     return None
+
+
+def debug_build() -> bool:
+    return hasattr(sys, "gettotalrefcount") or FUZZING_BUILD
+
+
+configuration: dict[str, list[str]] = {}
+
+
+PILLOW_VERSION = get_version()
+FREETYPE_ROOT = None
+HARFBUZZ_ROOT = None
+FRIBIDI_ROOT = None
+IMAGEQUANT_ROOT = None
+JPEG2K_ROOT = None
+JPEG_ROOT = None
+LCMS_ROOT = None
+RAQM_ROOT = None
+TIFF_ROOT = None
+WEBP_ROOT = None
+ZLIB_ROOT = None
+FUZZING_BUILD = "LIB_FUZZING_ENGINE" in os.environ
+
+if sys.platform == "win32" and sys.version_info >= (3, 14):
+    import atexit
+
+    atexit.register(
+        lambda: warnings.warn(
+            f"Pillow {PILLOW_VERSION} does not support Python "
+            f"{sys.version_info.major}.{sys.version_info.minor} and does not provide "
+            "prebuilt Windows binaries. We do not recommend building from source on "
+            "Windows.",
+            RuntimeWarning,
+        )
+    )
+
+
+_IMAGING = ("decode", "encode", "map", "display", "outline", "path")
+
+_LIB_IMAGING = (
+    "Access",
+    "AlphaComposite",
+    "Resample",
+    "Reduce",
+    "Bands",
+    "BcnDecode",
+    "BitDecode",
+    "Blend",
+    "Chops",
+    "ColorLUT",
+    "Convert",
+    "ConvertYCbCr",
+    "Copy",
+    "Crop",
+    "Dib",
+    "Draw",
+    "Effects",
+    "EpsEncode",
+    "File",
+    "Fill",
+    "Filter",
+    "FliDecode",
+    "Geometry",
+    "GetBBox",
+    "GifDecode",
+    "GifEncode",
+    "HexDecode",
+    "Histo",
+    "JpegDecode",
+    "JpegEncode",
+    "Matrix",
+    "ModeFilter",
+    "Negative",
+    "Offset",
+    "Pack",
+    "PackDecode",
+    "Palette",
+    "Paste",
+    "Quant",
+    "QuantOctree",
+    "QuantHash",
+    "QuantHeap",
+    "PcdDecode",
+    "PcxDecode",
+    "PcxEncode",
+    "Point",
+    "RankFilter",
+    "RawDecode",
+    "RawEncode",
+    "Storage",
+    "SgiRleDecode",
+    "SunRleDecode",
+    "TgaRleDecode",
+    "TgaRleEncode",
+    "Unpack",
+    "UnpackYCC",
+    "UnsharpMask",
+    "XbmDecode",
+    "XbmEncode",
+    "ZipDecode",
+    "ZipEncode",
+    "TiffDecode",
+    "Jpeg2KDecode",
+    "Jpeg2KEncode",
+    "BoxBlur",
+    "QuantPngQuant",
+    "codec_fd",
+)
+
+DEBUG = False
+
+
+class DependencyException(Exception):
+    pass
+
+
+class RequiredDependencyException(Exception):
+    pass
+
+
+PLATFORM_MINGW = os.name == "nt" and "GCC" in sys.version
 
 
 class pil_build_ext(build_ext):
@@ -1009,10 +1013,6 @@ class pil_build_ext(build_ext):
 
         print("To check the build, run the selftest.py script.")
         print("")
-
-
-def debug_build() -> bool:
-    return hasattr(sys, "gettotalrefcount") or FUZZING_BUILD
 
 
 files = ["src/_imaging.c"]
