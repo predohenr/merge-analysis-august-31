@@ -16,11 +16,31 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
+	"github.com/traefik/traefik/v2/integration/try"
+	"github.com/traefik/traefik/v2/pkg/config/dynamic"
+	traefiktls "github.com/traefik/traefik/v2/pkg/tls"
+	"golang.org/x/net/http2"
+)
+import (
+	"bytes"
+	"crypto/tls"
+	"crypto/x509"
+	"fmt"
+	"net"
+	"net/http"
+	"net/http/httptest"
+	"os"
+	"testing"
+	"time"
+
+	"github.com/BurntSushi/toml"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"github.com/stretchr/testify/suite"
 	"github.com/traefik/traefik/v3/integration/try"
 	"github.com/traefik/traefik/v3/pkg/config/dynamic"
 	traefiktls "github.com/traefik/traefik/v3/pkg/tls"
 	"github.com/traefik/traefik/v3/pkg/types"
-	"golang.org/x/net/http2"
 )
 
 // HTTPSSuite tests suite.
@@ -28,6 +48,26 @@ type HTTPSSuite struct{ BaseSuite }
 
 func TestHTTPSSuite(t *testing.T) {
 	suite.Run(t, &HTTPSSuite{})
+}
+
+func startTestServer(port string, statusCode int, textContent string) (ts *httptest.Server) {
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(statusCode)
+		if textContent != "" {
+			_, _ = w.Write([]byte(textContent))
+		}
+	})
+	listener, err := net.Listen("tcp", "127.0.0.1:"+port)
+	if err != nil {
+		panic(err)
+	}
+
+	ts = &httptest.Server{
+		Listener: listener,
+		Config:   &http.Server{Handler: handler},
+	}
+	ts.Start()
+	return ts
 }
 
 // TestWithSNIConfigHandshake involves a client sending a SNI hostname of
@@ -60,10 +100,6 @@ func (s *HTTPSSuite) TestWithSNIConfigHandshake() {
 	proto := conn.ConnectionState().NegotiatedProtocol
 	assert.Equal(s.T(), "h2", proto)
 }
-
-// TestWithSNIConfigRoute involves a client sending HTTPS requests with
-// SNI hostnames of "snitest.org" and "snitest.com". The test verifies
-// that traefik routes the requests to the expected backends.
 func (s *HTTPSSuite) TestWithSNIConfigRoute() {
 	file := s.adaptFile("fixtures/https/https_sni.toml", struct{}{})
 	s.traefikCmd(withConfigFile(file))
@@ -113,8 +149,6 @@ func (s *HTTPSSuite) TestWithSNIConfigRoute() {
 	err = try.RequestWithTransport(req, 30*time.Second, tr2, try.HasCn(tr2.TLSClientConfig.ServerName), try.StatusCodeIs(http.StatusResetContent))
 	require.NoError(s.T(), err)
 }
-
-// TestWithTLSOptions  verifies that traefik routes the requests with the associated tls options.
 
 func (s *HTTPSSuite) TestWithTLSOptions() {
 	file := s.adaptFile("fixtures/https/https_tls_options.toml", struct{}{})
@@ -196,8 +230,6 @@ func (s *HTTPSSuite) TestWithTLSOptions() {
 	require.NoError(s.T(), err)
 }
 
-// TestWithConflictingTLSOptions checks that routers with same SNI but different TLS options get fallbacked to the default TLS options.
-
 func (s *HTTPSSuite) TestWithConflictingTLSOptions() {
 	file := s.adaptFile("fixtures/https/https_tls_options.toml", struct{}{})
 	s.traefikCmd(withConfigFile(file))
@@ -259,10 +291,6 @@ func (s *HTTPSSuite) TestWithConflictingTLSOptions() {
 	require.NoError(s.T(), err)
 }
 
-// TestWithSNIStrictNotMatchedRequest involves a client sending a SNI hostname of
-// "snitest.org", which does not match the CN of 'snitest.com.crt'. The test
-// verifies that traefik closes the connection.
-
 func (s *HTTPSSuite) TestWithSNIStrictNotMatchedRequest() {
 	file := s.adaptFile("fixtures/https/https_sni_strict.toml", struct{}{})
 	s.traefikCmd(withConfigFile(file))
@@ -280,10 +308,6 @@ func (s *HTTPSSuite) TestWithSNIStrictNotMatchedRequest() {
 	_, err = tls.Dial("tcp", "127.0.0.1:4443", tlsConfig)
 	assert.Error(s.T(), err, "failed to connect to server")
 }
-
-// TestWithDefaultCertificate involves a client sending a SNI hostname of
-// "snitest.org", which does not match the CN of 'snitest.com.crt'. The test
-// verifies that traefik returns the default certificate.
 
 func (s *HTTPSSuite) TestWithDefaultCertificate() {
 	file := s.adaptFile("fixtures/https/https_sni_default_cert.toml", struct{}{})
@@ -313,10 +337,6 @@ func (s *HTTPSSuite) TestWithDefaultCertificate() {
 	assert.Equal(s.T(), "h2", proto)
 }
 
-// TestWithDefaultCertificateNoSNI involves a client sending a request with no ServerName
-// which does not match the CN of 'snitest.com.crt'. The test
-// verifies that traefik returns the default certificate.
-
 func (s *HTTPSSuite) TestWithDefaultCertificateNoSNI() {
 	file := s.adaptFile("fixtures/https/https_sni_default_cert.toml", struct{}{})
 	s.traefikCmd(withConfigFile(file))
@@ -343,11 +363,6 @@ func (s *HTTPSSuite) TestWithDefaultCertificateNoSNI() {
 	proto := cs.NegotiatedProtocol
 	assert.Equal(s.T(), "h2", proto)
 }
-
-// TestWithOverlappingCertificate involves a client sending a SNI hostname of
-// "www.snitest.com", which matches the CN of two static certificates:
-// 'wildcard.snitest.com.crt', and `www.snitest.com.crt`. The test
-// verifies that traefik returns the non-wildcard certificate.
 
 func (s *HTTPSSuite) TestWithOverlappingStaticCertificate() {
 	file := s.adaptFile("fixtures/https/https_sni_default_cert.toml", struct{}{})
@@ -377,11 +392,6 @@ func (s *HTTPSSuite) TestWithOverlappingStaticCertificate() {
 	assert.Equal(s.T(), "h2", proto)
 }
 
-// TestWithOverlappingCertificate involves a client sending a SNI hostname of
-// "www.snitest.com", which matches the CN of two dynamic certificates:
-// 'wildcard.snitest.com.crt', and `www.snitest.com.crt`. The test
-// verifies that traefik returns the non-wildcard certificate.
-
 func (s *HTTPSSuite) TestWithOverlappingDynamicCertificate() {
 	file := s.adaptFile("fixtures/https/dynamic_https_sni_default_cert.toml", struct{}{})
 	s.traefikCmd(withConfigFile(file))
@@ -409,9 +419,6 @@ func (s *HTTPSSuite) TestWithOverlappingDynamicCertificate() {
 	proto := cs.NegotiatedProtocol
 	assert.Equal(s.T(), "h2", proto)
 }
-
-// TestWithClientCertificateAuthentication
-// The client can send a certificate signed by a CA trusted by the server but it's optional.
 
 func (s *HTTPSSuite) TestWithClientCertificateAuthentication() {
 	file := s.adaptFile("fixtures/https/clientca/https_1ca1config.toml", struct{}{})
@@ -463,9 +470,6 @@ func (s *HTTPSSuite) TestWithClientCertificateAuthentication() {
 	_, err = tls.Dial("tcp", "127.0.0.1:4443", tlsConfig)
 	assert.NoError(s.T(), err, "should be allowed to connect to server")
 }
-
-// TestWithClientCertificateAuthentication
-// Use two CA:s and test that clients with client signed by either of them can connect.
 
 func (s *HTTPSSuite) TestWithClientCertificateAuthenticationMultipleCAs() {
 	server1 := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, _ *http.Request) { _, _ = rw.Write([]byte("server1")) }))
@@ -556,9 +560,6 @@ func (s *HTTPSSuite) TestWithClientCertificateAuthenticationMultipleCAs() {
 	_, err = client.Do(req)
 	assert.Error(s.T(), err)
 }
-
-// TestWithClientCertificateAuthentication
-// Use two CA:s in two different files and test that clients with client signed by either of them can connect.
 
 func (s *HTTPSSuite) TestWithClientCertificateAuthenticationMultipleCAsMultipleFiles() {
 	server1 := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, _ *http.Request) { _, _ = rw.Write([]byte("server1")) }))
@@ -680,31 +681,6 @@ func (s *HTTPSSuite) TestWithRootCAsFileForHTTPSOnBackend() {
 	err = try.GetRequest("http://127.0.0.1:8081/ping", 1*time.Second, try.StatusCodeIs(http.StatusOK))
 	require.NoError(s.T(), err)
 }
-
-func startTestServer(port string, statusCode int, textContent string) (ts *httptest.Server) {
-	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(statusCode)
-		if textContent != "" {
-			_, _ = w.Write([]byte(textContent))
-		}
-	})
-	listener, err := net.Listen("tcp", "127.0.0.1:"+port)
-	if err != nil {
-		panic(err)
-	}
-
-	ts = &httptest.Server{
-		Listener: listener,
-		Config:   &http.Server{Handler: handler},
-	}
-	ts.Start()
-	return ts
-}
-
-// TestWithSNIDynamicConfigRouteWithNoChange involves a client sending HTTPS requests with
-// SNI hostnames of "snitest.org" and "snitest.com". The test verifies
-// that traefik routes the requests to the expected backends thanks to given certificate if possible
-// otherwise thanks to the default one.
 func (s *HTTPSSuite) TestWithSNIDynamicConfigRouteWithNoChange() {
 	dynamicConfFileName := s.adaptFile("fixtures/https/dynamic_https.toml", struct{}{})
 	confFileName := s.adaptFile("fixtures/https/dynamic_https_sni.toml", struct {
@@ -762,12 +738,6 @@ func (s *HTTPSSuite) TestWithSNIDynamicConfigRouteWithNoChange() {
 	err = try.RequestWithTransport(req, 30*time.Second, tr2, try.HasCn("TRAEFIK DEFAULT CERT"), try.StatusCodeIs(http.StatusNoContent))
 	require.NoError(s.T(), err)
 }
-
-// TestWithSNIDynamicConfigRouteWithChange involves a client sending HTTPS requests with
-// SNI hostnames of "snitest.org" and "snitest.com". The test verifies
-// that traefik updates its configuration when the HTTPS configuration is modified and
-// it routes the requests to the expected backends thanks to given certificate if possible
-// otherwise thanks to the default one.
 
 func (s *HTTPSSuite) TestWithSNIDynamicConfigRouteWithChange() {
 	dynamicConfFileName := s.adaptFile("fixtures/https/dynamic_https.toml", struct{}{})
@@ -828,12 +798,6 @@ func (s *HTTPSSuite) TestWithSNIDynamicConfigRouteWithChange() {
 	require.NoError(s.T(), err)
 }
 
-// TestWithSNIDynamicConfigRouteWithTlsConfigurationDeletion involves a client sending HTTPS requests with
-// SNI hostnames of "snitest.org" and "snitest.com". The test verifies
-// that traefik updates its configuration when the HTTPS configuration is modified, even if it totally deleted, and
-// it routes the requests to the expected backends thanks to given certificate if possible
-// otherwise thanks to the default one.
-
 func (s *HTTPSSuite) TestWithSNIDynamicConfigRouteWithTlsConfigurationDeletion() {
 	dynamicConfFileName := s.adaptFile("fixtures/https/dynamic_https.toml", struct{}{})
 	confFileName := s.adaptFile("fixtures/https/dynamic_https_sni.toml", struct {
@@ -876,8 +840,6 @@ func (s *HTTPSSuite) TestWithSNIDynamicConfigRouteWithTlsConfigurationDeletion()
 	err = try.RequestWithTransport(req, 30*time.Second, tr2, try.HasCn("TRAEFIK DEFAULT CERT"), try.StatusCodeIs(http.StatusNotFound))
 	require.NoError(s.T(), err)
 }
-
-// modifyCertificateConfFileContent replaces the content of a HTTPS configuration file.
 func (s *HTTPSSuite) modifyCertificateConfFileContent(certFileName, confFileName string) {
 	file, err := os.OpenFile("./"+confFileName, os.O_WRONLY, os.ModeExclusive)
 	require.NoError(s.T(), err)
@@ -990,10 +952,6 @@ func (s *HTTPSSuite) TestEntryPointHttpsRedirectAndPathModification() {
 		}
 	}
 }
-
-// TestWithSNIDynamicCaseInsensitive involves a client sending a SNI hostname of
-// "bar.www.snitest.com", which matches the DNS SAN of '*.WWW.SNITEST.COM'. The test
-// verifies that traefik presents the correct certificate.
 func (s *HTTPSSuite) TestWithSNIDynamicCaseInsensitive() {
 	file := s.adaptFile("fixtures/https/https_sni_case_insensitive_dynamic.toml", struct{}{})
 	s.traefikCmd(withConfigFile(file))
@@ -1021,8 +979,6 @@ func (s *HTTPSSuite) TestWithSNIDynamicCaseInsensitive() {
 	proto := conn.ConnectionState().NegotiatedProtocol
 	assert.Equal(s.T(), "h2", proto)
 }
-
-// TestWithDomainFronting verify the domain fronting behavior
 func (s *HTTPSSuite) TestWithDomainFronting() {
 	backend := startTestServer("9010", http.StatusOK, "server1")
 	defer backend.Close()
@@ -1133,8 +1089,6 @@ func (s *HTTPSSuite) TestWithDomainFronting() {
 		}
 	}
 }
-
-// TestWithInvalidTLSOption verifies the behavior when using an invalid tlsOption configuration.
 func (s *HTTPSSuite) TestWithInvalidTLSOption() {
 	backend := startTestServer("9010", http.StatusOK, "server1")
 	defer backend.Close()
@@ -1211,3 +1165,69 @@ func (s *SimpleSuite) TestMaxConcurrentStream() {
 	assert.True(s.T(), ok)
 	assert.Equal(s.T(), uint32(42), maxConcurrentStream)
 }
+
+// TestWithSNIConfigRoute involves a client sending HTTPS requests with
+// SNI hostnames of "snitest.org" and "snitest.com". The test verifies
+// that traefik routes the requests to the expected backends.
+
+// TestWithTLSOptions  verifies that traefik routes the requests with the associated tls options.
+
+// TestWithConflictingTLSOptions checks that routers with same SNI but different TLS options get fallbacked to the default TLS options.
+
+// TestWithSNIStrictNotMatchedRequest involves a client sending a SNI hostname of
+// "snitest.org", which does not match the CN of 'snitest.com.crt'. The test
+// verifies that traefik closes the connection.
+
+// TestWithDefaultCertificate involves a client sending a SNI hostname of
+// "snitest.org", which does not match the CN of 'snitest.com.crt'. The test
+// verifies that traefik returns the default certificate.
+
+// TestWithDefaultCertificateNoSNI involves a client sending a request with no ServerName
+// which does not match the CN of 'snitest.com.crt'. The test
+// verifies that traefik returns the default certificate.
+
+// TestWithOverlappingCertificate involves a client sending a SNI hostname of
+// "www.snitest.com", which matches the CN of two static certificates:
+// 'wildcard.snitest.com.crt', and `www.snitest.com.crt`. The test
+// verifies that traefik returns the non-wildcard certificate.
+
+// TestWithOverlappingCertificate involves a client sending a SNI hostname of
+// "www.snitest.com", which matches the CN of two dynamic certificates:
+// 'wildcard.snitest.com.crt', and `www.snitest.com.crt`. The test
+// verifies that traefik returns the non-wildcard certificate.
+
+// TestWithClientCertificateAuthentication
+// The client can send a certificate signed by a CA trusted by the server but it's optional.
+
+// TestWithClientCertificateAuthentication
+// Use two CA:s and test that clients with client signed by either of them can connect.
+
+// TestWithClientCertificateAuthentication
+// Use two CA:s in two different files and test that clients with client signed by either of them can connect.
+
+// TestWithSNIDynamicConfigRouteWithNoChange involves a client sending HTTPS requests with
+// SNI hostnames of "snitest.org" and "snitest.com". The test verifies
+// that traefik routes the requests to the expected backends thanks to given certificate if possible
+// otherwise thanks to the default one.
+
+// TestWithSNIDynamicConfigRouteWithChange involves a client sending HTTPS requests with
+// SNI hostnames of "snitest.org" and "snitest.com". The test verifies
+// that traefik updates its configuration when the HTTPS configuration is modified and
+// it routes the requests to the expected backends thanks to given certificate if possible
+// otherwise thanks to the default one.
+
+// TestWithSNIDynamicConfigRouteWithTlsConfigurationDeletion involves a client sending HTTPS requests with
+// SNI hostnames of "snitest.org" and "snitest.com". The test verifies
+// that traefik updates its configuration when the HTTPS configuration is modified, even if it totally deleted, and
+// it routes the requests to the expected backends thanks to given certificate if possible
+// otherwise thanks to the default one.
+
+// modifyCertificateConfFileContent replaces the content of a HTTPS configuration file.
+
+// TestWithSNIDynamicCaseInsensitive involves a client sending a SNI hostname of
+// "bar.www.snitest.com", which matches the DNS SAN of '*.WWW.SNITEST.COM'. The test
+// verifies that traefik presents the correct certificate.
+
+// TestWithDomainFronting verify the domain fronting behavior
+
+// TestWithInvalidTLSOption verifies the behavior when using an invalid tlsOption configuration.
