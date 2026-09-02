@@ -3025,8 +3025,8 @@ function material(p5, fn) {
       wrapX = wrapX.x;
       wrapY = wrapX.y;
     }
-    this._renderer.states.setValue('textureWrapX', wrapX);
-    this._renderer.states.setValue('textureWrapY', wrapY);
+    this._renderer.states.setValue("textureWrapX", wrapX);
+    this._renderer.states.setValue("textureWrapY", wrapY);
 
     if (this._renderer.textures) {
       for (const texture of this._renderer.textures.values()) {
