@@ -23,8 +23,8 @@ import os.path
 import platform
 import re
 import subprocess
-from abc import ABC, abstractmethod
 from enum import Enum
+from abc import ABC, abstractmethod
 from contextlib import suppress
 from itertools import chain
 from typing import TYPE_CHECKING, Any, ClassVar
@@ -217,10 +217,6 @@ class IMBackend(LocalBackend):
             raise LocalBackendNotAvailableError()
         else:
             return cls._version
-
-    convert_cmd: list[str]
-    identify_cmd: list[str]
-    compare_cmd: list[str]
 
     def __init__(self) -> None:
         """Initialize a wrapper around ImageMagick for local image operations.
@@ -498,6 +494,10 @@ class IMBackend(LocalBackend):
 
         util.command_output(command)
 
+    convert_cmd: list[str]
+    identify_cmd: list[str]
+    compare_cmd: list[str]
+
 
 class PILBackend(LocalBackend):
     NAME = "PIL"
@@ -723,8 +723,6 @@ class ArtResizer:
             log.debug("artresizer: method is WEBPROXY")
             self.local_method = None
 
-    shared: LazySharedInstance[ArtResizer] = LazySharedInstance()
-
     @property
     def method(self) -> str:
         if self.local_method is not None:
@@ -895,3 +893,5 @@ class ArtResizer:
         else:
             # FIXME: Should probably issue a warning?
             pass
+
+    shared: LazySharedInstance[ArtResizer] = LazySharedInstance()
