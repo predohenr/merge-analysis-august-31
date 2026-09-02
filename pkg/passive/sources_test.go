@@ -60,8 +60,8 @@ var (
 		"builtwith",
 		"hudsonrock",
 		"digitalyama",
-		"merklemap",
 		"thc",
+		"merklemap",
 	}
 
 	expectedDefaultSources = []string{
