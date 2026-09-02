@@ -2525,9 +2525,6 @@ func patchCRD(orig *extv1.CustomResourceDefinition, modified *extv1.CustomResour
 	ExpectWithOffset(1, err).ToNot(HaveOccurred())
 	return patch
 }
-
-// prometheusRuleEnabled returns true if the PrometheusRule CRD is enabled
-// and false otherwise.
 func prometheusRuleEnabled() bool {
 	virtClient := kubevirt.Client()
 
@@ -2545,9 +2542,6 @@ func serviceMonitorEnabled() bool {
 
 	return serviceMonitorEnabled
 }
-
-// verifyOperatorWebhookCertificate can be used when inside tests doing reinstalls of kubevirt, to ensure that virt-operator already got the new certificate.
-// This is necessary, since it can take up to a minute to get the fresh certificates when secrets are updated.
 func verifyOperatorWebhookCertificate() {
 	caBundle, _ := libinfra.GetBundleFromConfigMap(context.Background(), components.KubeVirtCASecretName)
 	certPool := x509.NewCertPool()
@@ -2717,9 +2711,6 @@ func eventuallyVirtTemplateDeploymentsNotFound() {
 	eventuallyDeploymentNotFound(virtTemplateApiserverDepName)
 	eventuallyDeploymentNotFound(virtTemplateControllerDepName)
 }
-
-// Deprecated: deprecatedBeforeAll must not be used. Tests need to be self-contained to allow sane cleanup, accurate reporting and
-// parallel execution.
 func deprecatedBeforeAll(fn func()) {
 	first := true
 	BeforeEach(func() {
@@ -2842,10 +2833,6 @@ func patchKV(name string, patches *patch.PatchSet) {
 		return err
 	}).WithTimeout(10 * time.Second).WithPolling(1 * time.Second).Should(Succeed())
 }
-
-var (
-	imageTagRegEx = regexp.MustCompile(`^(.+)/(.+)(:.+)$`)
-)
 
 func parseImage(image string) (registry, imageName, version string) {
 	var getVersion func(matches [][]string) string
@@ -3289,3 +3276,16 @@ func verifyVMIsUpdated(vmis []*v1.VirtualMachineInstance) {
 		}
 	}).WithTimeout(10*time.Second).WithPolling(time.Second).Should(Succeed(), "Expects only a single successful migration per workload update")
 }
+
+// prometheusRuleEnabled returns true if the PrometheusRule CRD is enabled
+// and false otherwise.
+
+// verifyOperatorWebhookCertificate can be used when inside tests doing reinstalls of kubevirt, to ensure that virt-operator already got the new certificate.
+// This is necessary, since it can take up to a minute to get the fresh certificates when secrets are updated.
+
+// Deprecated: deprecatedBeforeAll must not be used. Tests need to be self-contained to allow sane cleanup, accurate reporting and
+// parallel execution.
+
+var (
+	imageTagRegEx = regexp.MustCompile(`^(.+)/(.+)(:.+)$`)
+)
