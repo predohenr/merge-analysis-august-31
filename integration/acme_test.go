@@ -16,12 +16,35 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
+	"github.com/traefik/traefik/v2/integration/try"
+	"github.com/traefik/traefik/v2/pkg/config/static"
+	"github.com/traefik/traefik/v2/pkg/log"
+	"github.com/traefik/traefik/v2/pkg/provider/acme"
+	"github.com/traefik/traefik/v2/pkg/testhelpers"
+	"github.com/traefik/traefik/v2/pkg/types"
+	"k8s.io/utils/strings/slices"
+)
+import (
+	"crypto/tls"
+	"crypto/x509"
+	"fmt"
+	"net"
+	"net/http"
+	"os"
+	"path/filepath"
+	"testing"
+	"time"
+
+	"github.com/miekg/dns"
+	"github.com/rs/zerolog/log"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"github.com/stretchr/testify/suite"
 	"github.com/traefik/traefik/v3/integration/try"
 	"github.com/traefik/traefik/v3/pkg/config/static"
 	"github.com/traefik/traefik/v3/pkg/provider/acme"
 	"github.com/traefik/traefik/v3/pkg/testhelpers"
 	"github.com/traefik/traefik/v3/pkg/types"
-	"k8s.io/utils/strings/slices"
 )
 
 // ACME test suites.
@@ -33,6 +56,33 @@ type AcmeSuite struct {
 
 func TestAcmeSuite(t *testing.T) {
 	suite.Run(t, new(AcmeSuite))
+}
+
+func setupPebbleRootCA() (*http.Transport, error) {
+	path, err := filepath.Abs("fixtures/acme/ssl/pebble.minica.pem")
+	if err != nil {
+		return nil, err
+	}
+
+	os.Setenv("LEGO_CA_CERTIFICATES", path)
+	os.Setenv("LEGO_CA_SERVER_NAME", "pebble")
+
+	customCAs, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+
+	certPool := x509.NewCertPool()
+	if ok := certPool.AppendCertsFromPEM(customCAs); !ok {
+		return nil, fmt.Errorf("error creating x509 cert pool from %q: %w", path, err)
+	}
+
+	return &http.Transport{
+		TLSClientConfig: &tls.Config{
+			ServerName: "pebble",
+			RootCAs:    certPool,
+		},
+	}, nil
 }
 
 type subCases struct {
@@ -66,33 +116,6 @@ const (
 func (s *AcmeSuite) getAcmeURL() string {
 	return fmt.Sprintf("https://%s/dir",
 		net.JoinHostPort(s.pebbleIP, "14000"))
-}
-
-func setupPebbleRootCA() (*http.Transport, error) {
-	path, err := filepath.Abs("fixtures/acme/ssl/pebble.minica.pem")
-	if err != nil {
-		return nil, err
-	}
-
-	os.Setenv("LEGO_CA_CERTIFICATES", path)
-	os.Setenv("LEGO_CA_SERVER_NAME", "pebble")
-
-	customCAs, err := os.ReadFile(path)
-	if err != nil {
-		return nil, err
-	}
-
-	certPool := x509.NewCertPool()
-	if ok := certPool.AppendCertsFromPEM(customCAs); !ok {
-		return nil, fmt.Errorf("error creating x509 cert pool from %q: %w", path, err)
-	}
-
-	return &http.Transport{
-		TLSClientConfig: &tls.Config{
-			ServerName: "pebble",
-			RootCAs:    certPool,
-		},
-	}, nil
 }
 
 func (s *AcmeSuite) SetupSuite() {
@@ -301,8 +324,6 @@ func (s *AcmeSuite) TestHTTP01OnHostRuleInvalidAlgo() {
 
 	s.retrieveAcmeCertificate(testCase)
 }
-
-// TODO: check why this test do not use the ACME cert resolver.
 func (s *AcmeSuite) TestHTTP01OnHostRuleDefaultDynamicCertificatesWithWildcard() {
 	testCase := acmeTestCase{
 		traefikConfFilePath: "fixtures/acme/acme_tls.toml",
@@ -322,8 +343,6 @@ func (s *AcmeSuite) TestHTTP01OnHostRuleDefaultDynamicCertificatesWithWildcard()
 
 	s.retrieveAcmeCertificate(testCase)
 }
-
-// TODO: check why this test do not use the ACME cert resolver.
 func (s *AcmeSuite) TestHTTP01OnHostRuleDynamicCertificatesWithWildcard() {
 	testCase := acmeTestCase{
 		traefikConfFilePath: "fixtures/acme/acme_tls_dynamic.toml",
@@ -430,8 +449,6 @@ func (s *AcmeSuite) TestTLSALPN01DomainsInSAN() {
 
 	s.retrieveAcmeCertificate(testCase)
 }
-
-// Test Let's encrypt down.
 func (s *AcmeSuite) TestNoValidLetsEncryptServer() {
 	file := s.adaptFile("fixtures/acme/acme_base.toml", templateModel{
 		Acme: map[string]static.CertificateResolver{
@@ -448,8 +465,6 @@ func (s *AcmeSuite) TestNoValidLetsEncryptServer() {
 	err := try.GetRequest("http://127.0.0.1:8080/api/rawdata", 10*time.Second, try.StatusCodeIs(http.StatusOK))
 	require.NoError(s.T(), err)
 }
-
-// Doing an HTTPS request and test the response certificate.
 func (s *AcmeSuite) retrieveAcmeCertificate(testCase acmeTestCase) {
 	if len(testCase.template.PortHTTP) == 0 {
 		testCase.template.PortHTTP = ":5002"
@@ -540,3 +555,11 @@ func (s *AcmeSuite) retrieveAcmeCertificate(testCase acmeTestCase) {
 		assert.Equal(s.T(), sub.expectedAlgorithm, gotPublicKeyAlgorithm)
 	}
 }
+
+// TODO: check why this test do not use the ACME cert resolver.
+
+// TODO: check why this test do not use the ACME cert resolver.
+
+// Test Let's encrypt down.
+
+// Doing an HTTPS request and test the response certificate.
