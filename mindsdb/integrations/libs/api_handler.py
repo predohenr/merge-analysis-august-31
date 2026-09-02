@@ -3,8 +3,9 @@ import ast as py_ast
 import copy
 
 import pandas as pd
-from pandas.api import types as pd_types
 from mindsdb_sql_parser.ast import ASTNode, Select, Insert, Update, Delete, Star, BinaryOperation, Function
+from pandas.api import types as pd_types
+from mindsdb_sql_parser.ast import ASTNode, Select, Insert, Update, Delete, Star, BinaryOperation
 from mindsdb_sql_parser.ast.select.identifier import Identifier
 from mindsdb_sql_parser.ast.select.constant import Constant
 
@@ -128,6 +129,24 @@ def _pandas_dtype_to_sql_type(dtype) -> str:
 
     # Default to varchar for object and unknown types
     return "varchar"
+
+
+def extract_targets(targets: list[ASTNode]) -> list[str]:
+    """Recursive function to extract target column names from the query.
+
+    Args:
+        targets (list[ASTNode]): The list of AST nodes representing the targets.
+
+    Returns:
+        list[str]: The list of target column names.
+    """
+    result = []
+    for target in targets:
+        if isinstance(target, Identifier):
+            result.append(target.parts[-1])
+        elif isinstance(target, (Function, BinaryOperation)):
+            result += extract_targets(target.args)
+    return list(set(result))
 
 
 class FuncParser:
@@ -258,24 +277,6 @@ class APITable:
             List
         """
         raise NotImplementedError()
-
-
-def extract_targets(targets: list[ASTNode]) -> list[str]:
-    """Recursive function to extract target column names from the query.
-
-    Args:
-        targets (list[ASTNode]): The list of AST nodes representing the targets.
-
-    Returns:
-        list[str]: The list of target column names.
-    """
-    result = []
-    for target in targets:
-        if isinstance(target, Identifier):
-            result.append(target.parts[-1])
-        elif isinstance(target, (Function, BinaryOperation)):
-            result += extract_targets(target.args)
-    return list(set(result))
 
 
 class APIResource(APITable):
