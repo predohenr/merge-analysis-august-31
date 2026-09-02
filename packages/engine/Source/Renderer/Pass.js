@@ -33,3 +33,4 @@ const Pass = {
 Object.freeze(Pass);
 
 export default Pass;
+   
