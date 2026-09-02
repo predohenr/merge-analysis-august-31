@@ -231,6 +231,9 @@ class Matrix3 {
     result[8] = matrix[8];
     return result;
   }
+  clone(result) {
+    return Matrix3.clone(this, result);
+  }
 
   /**
    * Creates a Matrix3 instance from a column-major order array.
@@ -1552,6 +1555,9 @@ class Matrix3 {
         left[8] === right[8])
     );
   }
+  equals(right) {
+    return Matrix3.equals(this, right);
+  }
 
   /**
    * Compares the provided matrices componentwise and returns
@@ -1581,6 +1587,9 @@ class Matrix3 {
         Math.abs(left[8] - right[8]) <= epsilon)
     );
   }
+  equalsEpsilon(right, epsilon) {
+    return Matrix3.equalsEpsilon(this, right, epsilon);
+  }
 
   /**
    * Gets the number of items in the collection.
@@ -1597,9 +1606,6 @@ class Matrix3 {
    * @param {Matrix3} [result] The object onto which to store the result.
    * @returns {Matrix3} The modified result parameter or a new Matrix3 instance if one was not provided.
    */
-  clone(result) {
-    return Matrix3.clone(this, result);
-  }
 
   /**
    * Compares this matrix to the provided matrix componentwise and returns
@@ -1608,9 +1614,6 @@ class Matrix3 {
    * @param {Matrix3} [right] The right hand side matrix.
    * @returns {boolean} <code>true</code> if they are equal, <code>false</code> otherwise.
    */
-  equals(right) {
-    return Matrix3.equals(this, right);
-  }
 
   /**
    * Compares provided matrix and array, starting from a given array offset.
@@ -1643,9 +1646,6 @@ class Matrix3 {
    * @param {number} [epsilon=0] The epsilon to use for equality testing.
    * @returns {boolean} <code>true</code> if they are within the provided epsilon, <code>false</code> otherwise.
    */
-  equalsEpsilon(right, epsilon) {
-    return Matrix3.equalsEpsilon(this, right, epsilon);
-  }
 
   /**
    * Creates a string representing this Matrix with each row being

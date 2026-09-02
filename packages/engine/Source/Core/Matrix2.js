@@ -171,6 +171,9 @@ class Matrix2 {
     result[3] = matrix[3];
     return result;
   }
+  clone(result) {
+    return Matrix2.clone(this, result);
+  }
 
   /**
    * Creates a Matrix2 instance from a column-major order array.
@@ -907,6 +910,9 @@ class Matrix2 {
         left[3] === right[3])
     );
   }
+  equals(right) {
+    return Matrix2.equals(this, right);
+  }
 
   /**
    * Compares provided matrix and array, starting from a given array offset.
@@ -947,6 +953,9 @@ class Matrix2 {
         Math.abs(left[3] - right[3]) <= epsilon)
     );
   }
+  equalsEpsilon(right, epsilon) {
+    return Matrix2.equalsEpsilon(this, right, epsilon);
+  }
 
   /**
    * Gets the number of items in the collection.
@@ -963,9 +972,6 @@ class Matrix2 {
    * @param {Matrix2} [result] The object onto which to store the result.
    * @returns {Matrix2} The modified result parameter or a new Matrix2 instance if one was not provided.
    */
-  clone(result) {
-    return Matrix2.clone(this, result);
-  }
 
   /**
    * Compares this matrix to the provided matrix componentwise and returns
@@ -974,9 +980,6 @@ class Matrix2 {
    * @param {Matrix2} [right] The right hand side matrix.
    * @returns {boolean} <code>true</code> if they are equal, <code>false</code> otherwise.
    */
-  equals(right) {
-    return Matrix2.equals(this, right);
-  }
 
   /**
    * Compares this matrix to the provided matrix componentwise and returns
@@ -987,9 +990,6 @@ class Matrix2 {
    * @param {number} [epsilon=0] The epsilon to use for equality testing.
    * @returns {boolean} <code>true</code> if they are within the provided epsilon, <code>false</code> otherwise.
    */
-  equalsEpsilon(right, epsilon) {
-    return Matrix2.equalsEpsilon(this, right, epsilon);
-  }
 
   /**
    * Creates a string representing this Matrix with each row being
