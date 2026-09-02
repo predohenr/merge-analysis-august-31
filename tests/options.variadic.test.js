@@ -186,6 +186,6 @@ describe('variadic options', () => {
     program.option('-c,--comma [value...]', 'values', ['default']);
     program.parse(['--comma', 'CCC'], { from: 'user' });
 
-    assert.deepEqual(program.opts().comma, ['CCC']);
+    expect(program.opts().comma).toEqual(['CCC']);
   });
 });
