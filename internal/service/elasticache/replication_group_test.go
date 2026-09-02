@@ -29,6 +29,34 @@ import (
 	tfslices "github.com/hashicorp/terraform-provider-aws/internal/slices"
 	"github.com/hashicorp/terraform-provider-aws/names"
 )
+import (
+	"context"
+	"errors"
+	"fmt"
+	"strconv"
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/YakDriver/regexache"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/elasticache"
+	awstypes "github.com/aws/aws-sdk-go-v2/service/elasticache/types"
+	"github.com/hashicorp/go-version"
+	sdkacctest "github.com/hashicorp/terraform-plugin-testing/helper/acctest"
+	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
+	"github.com/hashicorp/terraform-plugin-testing/knownvalue"
+	"github.com/hashicorp/terraform-plugin-testing/plancheck"
+	"github.com/hashicorp/terraform-plugin-testing/statecheck"
+	"github.com/hashicorp/terraform-plugin-testing/terraform"
+	"github.com/hashicorp/terraform-plugin-testing/tfjsonpath"
+	"github.com/hashicorp/terraform-plugin-testing/tfversion"
+	"github.com/hashicorp/terraform-provider-aws/internal/acctest"
+	"github.com/hashicorp/terraform-provider-aws/internal/retry"
+	tfelasticache "github.com/hashicorp/terraform-provider-aws/internal/service/elasticache"
+	tfslices "github.com/hashicorp/terraform-provider-aws/internal/slices"
+	"github.com/hashicorp/terraform-provider-aws/names"
+)
 
 func TestAccElastiCacheReplicationGroup_Redis_basic(t *testing.T) {
 	ctx := acctest.Context(t)
@@ -710,8 +738,6 @@ func TestAccElastiCacheReplicationGroup_updateNodeSize(t *testing.T) {
 		},
 	})
 }
-
-// This is a test to prove that we panic we get in https://github.com/hashicorp/terraform/issues/9097
 func TestAccElastiCacheReplicationGroup_updateParameterGroup(t *testing.T) {
 	ctx := acctest.Context(t)
 	if testing.Short() {
@@ -903,8 +929,6 @@ func TestAccElastiCacheReplicationGroup_upgrade_6_0_0(t *testing.T) {
 		},
 	})
 }
-
-// At v5.26.0 the resource's schema is v1 and auth_token_update_strategy is not an argument
 func TestAccElastiCacheReplicationGroup_upgrade_5_27_0(t *testing.T) {
 	ctx := acctest.Context(t)
 	if testing.Short() {
@@ -947,8 +971,6 @@ func TestAccElastiCacheReplicationGroup_upgrade_5_27_0(t *testing.T) {
 		},
 	})
 }
-
-// https://github.com/hashicorp/terraform-provider-aws/issues/38464.
 func TestAccElastiCacheReplicationGroup_upgrade_4_68_0(t *testing.T) {
 	ctx := acctest.Context(t)
 	if testing.Short() {
@@ -3092,9 +3114,6 @@ func TestAccElastiCacheReplicationGroup_GlobalReplicationGroupID_full(t *testing
 		},
 	})
 }
-
-// Test for out-of-band deletion
-// Naming to allow grouping all TestAccAWSElastiCacheReplicationGroup_GlobalReplicationGroupID_* tests
 func TestAccElastiCacheReplicationGroup_GlobalReplicationGroupID_disappears(t *testing.T) { // nosemgrep:ci.acceptance-test-naming-parent-disappears
 	ctx := acctest.Context(t)
 	if testing.Short() {
@@ -4100,11 +4119,6 @@ func testCheckRedisParameterGroupClusterEnabledDefault(ctx context.Context, t *t
 	}
 }
 
-type kvp struct {
-	key   string
-	value string
-}
-
 func testAccReplicationGroupCheckMemberClusterTags(resourceName, dataSourceNamePrefix string, memberCount int, kvs []kvp) resource.TestCheckFunc {
 	checks := testAccCheckResourceTags(resourceName, kvs)
 	checks = append(checks, resource.TestCheckResourceAttr(resourceName, "member_clusters.#", strconv.Itoa(memberCount))) // sanity check
@@ -4934,8 +4948,6 @@ resource "aws_elasticache_replication_group" "test" {
 `, rName),
 	)
 }
-
-// Dependencies shared across all tests exercising the transit_encryption_enabled argument
 func testAccReplicationGroupConfig_transitEncryptionBase(rName string) string {
 	return acctest.ConfigCompose(
 		acctest.ConfigVPCWithSubnets(rName, 1),
@@ -5094,10 +5106,6 @@ resource "aws_elasticache_replication_group" "test" {
 `, rName),
 	)
 }
-
-// Identical to the _authToken configutaion, but with no authorization yet
-// configured. This will execercise the case when authorization is added
-// to a replication group which previously had none.
 func testAccReplicationGroupConfig_authTokenSetup(rName string) string {
 	return acctest.ConfigCompose(
 		acctest.ConfigVPCWithSubnets(rName, 1),
@@ -5855,3 +5863,23 @@ resource "aws_security_group" "test" {
 }
 `, rName))
 }
+
+// This is a test to prove that we panic we get in https://github.com/hashicorp/terraform/issues/9097
+
+// At v5.26.0 the resource's schema is v1 and auth_token_update_strategy is not an argument
+
+// https://github.com/hashicorp/terraform-provider-aws/issues/38464.
+
+// Test for out-of-band deletion
+// Naming to allow grouping all TestAccAWSElastiCacheReplicationGroup_GlobalReplicationGroupID_* tests
+
+type kvp struct {
+	key   string
+	value string
+}
+
+// Dependencies shared across all tests exercising the transit_encryption_enabled argument
+
+// Identical to the _authToken configutaion, but with no authorization yet
+// configured. This will execercise the case when authorization is added
+// to a replication group which previously had none.
