@@ -95,6 +95,217 @@ const filterShaderFrags = {
  * rendering (FBO).
  */
 class RendererGL extends Renderer3D {
+
+  _getShaderAttributes(shader) {
+    return getWebGLShaderAttributes(shader, this.GL);
+  }
+
+  clearDepth(depth = 1) {
+    this.GL.clearDepth(depth);
+    this.GL.clear(this.GL.DEPTH_BUFFER_BIT);
+  }
+
+  /*
+   *  used in imageLight,
+   *  To create a blurry image from the input non blurry img, if it doesn't already exist
+   *  Add it to the diffusedTexture map,
+   *  Returns the blurry image
+   *  maps a Image used by imageLight() to a p5.Framebuffer
+   */
+
+  // Setting
+
+  _getPointShader() {
+    if (!this._defaultPointShader) {
+      this._defaultPointShader = new Shader(
+        this,
+        this._webGL2CompatibilityPrefix("vert", "mediump") +
+          defaultShaders.pointVert,
+        this._webGL2CompatibilityPrefix("frag", "mediump") +
+          defaultShaders.pointFrag,
+        {
+          vertex: {
+            "void beforeVertex": "() {}",
+            "vec3 getLocalPosition": "(vec3 position) { return position; }",
+            "vec3 getWorldPosition": "(vec3 position) { return position; }",
+            "float getPointSize": "(float size) { return size; }",
+            "void afterVertex": "() {}",
+          },
+          fragment: {
+            "void beforeFragment": "() {}",
+            "vec4 getFinalColor": "(vec4 color) { return color; }",
+            "bool shouldDiscard": "(bool outside) { return outside; }",
+            "void afterFragment": "() {}",
+          },
+        }
+      );
+    }
+    return this._defaultPointShader;
+  }
+
+  // Pass this off to the host instance so that we can treat a renderer and a
+
+  // TODO move to super class
+
+  clear(...args) {
+    const _r = args[0] || 0;
+    const _g = args[1] || 0;
+    const _b = args[2] || 0;
+    let _a = args[3] || 0;
+
+    const activeFramebuffer = this.activeFramebuffer();
+    if (
+      activeFramebuffer &&
+      activeFramebuffer.format === constants.UNSIGNED_BYTE &&
+      !activeFramebuffer.antialias &&
+      _a === 0
+    ) {
+      // Drivers on Intel Macs check for 0,0,0,0 exactly when drawing to a
+      // framebuffer and ignore the command if it's the only drawing command to
+      // the framebuffer. To work around it, we can set the alpha to a value so
+      // low that it still rounds down to 0, but that circumvents the buggy
+      // check in the driver.
+      _a = 1e-10;
+    }
+
+    this.GL.clearColor(_r * _a, _g * _a, _b * _a, _a);
+    this.GL.clearDepth(1);
+    this.GL.clear(this.GL.COLOR_BUFFER_BIT | this.GL.DEPTH_BUFFER_BIT);
+  }
+
+  _getLineShader() {
+    if (!this._defaultLineShader) {
+      this._defaultLineShader = new Shader(
+        this,
+        this._webGL2CompatibilityPrefix("vert", "mediump") +
+          defaultShaders.lineVert,
+        this._webGL2CompatibilityPrefix("frag", "mediump") +
+          defaultShaders.lineFrag,
+        {
+          vertex: {
+            "void beforeVertex": "() {}",
+            "StrokeVertex getObjectInputs":
+              "(StrokeVertex inputs) { return inputs; }",
+            "StrokeVertex getWorldInputs":
+              "(StrokeVertex inputs) { return inputs; }",
+            "StrokeVertex getCameraInputs":
+              "(StrokeVertex inputs) { return inputs; }",
+            "void afterVertex": "() {}",
+          },
+          fragment: {
+            "void beforeFragment": "() {}",
+            "Inputs getPixelInputs": "(Inputs inputs) { return inputs; }",
+            "vec4 getFinalColor": "(vec4 color) { return color; }",
+            "bool shouldDiscard": "(bool outside) { return outside; }",
+            "void afterFragment": "() {}",
+          },
+        }
+      );
+    }
+
+    return this._defaultLineShader;
+  }
+
+  //////////////////////////////////////////////
+
+  //////////////////////////////////////////////
+
+  //////////////////////////////
+
+  //This is helper function to reset the context anytime the attributes
+
+  // Positioning
+
+  _getSphereMapping(img) {
+    if (!this.sphereMapping) {
+      this.sphereMapping = this._pInst.createFilterShader(sphereMapping);
+    }
+    this.scratchMat3.inverseTranspose4x4(this.states.uViewMatrix);
+    this.scratchMat3.invert(this.scratchMat3); // uNMMatrix is 3x3
+    this.sphereMapping.setUniform("uFovY", this.states.curCamera.cameraFOV);
+    this.sphereMapping.setUniform("uAspect", this.states.curCamera.aspectRatio);
+    this.sphereMapping.setUniform("uNewNormalMatrix", this.scratchMat3.mat3);
+    this.sphereMapping.setUniform("uEnvMap", img);
+    return this.sphereMapping;
+  }
+
+  bindTexture(tex) {
+    // bind texture using gl context + glTarget and
+    // generated gl texture object
+    this.GL.bindTexture(this.GL.TEXTURE_2D, tex.getTexture().texture);
+  }
+
+  baseFilterShader() {
+    if (!this._baseFilterShader) {
+      this._baseFilterShader = new Shader(
+        this,
+        this._webGL2CompatibilityPrefix("vert", "highp") +
+          defaultShaders.filterBaseVert,
+        this._webGL2CompatibilityPrefix("frag", "highp") +
+          defaultShaders.filterBaseFrag,
+        {
+            vertex: {},
+            fragment: {
+              "vec4 getColor": `(FilterInputs inputs, in sampler2D canvasContent) {
+                return getTexture(canvasContent, inputs.texCoord);
+              }`,
+            },
+          }
+      );
+    }
+    return this._baseFilterShader;
+  }
+
+  // x,y are canvas-relative (pre-scaled by _pixelDensity)
+
+  _makeFilterShader(renderer, operation) {
+    return new Shader(
+      renderer,
+      filterShaderVert,
+      filterShaderFrags[operation]
+    );
+  }
+
+  baseMaterialShader() {
+    if (!this._pInst._glAttributes.perPixelLighting) {
+      throw new Error(
+        "The material shader does not support hooks without perPixelLighting. Try turning it back on."
+      );
+    }
+    return super.baseMaterialShader();
+  }
+
+  _applyStencilTestIfClipping() {
+    const drawTarget = this.drawTarget();
+    if (drawTarget._isClipApplied !== this._stencilTestOn) {
+      if (drawTarget._isClipApplied) {
+        this._internalEnable.call(this.GL, this.GL.STENCIL_TEST);
+        this._stencilTestOn = true;
+      } else {
+        if (!this._userEnabledStencil) {
+          this._internalDisable.call(this.GL, this.GL.STENCIL_TEST);
+        }
+        this._stencilTestOn = false;
+      }
+    }
+  }
+
+  //////////////////////////////////////////////
+
+  _updateSize() {}
+
+  /**
+   * Resets all depth information so that nothing previously drawn will
+   * occlude anything subsequently drawn.
+   */
+
+  _clearClipBuffer() {
+    this.GL.clearStencil(1);
+    this.GL.clear(this.GL.STENCIL_BUFFER_BIT);
+  }
+
+  //////////////////////////////////////////////
+
   constructor(pInst, w, h, isMainCanvas, elt) {
     super(pInst, w, h, isMainCanvas, elt);
 
@@ -130,17 +341,231 @@ class RendererGL extends Renderer3D {
     this._cachedBlendMode = undefined;
   }
 
-  setupContext() {
-    this._setAttributeDefaults(this._pInst);
-    this._initContext();
-    // This redundant property is useful in reminding you that you are
-    // interacting with WebGLRenderingContext, still worth considering future removal
-    this.GL = this.drawingContext;
+  bindTextureToShader({ texture }, sampler, uniformName, unit) {
+    const gl = this.GL;
+    gl.activeTexture(gl.TEXTURE0 + unit);
+    gl.bindTexture(gl.TEXTURE_2D, texture);
+    const location = gl.getUniformLocation(glProgram, uniformName);
+    gl.uniform1i(location, unit);
+  }
+
+  populateHooks(shader, src, shaderType) {
+    return populateGLSLHooks(shader, src, shaderType);
+  }
+
+  unbindTexture() {
+    // unbind per above, disable texturing on glTarget
+    this.GL.bindTexture(this.GL.TEXTURE_2D, null);
   }
 
   //////////////////////////////////////////////
-  // Rendering
+
   //////////////////////////////////////////////
+
+  _freeBuffers(buffers) {
+    const gl = this.GL;
+    if (buffers.indexBuffer) {
+      gl.deleteBuffer(buffers.indexBuffer);
+    }
+
+    function freeBuffers(defs) {
+      for (const def of defs) {
+        if (buffers[def.dst]) {
+          gl.deleteBuffer(buffers[def.dst]);
+          buffers[def.dst] = null;
+        }
+      }
+    }
+
+    // free all the buffers
+    freeBuffers(this.buffers.stroke);
+    freeBuffers(this.buffers.fill);
+    freeBuffers(this.buffers.user);
+  }
+
+  // Shape drawing
+
+  // COLOR
+
+  _getColorShader() {
+    if (!this._defaultColorShader) {
+      this._defaultColorShader = new Shader(
+        this,
+        this._webGL2CompatibilityPrefix("vert", "mediump") +
+          defaultShaders.normalVert,
+        this._webGL2CompatibilityPrefix("frag", "mediump") +
+          defaultShaders.basicFrag,
+        {
+          vertex: {
+            "void beforeVertex": "() {}",
+            "Vertex getObjectInputs": "(Vertex inputs) { return inputs; }",
+            "Vertex getWorldInputs": "(Vertex inputs) { return inputs; }",
+            "Vertex getCameraInputs": "(Vertex inputs) { return inputs; }",
+            "void afterVertex": "() {}",
+          },
+          fragment: {
+            "void beforeFragment": "() {}",
+            "vec4 getFinalColor": "(vec4 color) { return color; }",
+            "void afterFragment": "() {}",
+          },
+        }
+      );
+    }
+
+    return this._defaultColorShader;
+  }
+
+  _resetContext(options, callback) {
+    const w = this.width;
+    const h = this.height;
+    const defaultId = this.canvas.id;
+    const isPGraphics = this._pInst instanceof Graphics;
+
+    // Preserve existing position and styles before recreation
+    const prevStyle = {
+      position: this.canvas.style.position,
+      top: this.canvas.style.top,
+      left: this.canvas.style.left,
+    };
+
+    if (isPGraphics) {
+      // Handle PGraphics: remove and recreate the canvas
+      const pg = this._pInst;
+      pg.canvas.parentNode.removeChild(pg.canvas);
+      pg.canvas = document.createElement("canvas");
+      const node = pg._pInst._userNode || document.body;
+      node.appendChild(pg.canvas);
+      Element.call(pg, pg.canvas, pg._pInst);
+      // Restore previous width and height
+      pg.width = w;
+      pg.height = h;
+    } else {
+      // Handle main canvas: remove and recreate it
+      let c = this.canvas;
+      if (c) {
+        c.parentNode.removeChild(c);
+      }
+      c = document.createElement("canvas");
+      c.id = defaultId;
+      // Attach the new canvas to the correct parent node
+      if (this._pInst._userNode) {
+        this._pInst._userNode.appendChild(c);
+      } else {
+        document.body.appendChild(c);
+      }
+      this._pInst.canvas = c;
+      this.canvas = c;
+
+      // Restore the saved position
+      this.canvas.style.position = prevStyle.position;
+      this.canvas.style.top = prevStyle.top;
+      this.canvas.style.left = prevStyle.left;
+    }
+
+    const renderer = new RendererGL(
+      this._pInst,
+      w,
+      h,
+      !isPGraphics,
+      this._pInst.canvas
+    );
+    this._pInst._renderer = renderer;
+
+    renderer._applyDefaults();
+
+    if (typeof callback === "function") {
+      //setTimeout with 0 forces the task to the back of the queue, this ensures that
+      //we finish switching out the renderer
+      setTimeout(() => {
+        callback.apply(window._renderer, options);
+      }, 0);
+    }
+  }
+
+  _updateViewport() {
+    this._origViewport = {
+      width: this.GL.drawingBufferWidth,
+      height: this.GL.drawingBufferHeight,
+    };
+    this.viewport(this._origViewport.width, this._origViewport.height);
+  }
+
+  updateUniformValue(shader, uniform, data) {
+    return setWebGLUniformValue(
+      shader,
+      uniform,
+      data,
+      (tex) => this.getTexture(tex),
+      this.GL
+    );
+  }
+
+  uploadTextureFromData({ texture, glFormat, glDataType }, data, width, height) {
+    const gl = this.GL;
+    gl.texImage2D(
+      gl.TEXTURE_2D,
+      0,
+      glFormat,
+      width,
+      height,
+      0,
+      glFormat,
+      glDataType,
+      data
+    );
+  }
+
+  /**
+   * clears color and depth buffers
+   * with r,g,b,a
+   * @private
+   * @param {Number} r normalized red val.
+   * @param {Number} g normalized green val.
+   * @param {Number} b normalized blue val.
+   * @param {Number} a normalized alpha val.
+   */
+
+  _unbindFramebufferTexture(uniform) {
+    // Make sure an empty texture is bound to the slot so that we don't
+    // accidentally leave a framebuffer bound, causing a feedback loop
+    // when something else tries to write to it
+    const gl = this.GL;
+    const empty = this._getEmptyTexture();
+    gl.activeTexture(gl.TEXTURE0 + uniform.samplerIndex);
+    empty.bindTexture();
+    gl.uniform1i(uniform.location, uniform.samplerIndex);
+  }
+
+  /**
+   * @private blends colors according to color components.
+   * If alpha value is less than 1, or non-standard blendMode
+   * we need to enable blending on our gl context.
+   * @param  {Number[]} color The currently set color, with values in 0-1 range
+   * @param  {Boolean} [hasTransparency] Whether the shape being drawn has other
+   * transparency internally, e.g. via vertex colors
+   * @return {Number[]}  Normalized numbers array
+   */
+
+  // Rendering
+
+  _applyClip() {
+    const gl = this.GL;
+    gl.clearStencil(0);
+    gl.clear(gl.STENCIL_BUFFER_BIT);
+    this._internalEnable.call(gl, gl.STENCIL_TEST);
+    this._stencilTestOn = true;
+    gl.stencilFunc(
+      gl.ALWAYS, // the test
+      1, // reference value
+      0xff // mask
+    );
+    gl.stencilOp(
+      gl.KEEP, // what to do if the stencil test fails
+      gl.KEEP, // what to do if the depth test fails
+      gl.REPLACE // what to do if both tests pass
+    );
+    gl.disable(gl.DEPTH_TEST);
+  }
 
   /*_drawPoints(vertices, vertexBuffer) {
     const gl = this.GL;
@@ -167,11 +592,87 @@ class RendererGL extends Renderer3D {
     pointShader.unbindShader();
   }*/
 
+  //////////////////////////////////////////////
+
   /**
-   * @private sets blending in gl context to curBlendMode
-   * @param  {Number[]} color [description]
-   * @return {Number[]}  Normalized numbers array
+   * Once all buffers have been bound, this checks to see if there are any
+   * remaining active attributes, likely left over from previous renders,
+   * and disables them so that they don't affect rendering.
+   * @private
    */
+
+  //are changed with setAttributes()
+
+  // TODO move to super class
+
+  /*
+   *  used in imageLight,
+   *  To create a texture from the input non blurry image, if it doesn't already exist
+   *  Creating 8 different levels of textures according to different
+   *  sizes and atoring them in `levels` array
+   *  Creating a new Mipmap texture with that `levels` array
+   *  Storing the texture for input image in map called `specularTextures`
+   *  maps the input Image to a p5.MipmapTexture
+   */
+
+  // Geometry Building
+
+  // TODO move to super class
+
+  //////////////////////////////////////////////
+
+  getUniformMetadata(shader) {
+    return getWebGLUniformMetadata(shader, this.GL);
+  }
+
+  zClipRange() {
+    return [-1, 1];
+  }
+
+  // Setting
+
+  _setAttributeDefaults(pInst) {
+    // See issue #3850, safer to enable AA in Safari
+    const applyAA = navigator.userAgent.toLowerCase().includes("safari");
+    const defaults = {
+      alpha: true,
+      depth: true,
+      stencil: true,
+      antialias: applyAA,
+      premultipliedAlpha: true,
+      preserveDrawingBuffer: true,
+      perPixelLighting: true,
+      version: 2,
+    };
+    if (pInst._glAttributes === null) {
+      pInst._glAttributes = defaults;
+    } else {
+      pInst._glAttributes = Object.assign(defaults, pInst._glAttributes);
+    }
+    return;
+  }
+
+  _getPixel(x, y) {
+    const gl = this.GL;
+    return readPixelWebGL(
+      gl,
+      null,
+      x,
+      y,
+      gl.RGBA,
+      gl.UNSIGNED_BYTE,
+      this._pInst.height * this._pInst.pixelDensity()
+    );
+  }
+
+  _resetBuffersBeforeDraw() {
+    this.GL.clearStencil(0);
+    this.GL.clear(this.GL.DEPTH_BUFFER_BIT | this.GL.STENCIL_BUFFER_BIT);
+    if (!this._userEnabledStencil) {
+      this._internalDisable.call(this.GL, this.GL.STENCIL_TEST);
+    }
+  }
+
   _applyBlendMode () {
     if (this._cachedBlendMode === this.states.curBlendMode) {
       return;
@@ -250,8 +751,245 @@ class RendererGL extends Renderer3D {
     this._cachedBlendMode = this.states.curBlendMode;
   }
 
-  _shaderOptions() {
+  /* Binds a buffer to the drawing context
+   * when passed more than two arguments it also updates or initializes
+   * the data associated with the buffer
+   */
+
+  viewport(w, h) {
+    this._viewport = [0, 0, w, h];
+    this.GL.viewport(0, 0, w, h);
+  }
+
+  // getting called from _setFillUniforms
+
+  //////////////////////////////////////////////
+
+  _updateTexture(uniform, tex) {
+    const gl = this.GL;
+    gl.activeTexture(gl.TEXTURE0 + uniform.samplerIndex);
+    tex.bindTexture();
+    tex.update();
+    gl.uniform1i(uniform.location, uniform.samplerIndex);
+  }
+
+  getSpecularTexture(input) {
+    // check if already exits (there are tex of diff resolution so which one to check)
+    // currently doing the whole array
+    if (this.specularTextures.get(input) != null) {
+      return this.specularTextures.get(input);
+    }
+    // Hardcoded size
+    const size = 512;
+    let tex;
+    const levels = [];
+    const framebuffer = new Framebuffer(this, {
+      width: size,
+      height: size,
+      density: 1,
+    });
+    let count = Math.log(size) / Math.log(2);
+    if (!this.specularShader) {
+      this.specularShader = this._pInst.createShader(
+        defaultShaders.imageLightVert,
+        defaultShaders.imageLightSpecularFrag
+      );
+    }
+    // currently only 8 levels
+    // This loop calculates 8 framebuffers of varying size of canvas
+    // and corresponding different roughness levels.
+    // Roughness increases with the decrease in canvas size,
+    // because rougher surfaces have less detailed/more blurry reflections.
+    for (let w = size; w >= 1; w /= 2) {
+      framebuffer.resize(w, w);
+      let currCount = Math.log(w) / Math.log(2);
+      let roughness = 1 - currCount / count;
+      framebuffer.draw(() => {
+        this.shader(this.specularShader);
+        this.clear();
+        this.specularShader.setUniform("environmentMap", input);
+        this.specularShader.setUniform("roughness", roughness);
+        this.states.setValue("strokeColor", null);
+        this.noLights();
+        this.plane(w, w);
+      });
+      levels.push(framebuffer.get().drawingContext.getImageData(0, 0, w, w));
+    }
+    // Free the Framebuffer
+    framebuffer.remove();
+    tex = new MipmapTexture(this, levels, {});
+    this.specularTextures.set(input, tex);
+    return tex;
+  }
+
+  _enableAttrib(_shader, attr, size, type, normalized, stride, offset) {
+    const loc = attr.location;
+    const gl = this.GL;
+    // Enable register even if it is disabled
+    if (!this.registerEnabled.has(loc)) {
+      gl.enableVertexAttribArray(loc);
+      // Record register availability
+      this.registerEnabled.add(loc);
+    }
+    gl.vertexAttribPointer(
+      loc,
+      size,
+      type || gl.FLOAT,
+      normalized || false,
+      stride || 0,
+      offset || 0
+    );
+  }
+
+  //////////////////////////////////////////////
+
+  //////////////////////////////////////////////
+
+  setupContext() {
+    this._setAttributeDefaults(this._pInst);
+    this._initContext();
+    // This redundant property is useful in reminding you that you are
+    // interacting with WebGLRenderingContext, still worth considering future removal
+    this.GL = this.drawingContext;
+  }
+
+  // Shader hooks
+
+  // SHADER
+
+  _ensureGeometryBuffers(buffers, indices, indexType) {
+    const gl = this.GL;
+
+    if (indices) {
+      const buffer = gl.createBuffer();
+      this._bindBuffer(buffer, gl.ELEMENT_ARRAY_BUFFER, indices, indexType);
+
+      buffers.indexBuffer = buffer;
+
+      // If we're using a Uint32Array for our indexBuffer we will need to pass a
+      // different enum value to WebGL draw triangles. This happens in
+      // the _drawElements function.
+      buffers.indexBufferType = indexType === Uint32Array ? gl.UNSIGNED_INT : gl.UNSIGNED_SHORT;
+    } else if (buffers.indexBuffer) {
+      // the index buffer is unused, remove it
+      gl.deleteBuffer(buffers.indexBuffer);
+      buffers.indexBuffer = null;
+    }
+  }
+
+  _getFontShader() {
+    if (!this._defaultFontShader) {
+      if (this.webglVersion === constants.WEBGL) {
+        this.GL.getExtension("OES_standard_derivatives");
+      }
+      this._defaultFontShader = new Shader(
+        this,
+        this._webGL2CompatibilityPrefix("vert", "highp") +
+          defaultShaders.fontVert,
+        this._webGL2CompatibilityPrefix("frag", "highp") +
+          defaultShaders.fontFrag
+      );
+    }
+    return this._defaultFontShader;
+  }
+
+  /*
+   * shaders are created and cached on a per-renderer basis,
+   * on the grounds that each renderer will have its own gl context
+   * and the shader must be valid in that context.
+   */
+
+  loadPixels() {
+    //@todo_FES
+    if (this._pInst._glAttributes.preserveDrawingBuffer !== true) {
+      console.log(
+        "loadPixels only works in WebGL when preserveDrawingBuffer " +
+          "is true."
+      );
+      return;
+    }
+
+    const pd = this._pixelDensity;
+    const gl = this.GL;
+
+    this.pixels = readPixelsWebGL(
+      this.pixels,
+      gl,
+      null,
+      0,
+      0,
+      this.width * pd,
+      this.height * pd,
+      gl.RGBA,
+      gl.UNSIGNED_BYTE,
+      this.height * pd
+    );
+  }
+
+  getSampler(_texture) {
     return undefined;
+  }
+
+  // Rendering
+
+  _finalizeShader() {}
+
+  //////////////////////////////////////////////
+
+  _getNormalShader() {
+    if (!this._defaultNormalShader) {
+      this._defaultNormalShader = new Shader(
+        this,
+        this._webGL2CompatibilityPrefix("vert", "mediump") +
+          defaultShaders.normalVert,
+        this._webGL2CompatibilityPrefix("frag", "mediump") +
+          defaultShaders.normalFrag,
+        {
+          vertex: {
+            "void beforeVertex": "() {}",
+            "Vertex getObjectInputs": "(Vertex inputs) { return inputs; }",
+            "Vertex getWorldInputs": "(Vertex inputs) { return inputs; }",
+            "Vertex getCameraInputs": "(Vertex inputs) { return inputs; }",
+            "void afterVertex": "() {}",
+          },
+          fragment: {
+            "void beforeFragment": "() {}",
+            "vec4 getFinalColor": "(vec4 color) { return color; }",
+            "void afterFragment": "() {}",
+          },
+        }
+      );
+    }
+
+    return this._defaultNormalShader;
+  }
+
+  //This is helper function to reset the context anytime the attributes
+
+  //////////////////////////////////////////////
+
+  //////////////////////////////////////////////
+
+  _adjustDimensions(width, height) {
+    if (!this._maxTextureSize) {
+      this._maxTextureSize = this._getMaxTextureSize();
+    }
+    let maxTextureSize = this._maxTextureSize;
+
+    let maxAllowedPixelDimensions = Math.floor(
+      maxTextureSize / this._pixelDensity
+    );
+    let adjustedWidth = Math.min(width, maxAllowedPixelDimensions);
+    let adjustedHeight = Math.min(height, maxAllowedPixelDimensions);
+
+    if (adjustedWidth !== width || adjustedHeight !== height) {
+      console.warn(
+        "Warning: The requested width/height exceeds hardware limits. " +
+          `Adjusting dimensions to width: ${adjustedWidth}, height: ${adjustedHeight}.`
+      );
+    }
+
+    return { adjustedWidth, adjustedHeight };
   }
 
   _useShader(shader) {
@@ -259,12 +997,257 @@ class RendererGL extends Renderer3D {
     gl.useProgram(shader._glProgram);
   }
 
+  uploadTextureFromSource({ texture, glFormat, glDataType }, source) {
+    const gl = this.GL;
+    gl.texImage2D(gl.TEXTURE_2D, 0, glFormat, glFormat, glDataType, source);
+  }
+
   /**
-   * Once all buffers have been bound, this checks to see if there are any
-   * remaining active attributes, likely left over from previous renders,
-   * and disables them so that they don't affect rendering.
+   * @private sets blending in gl context to curBlendMode
+   * @param  {Number[]} color [description]
+   * @return {Number[]}  Normalized numbers array
+   */
+
+  getDiffusedTexture(input) {
+    // if one already exists for a given input image
+    if (this.diffusedTextures.get(input) != null) {
+      return this.diffusedTextures.get(input);
+    }
+    // if not, only then create one
+    let newFramebuffer;
+    // hardcoded to 200px, because it's going to be blurry and smooth
+    let smallWidth = 200;
+    let width = smallWidth;
+    let height = Math.floor(smallWidth * (input.height / input.width));
+    newFramebuffer = new Framebuffer(this, {
+      width,
+      height,
+      density: 1,
+    });
+    // create framebuffer is like making a new sketch, all functions on main
+    // sketch it would be available on framebuffer
+    if (!this.diffusedShader) {
+      this.diffusedShader = this._pInst.createShader(
+        defaultShaders.imageLightVert,
+        defaultShaders.imageLightDiffusedFrag
+      );
+    }
+    newFramebuffer.draw(() => {
+      this.shader(this.diffusedShader);
+      this.diffusedShader.setUniform("environmentMap", input);
+      this.states.setValue("strokeColor", null);
+      this.noLights();
+      this.plane(width, height);
+    });
+    this.diffusedTextures.set(input, newFramebuffer);
+    return newFramebuffer;
+  }
+
+  //// UTILITY FUNCTIONS
+
+  deleteTexture({ texture }) {
+    this.GL.deleteTexture(texture);
+  }
+
+  //////////////////////////////////////////////
+
+  //////////////////////////////////////////////
+
+  // HASH | for geometry
+
+  _bindBuffer(buffer, target, values, type, usage) {
+    const gl = this.GL;
+    if (!target) target = gl.ARRAY_BUFFER;
+    gl.bindBuffer(target, buffer);
+
+    if (values !== undefined) {
+      const data = this._normalizeBufferData(values, type);
+      gl.bufferData(target, data, usage || gl.STATIC_DRAW);
+    }
+  }
+
+  setTextureParams(texture) {
+    return setWebGLTextureParams(texture, this.GL, this.webglVersion);
+  }
+
+  //////////////////////////////////////////////
+
+  _applyColorBlend(colors, hasTransparency) {
+    const gl = this.GL;
+
+    const isTexture = this.states.drawMode === constants.TEXTURE;
+    const doBlend =
+      hasTransparency ||
+      this.states.userFillShader ||
+      this.states.userStrokeShader ||
+      this.states.userPointShader ||
+      isTexture ||
+      this.states.curBlendMode !== constants.BLEND ||
+      colors[colors.length - 1] < 1.0 ||
+      this._isErasing;
+
+    if (doBlend !== this._isBlending) {
+      if (
+        doBlend ||
+        (this.states.curBlendMode !== constants.BLEND &&
+          this.states.curBlendMode !== constants.ADD)
+      ) {
+        gl.enable(gl.BLEND);
+      } else {
+        gl.disable(gl.BLEND);
+      }
+      gl.depthMask(true);
+      this._isBlending = doBlend;
+    }
+    this._applyBlendMode();
+    return colors;
+  }
+
+  _webGL2CompatibilityPrefix(shaderType, floatPrecision) {
+    let code = "";
+    if (this.webglVersion === constants.WEBGL2) {
+      code += "#version 300 es\n#define WEBGL2\n";
+    }
+    if (shaderType === "vert") {
+      code += "#define VERTEX_SHADER\n";
+    } else if (shaderType === "frag") {
+      code += "#define FRAGMENT_SHADER\n";
+    }
+    if (floatPrecision) {
+      code += `precision ${floatPrecision} float;\n`;
+    }
+    return code;
+  }
+
+  //////////////////////////////////////////////
+
+  _initShader(shader) {
+    const gl = this.GL;
+
+    const vertShader = gl.createShader(gl.VERTEX_SHADER);
+    gl.shaderSource(vertShader, shader.vertSrc());
+    gl.compileShader(vertShader);
+    if (!gl.getShaderParameter(vertShader, gl.COMPILE_STATUS)) {
+      throw new Error(`Yikes! An error occurred compiling the vertex shader: ${
+        gl.getShaderInfoLog(vertShader)
+      } in:\n\n${shader.vertSrc()}`);
+    }
+
+    const fragShader = gl.createShader(gl.FRAGMENT_SHADER);
+    gl.shaderSource(fragShader, shader.fragSrc());
+    gl.compileShader(fragShader);
+    if (!gl.getShaderParameter(fragShader, gl.COMPILE_STATUS)) {
+      throw new Error(`Darn! An error occurred compiling the fragment shader: ${
+        gl.getShaderInfoLog(fragShader)
+      }`);
+    }
+
+    const program = gl.createProgram();
+    gl.attachShader(program, vertShader);
+    gl.attachShader(program, fragShader);
+    gl.linkProgram(program);
+
+    if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+      throw new Error(
+        `Snap! Error linking shader program: ${gl.getProgramInfoLog(program)}`
+      );
+    }
+
+    shader._glProgram = program;
+    shader._vertShader = vertShader;
+    shader._fragShader = fragShader;
+  }
+
+  _initContext() {
+    if (this._pInst._glAttributes?.version !== 1) {
+      // Unless WebGL1 is explicitly asked for, try to create a WebGL2 context
+      this.drawingContext = this.canvas.getContext(
+        "webgl2",
+        this._pInst._glAttributes
+      );
+    }
+    this.webglVersion = this.drawingContext
+      ? constants.WEBGL2
+      : constants.WEBGL;
+    // If this is the main canvas, make sure the global `webglVersion` is set
+    this._pInst.webglVersion = this.webglVersion;
+    if (!this.drawingContext) {
+      // If we were unable to create a WebGL2 context (either because it was
+      // disabled via `setAttributes({ version: 1 })` or because the device
+      // doesn't support it), fall back to a WebGL1 context
+      this.drawingContext =
+        this.canvas.getContext("webgl", this._pInst._glAttributes) ||
+        this.canvas.getContext("experimental-webgl", this._pInst._glAttributes);
+    }
+    if (this.drawingContext === null) {
+      throw new Error("Error creating webgl context");
+    } else {
+      const gl = this.drawingContext;
+      gl.enable(gl.DEPTH_TEST);
+      gl.depthFunc(gl.LEQUAL);
+      gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
+      // Make sure all images are loaded into the canvas premultiplied so that
+      // they match the way we render colors. This will make framebuffer textures
+      // be encoded the same way as textures from everything else.
+      gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true);
+      this._viewport = this.drawingContext.getParameter(
+        this.drawingContext.VIEWPORT
+      );
+    }
+  }
+
+  updatePixels() {
+    const fbo = this._getTempFramebuffer();
+    fbo.pixels = this.pixels;
+    fbo.updatePixels();
+    this.push();
+    this.resetMatrix();
+    this.clear();
+    this.states.setValue("imageMode", constants.CORNER);
+    this.image(
+      fbo,
+      0,
+      0,
+      fbo.width,
+      fbo.height,
+      -fbo.width / 2,
+      -fbo.height / 2,
+      fbo.width,
+      fbo.height
+    );
+    this.pop();
+    this.GL.clearDepth(1);
+    this.GL.clear(this.GL.DEPTH_BUFFER_BIT);
+  }
+
+  _createPixelsArray() {
+    this.pixels = new Uint8Array(
+      this.GL.drawingBufferWidth * this.GL.drawingBufferHeight * 4
+    );
+  }
+
+  /**
+   * Loads the pixels data for this canvas into the pixels[] attribute.
+   * Note that updatePixels() and set() do not work.
+   * Any pixel manipulation must be done directly to the pixels[] array.
+   *
    * @private
    */
+
+  ///////////////////////////////
+
+  // SHADER
+
+  _shaderOptions() {
+    return undefined;
+  }
+
+  //////////////////////////////////////////////
+
+  //////////////////////////////////////////////
+
+  // framebuffer the same in filter()
+
   _disableRemainingAttributes(shader) {
     for (const location of this.registerEnabled.values()) {
       if (
@@ -276,6 +1259,77 @@ class RendererGL extends Renderer3D {
         this.registerEnabled.delete(location);
       }
     }
+  }
+
+  //////////////////////////////////////////////
+
+  //////////////////////////////////////////////
+
+  _getLightShader() {
+    if (!this._defaultLightShader) {
+      if (this._pInst._glAttributes.perPixelLighting) {
+        this._defaultLightShader = new Shader(
+          this,
+          this._webGL2CompatibilityPrefix("vert", "highp") +
+            defaultShaders.phongVert,
+          this._webGL2CompatibilityPrefix("frag", "highp") +
+            defaultShaders.phongFrag,
+          {
+            vertex: {
+              "void beforeVertex": "() {}",
+              "Vertex getObjectInputs": "(Vertex inputs) { return inputs; }",
+              "Vertex getWorldInputs": "(Vertex inputs) { return inputs; }",
+              "Vertex getCameraInputs": "(Vertex inputs) { return inputs; }",
+              "void afterVertex": "() {}",
+            },
+            fragment: {
+              "void beforeFragment": "() {}",
+              "Inputs getPixelInputs": "(Inputs inputs) { return inputs; }",
+              "vec4 combineColors": `(ColorComponents components) {
+                vec4 color = vec4(0.);
+                color.rgb += components.diffuse * components.baseColor;
+                color.rgb += components.ambient * components.ambientColor;
+                color.rgb += components.specular * components.specularColor;
+                color.rgb += components.emissive;
+                color.a = components.opacity;
+                return color;
+              }`,
+              "vec4 getFinalColor": "(vec4 color) { return color; }",
+              "void afterFragment": "() {}",
+            },
+          }
+        );
+      } else {
+        this._defaultLightShader = new Shader(
+          this,
+          this._webGL2CompatibilityPrefix("vert", "highp") +
+            defaultShaders.lightVert,
+          this._webGL2CompatibilityPrefix("frag", "highp") +
+            defaultShaders.lightTextureFrag
+        );
+      }
+    }
+
+    return this._defaultLightShader;
+  }
+
+  //////////////////////////////////////////////
+
+  // x,y are canvas-relative (pre-scaled by _pixelDensity)
+
+  _unapplyClip() {
+    const gl = this.GL;
+    gl.stencilOp(
+      gl.KEEP, // what to do if the stencil test fails
+      gl.KEEP, // what to do if the depth test fails
+      gl.KEEP // what to do if both tests pass
+    );
+    gl.stencilFunc(
+      this._clipInvert ? gl.EQUAL : gl.NOTEQUAL, // the test
+      0, // reference value
+      0xff // mask
+    );
+    gl.enable(gl.DEPTH_TEST);
   }
 
   _drawBuffers(geometry, { mode = constants.TRIANGLES, count }) {
@@ -356,744 +1410,23 @@ class RendererGL extends Renderer3D {
   }
 
   //////////////////////////////////////////////
-  // Setting
-  //////////////////////////////////////////////
 
-  _setAttributeDefaults(pInst) {
-    // See issue #3850, safer to enable AA in Safari
-    const applyAA = navigator.userAgent.toLowerCase().includes("safari");
-    const defaults = {
-      alpha: true,
-      depth: true,
-      stencil: true,
-      antialias: applyAA,
-      premultipliedAlpha: true,
-      preserveDrawingBuffer: true,
-      perPixelLighting: true,
-      version: 2,
-    };
-    if (pInst._glAttributes === null) {
-      pInst._glAttributes = defaults;
-    } else {
-      pInst._glAttributes = Object.assign(defaults, pInst._glAttributes);
-    }
-    return;
+  createTexture({ width, height, format, dataType }) {
+    const gl = this.GL;
+    const tex = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, tex);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, width, height, 0,
+                       gl.RGBA, gl.UNSIGNED_BYTE, null);
+    // TODO use format and data type
+    return { texture: tex, glFormat: gl.RGBA, glDataType: gl.UNSIGNED_BYTE };
   }
-
-  _initContext() {
-    if (this._pInst._glAttributes?.version !== 1) {
-      // Unless WebGL1 is explicitly asked for, try to create a WebGL2 context
-      this.drawingContext = this.canvas.getContext(
-        "webgl2",
-        this._pInst._glAttributes
-      );
-    }
-    this.webglVersion = this.drawingContext
-      ? constants.WEBGL2
-      : constants.WEBGL;
-    // If this is the main canvas, make sure the global `webglVersion` is set
-    this._pInst.webglVersion = this.webglVersion;
-    if (!this.drawingContext) {
-      // If we were unable to create a WebGL2 context (either because it was
-      // disabled via `setAttributes({ version: 1 })` or because the device
-      // doesn't support it), fall back to a WebGL1 context
-      this.drawingContext =
-        this.canvas.getContext("webgl", this._pInst._glAttributes) ||
-        this.canvas.getContext("experimental-webgl", this._pInst._glAttributes);
-    }
-    if (this.drawingContext === null) {
-      throw new Error("Error creating webgl context");
-    } else {
-      const gl = this.drawingContext;
-      gl.enable(gl.DEPTH_TEST);
-      gl.depthFunc(gl.LEQUAL);
-      gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
-      // Make sure all images are loaded into the canvas premultiplied so that
-      // they match the way we render colors. This will make framebuffer textures
-      // be encoded the same way as textures from everything else.
-      gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true);
-      this._viewport = this.drawingContext.getParameter(
-        this.drawingContext.VIEWPORT
-      );
-    }
-  }
-
-  _updateSize() {}
 
   _getMaxTextureSize() {
     const gl = this.drawingContext;
     return gl.getParameter(gl.MAX_TEXTURE_SIZE);
   }
 
-  _adjustDimensions(width, height) {
-    if (!this._maxTextureSize) {
-      this._maxTextureSize = this._getMaxTextureSize();
-    }
-    let maxTextureSize = this._maxTextureSize;
-
-    let maxAllowedPixelDimensions = Math.floor(
-      maxTextureSize / this._pixelDensity
-    );
-    let adjustedWidth = Math.min(width, maxAllowedPixelDimensions);
-    let adjustedHeight = Math.min(height, maxAllowedPixelDimensions);
-
-    if (adjustedWidth !== width || adjustedHeight !== height) {
-      console.warn(
-        "Warning: The requested width/height exceeds hardware limits. " +
-          `Adjusting dimensions to width: ${adjustedWidth}, height: ${adjustedHeight}.`
-      );
-    }
-
-    return { adjustedWidth, adjustedHeight };
-  }
-
-  //This is helper function to reset the context anytime the attributes
   //are changed with setAttributes()
-
-  _resetContext(options, callback) {
-    const w = this.width;
-    const h = this.height;
-    const defaultId = this.canvas.id;
-    const isPGraphics = this._pInst instanceof Graphics;
-
-    // Preserve existing position and styles before recreation
-    const prevStyle = {
-      position: this.canvas.style.position,
-      top: this.canvas.style.top,
-      left: this.canvas.style.left,
-    };
-
-    if (isPGraphics) {
-      // Handle PGraphics: remove and recreate the canvas
-      const pg = this._pInst;
-      pg.canvas.parentNode.removeChild(pg.canvas);
-      pg.canvas = document.createElement("canvas");
-      const node = pg._pInst._userNode || document.body;
-      node.appendChild(pg.canvas);
-      Element.call(pg, pg.canvas, pg._pInst);
-      // Restore previous width and height
-      pg.width = w;
-      pg.height = h;
-    } else {
-      // Handle main canvas: remove and recreate it
-      let c = this.canvas;
-      if (c) {
-        c.parentNode.removeChild(c);
-      }
-      c = document.createElement("canvas");
-      c.id = defaultId;
-      // Attach the new canvas to the correct parent node
-      if (this._pInst._userNode) {
-        this._pInst._userNode.appendChild(c);
-      } else {
-        document.body.appendChild(c);
-      }
-      this._pInst.canvas = c;
-      this.canvas = c;
-
-      // Restore the saved position
-      this.canvas.style.position = prevStyle.position;
-      this.canvas.style.top = prevStyle.top;
-      this.canvas.style.left = prevStyle.left;
-    }
-
-    const renderer = new RendererGL(
-      this._pInst,
-      w,
-      h,
-      !isPGraphics,
-      this._pInst.canvas
-    );
-    this._pInst._renderer = renderer;
-
-    renderer._applyDefaults();
-
-    if (typeof callback === "function") {
-      //setTimeout with 0 forces the task to the back of the queue, this ensures that
-      //we finish switching out the renderer
-      setTimeout(() => {
-        callback.apply(window._renderer, options);
-      }, 0);
-    }
-  }
-
-  _resetBuffersBeforeDraw() {
-    this.GL.clearStencil(0);
-    this.GL.clear(this.GL.DEPTH_BUFFER_BIT | this.GL.STENCIL_BUFFER_BIT);
-    if (!this._userEnabledStencil) {
-      this._internalDisable.call(this.GL, this.GL.STENCIL_TEST);
-    }
-  }
-
-  _applyClip() {
-    const gl = this.GL;
-    gl.clearStencil(0);
-    gl.clear(gl.STENCIL_BUFFER_BIT);
-    this._internalEnable.call(gl, gl.STENCIL_TEST);
-    this._stencilTestOn = true;
-    gl.stencilFunc(
-      gl.ALWAYS, // the test
-      1, // reference value
-      0xff // mask
-    );
-    gl.stencilOp(
-      gl.KEEP, // what to do if the stencil test fails
-      gl.KEEP, // what to do if the depth test fails
-      gl.REPLACE // what to do if both tests pass
-    );
-    gl.disable(gl.DEPTH_TEST);
-  }
-
-  _unapplyClip() {
-    const gl = this.GL;
-    gl.stencilOp(
-      gl.KEEP, // what to do if the stencil test fails
-      gl.KEEP, // what to do if the depth test fails
-      gl.KEEP // what to do if both tests pass
-    );
-    gl.stencilFunc(
-      this._clipInvert ? gl.EQUAL : gl.NOTEQUAL, // the test
-      0, // reference value
-      0xff // mask
-    );
-    gl.enable(gl.DEPTH_TEST);
-  }
-
-  _clearClipBuffer() {
-    this.GL.clearStencil(1);
-    this.GL.clear(this.GL.STENCIL_BUFFER_BIT);
-  }
-
-  // x,y are canvas-relative (pre-scaled by _pixelDensity)
-  _getPixel(x, y) {
-    const gl = this.GL;
-    return readPixelWebGL(
-      gl,
-      null,
-      x,
-      y,
-      gl.RGBA,
-      gl.UNSIGNED_BYTE,
-      this._pInst.height * this._pInst.pixelDensity()
-    );
-  }
-
-  /**
-   * Loads the pixels data for this canvas into the pixels[] attribute.
-   * Note that updatePixels() and set() do not work.
-   * Any pixel manipulation must be done directly to the pixels[] array.
-   *
-   * @private
-   */
-  loadPixels() {
-    //@todo_FES
-    if (this._pInst._glAttributes.preserveDrawingBuffer !== true) {
-      console.log(
-        "loadPixels only works in WebGL when preserveDrawingBuffer " +
-          "is true."
-      );
-      return;
-    }
-
-    const pd = this._pixelDensity;
-    const gl = this.GL;
-
-    this.pixels = readPixelsWebGL(
-      this.pixels,
-      gl,
-      null,
-      0,
-      0,
-      this.width * pd,
-      this.height * pd,
-      gl.RGBA,
-      gl.UNSIGNED_BYTE,
-      this.height * pd
-    );
-  }
-
-  updatePixels() {
-    const fbo = this._getTempFramebuffer();
-    fbo.pixels = this.pixels;
-    fbo.updatePixels();
-    this.push();
-    this.resetMatrix();
-    this.clear();
-    this.states.setValue("imageMode", constants.CORNER);
-    this.image(
-      fbo,
-      0,
-      0,
-      fbo.width,
-      fbo.height,
-      -fbo.width / 2,
-      -fbo.height / 2,
-      fbo.width,
-      fbo.height
-    );
-    this.pop();
-    this.GL.clearDepth(1);
-    this.GL.clear(this.GL.DEPTH_BUFFER_BIT);
-  }
-
-  zClipRange() {
-    return [-1, 1];
-  }
-
-  viewport(w, h) {
-    this._viewport = [0, 0, w, h];
-    this.GL.viewport(0, 0, w, h);
-  }
-
-  _updateViewport() {
-    this._origViewport = {
-      width: this.GL.drawingBufferWidth,
-      height: this.GL.drawingBufferHeight,
-    };
-    this.viewport(this._origViewport.width, this._origViewport.height);
-  }
-
-  _createPixelsArray() {
-    this.pixels = new Uint8Array(
-      this.GL.drawingBufferWidth * this.GL.drawingBufferHeight * 4
-    );
-  }
-
-  /**
-   * clears color and depth buffers
-   * with r,g,b,a
-   * @private
-   * @param {Number} r normalized red val.
-   * @param {Number} g normalized green val.
-   * @param {Number} b normalized blue val.
-   * @param {Number} a normalized alpha val.
-   */
-  clear(...args) {
-    const _r = args[0] || 0;
-    const _g = args[1] || 0;
-    const _b = args[2] || 0;
-    let _a = args[3] || 0;
-
-    const activeFramebuffer = this.activeFramebuffer();
-    if (
-      activeFramebuffer &&
-      activeFramebuffer.format === constants.UNSIGNED_BYTE &&
-      !activeFramebuffer.antialias &&
-      _a === 0
-    ) {
-      // Drivers on Intel Macs check for 0,0,0,0 exactly when drawing to a
-      // framebuffer and ignore the command if it's the only drawing command to
-      // the framebuffer. To work around it, we can set the alpha to a value so
-      // low that it still rounds down to 0, but that circumvents the buggy
-      // check in the driver.
-      _a = 1e-10;
-    }
-
-    this.GL.clearColor(_r * _a, _g * _a, _b * _a, _a);
-    this.GL.clearDepth(1);
-    this.GL.clear(this.GL.COLOR_BUFFER_BIT | this.GL.DEPTH_BUFFER_BIT);
-  }
-
-  /**
-   * Resets all depth information so that nothing previously drawn will
-   * occlude anything subsequently drawn.
-   */
-  clearDepth(depth = 1) {
-    this.GL.clearDepth(depth);
-    this.GL.clear(this.GL.DEPTH_BUFFER_BIT);
-  }
-
-  _applyStencilTestIfClipping() {
-    const drawTarget = this.drawTarget();
-    if (drawTarget._isClipApplied !== this._stencilTestOn) {
-      if (drawTarget._isClipApplied) {
-        this._internalEnable.call(this.GL, this.GL.STENCIL_TEST);
-        this._stencilTestOn = true;
-      } else {
-        if (!this._userEnabledStencil) {
-          this._internalDisable.call(this.GL, this.GL.STENCIL_TEST);
-        }
-        this._stencilTestOn = false;
-      }
-    }
-  }
-
-
-  //////////////////////////////////////////////
-  // SHADER
-  //////////////////////////////////////////////
-
-  /*
-   * shaders are created and cached on a per-renderer basis,
-   * on the grounds that each renderer will have its own gl context
-   * and the shader must be valid in that context.
-   */
-
-  // TODO move to super class
-  _getSphereMapping(img) {
-    if (!this.sphereMapping) {
-      this.sphereMapping = this._pInst.createFilterShader(sphereMapping);
-    }
-    this.scratchMat3.inverseTranspose4x4(this.states.uViewMatrix);
-    this.scratchMat3.invert(this.scratchMat3); // uNMMatrix is 3x3
-    this.sphereMapping.setUniform("uFovY", this.states.curCamera.cameraFOV);
-    this.sphereMapping.setUniform("uAspect", this.states.curCamera.aspectRatio);
-    this.sphereMapping.setUniform("uNewNormalMatrix", this.scratchMat3.mat3);
-    this.sphereMapping.setUniform("uEnvMap", img);
-    return this.sphereMapping;
-  }
-
-  baseMaterialShader() {
-    if (!this._pInst._glAttributes.perPixelLighting) {
-      throw new Error(
-        "The material shader does not support hooks without perPixelLighting. Try turning it back on."
-      );
-    }
-    return super.baseMaterialShader();
-  }
-
-  _getLightShader() {
-    if (!this._defaultLightShader) {
-      if (this._pInst._glAttributes.perPixelLighting) {
-        this._defaultLightShader = new Shader(
-          this,
-          this._webGL2CompatibilityPrefix("vert", "highp") +
-            defaultShaders.phongVert,
-          this._webGL2CompatibilityPrefix("frag", "highp") +
-            defaultShaders.phongFrag,
-          {
-            vertex: {
-              "void beforeVertex": "() {}",
-              "Vertex getObjectInputs": "(Vertex inputs) { return inputs; }",
-              "Vertex getWorldInputs": "(Vertex inputs) { return inputs; }",
-              "Vertex getCameraInputs": "(Vertex inputs) { return inputs; }",
-              "void afterVertex": "() {}",
-            },
-            fragment: {
-              "void beforeFragment": "() {}",
-              "Inputs getPixelInputs": "(Inputs inputs) { return inputs; }",
-              "vec4 combineColors": `(ColorComponents components) {
-                vec4 color = vec4(0.);
-                color.rgb += components.diffuse * components.baseColor;
-                color.rgb += components.ambient * components.ambientColor;
-                color.rgb += components.specular * components.specularColor;
-                color.rgb += components.emissive;
-                color.a = components.opacity;
-                return color;
-              }`,
-              "vec4 getFinalColor": "(vec4 color) { return color; }",
-              "void afterFragment": "() {}",
-            },
-          }
-        );
-      } else {
-        this._defaultLightShader = new Shader(
-          this,
-          this._webGL2CompatibilityPrefix("vert", "highp") +
-            defaultShaders.lightVert,
-          this._webGL2CompatibilityPrefix("frag", "highp") +
-            defaultShaders.lightTextureFrag
-        );
-      }
-    }
-
-    return this._defaultLightShader;
-  }
-
-  _getNormalShader() {
-    if (!this._defaultNormalShader) {
-      this._defaultNormalShader = new Shader(
-        this,
-        this._webGL2CompatibilityPrefix("vert", "mediump") +
-          defaultShaders.normalVert,
-        this._webGL2CompatibilityPrefix("frag", "mediump") +
-          defaultShaders.normalFrag,
-        {
-          vertex: {
-            "void beforeVertex": "() {}",
-            "Vertex getObjectInputs": "(Vertex inputs) { return inputs; }",
-            "Vertex getWorldInputs": "(Vertex inputs) { return inputs; }",
-            "Vertex getCameraInputs": "(Vertex inputs) { return inputs; }",
-            "void afterVertex": "() {}",
-          },
-          fragment: {
-            "void beforeFragment": "() {}",
-            "vec4 getFinalColor": "(vec4 color) { return color; }",
-            "void afterFragment": "() {}",
-          },
-        }
-      );
-    }
-
-    return this._defaultNormalShader;
-  }
-
-  _getColorShader() {
-    if (!this._defaultColorShader) {
-      this._defaultColorShader = new Shader(
-        this,
-        this._webGL2CompatibilityPrefix("vert", "mediump") +
-          defaultShaders.normalVert,
-        this._webGL2CompatibilityPrefix("frag", "mediump") +
-          defaultShaders.basicFrag,
-        {
-          vertex: {
-            "void beforeVertex": "() {}",
-            "Vertex getObjectInputs": "(Vertex inputs) { return inputs; }",
-            "Vertex getWorldInputs": "(Vertex inputs) { return inputs; }",
-            "Vertex getCameraInputs": "(Vertex inputs) { return inputs; }",
-            "void afterVertex": "() {}",
-          },
-          fragment: {
-            "void beforeFragment": "() {}",
-            "vec4 getFinalColor": "(vec4 color) { return color; }",
-            "void afterFragment": "() {}",
-          },
-        }
-      );
-    }
-
-    return this._defaultColorShader;
-  }
-
-  _getPointShader() {
-    if (!this._defaultPointShader) {
-      this._defaultPointShader = new Shader(
-        this,
-        this._webGL2CompatibilityPrefix("vert", "mediump") +
-          defaultShaders.pointVert,
-        this._webGL2CompatibilityPrefix("frag", "mediump") +
-          defaultShaders.pointFrag,
-        {
-          vertex: {
-            "void beforeVertex": "() {}",
-            "vec3 getLocalPosition": "(vec3 position) { return position; }",
-            "vec3 getWorldPosition": "(vec3 position) { return position; }",
-            "float getPointSize": "(float size) { return size; }",
-            "void afterVertex": "() {}",
-          },
-          fragment: {
-            "void beforeFragment": "() {}",
-            "vec4 getFinalColor": "(vec4 color) { return color; }",
-            "bool shouldDiscard": "(bool outside) { return outside; }",
-            "void afterFragment": "() {}",
-          },
-        }
-      );
-    }
-    return this._defaultPointShader;
-  }
-
-  _getLineShader() {
-    if (!this._defaultLineShader) {
-      this._defaultLineShader = new Shader(
-        this,
-        this._webGL2CompatibilityPrefix("vert", "mediump") +
-          defaultShaders.lineVert,
-        this._webGL2CompatibilityPrefix("frag", "mediump") +
-          defaultShaders.lineFrag,
-        {
-          vertex: {
-            "void beforeVertex": "() {}",
-            "StrokeVertex getObjectInputs":
-              "(StrokeVertex inputs) { return inputs; }",
-            "StrokeVertex getWorldInputs":
-              "(StrokeVertex inputs) { return inputs; }",
-            "StrokeVertex getCameraInputs":
-              "(StrokeVertex inputs) { return inputs; }",
-            "void afterVertex": "() {}",
-          },
-          fragment: {
-            "void beforeFragment": "() {}",
-            "Inputs getPixelInputs": "(Inputs inputs) { return inputs; }",
-            "vec4 getFinalColor": "(vec4 color) { return color; }",
-            "bool shouldDiscard": "(bool outside) { return outside; }",
-            "void afterFragment": "() {}",
-          },
-        }
-      );
-    }
-
-    return this._defaultLineShader;
-  }
-
-  _getFontShader() {
-    if (!this._defaultFontShader) {
-      if (this.webglVersion === constants.WEBGL) {
-        this.GL.getExtension("OES_standard_derivatives");
-      }
-      this._defaultFontShader = new Shader(
-        this,
-        this._webGL2CompatibilityPrefix("vert", "highp") +
-          defaultShaders.fontVert,
-        this._webGL2CompatibilityPrefix("frag", "highp") +
-          defaultShaders.fontFrag
-      );
-    }
-    return this._defaultFontShader;
-  }
-
-  baseFilterShader() {
-    if (!this._baseFilterShader) {
-      this._baseFilterShader = new Shader(
-        this,
-        this._webGL2CompatibilityPrefix("vert", "highp") +
-          defaultShaders.filterBaseVert,
-        this._webGL2CompatibilityPrefix("frag", "highp") +
-          defaultShaders.filterBaseFrag,
-        {
-            vertex: {},
-            fragment: {
-              "vec4 getColor": `(FilterInputs inputs, in sampler2D canvasContent) {
-                return getTexture(canvasContent, inputs.texCoord);
-              }`,
-            },
-          }
-      );
-    }
-    return this._baseFilterShader;
-  }
-
-  _webGL2CompatibilityPrefix(shaderType, floatPrecision) {
-    let code = "";
-    if (this.webglVersion === constants.WEBGL2) {
-      code += "#version 300 es\n#define WEBGL2\n";
-    }
-    if (shaderType === "vert") {
-      code += "#define VERTEX_SHADER\n";
-    } else if (shaderType === "frag") {
-      code += "#define FRAGMENT_SHADER\n";
-    }
-    if (floatPrecision) {
-      code += `precision ${floatPrecision} float;\n`;
-    }
-    return code;
-  }
-
-  // TODO move to super class
-  /*
-   *  used in imageLight,
-   *  To create a blurry image from the input non blurry img, if it doesn't already exist
-   *  Add it to the diffusedTexture map,
-   *  Returns the blurry image
-   *  maps a Image used by imageLight() to a p5.Framebuffer
-   */
-  getDiffusedTexture(input) {
-    // if one already exists for a given input image
-    if (this.diffusedTextures.get(input) != null) {
-      return this.diffusedTextures.get(input);
-    }
-    // if not, only then create one
-    let newFramebuffer;
-    // hardcoded to 200px, because it's going to be blurry and smooth
-    let smallWidth = 200;
-    let width = smallWidth;
-    let height = Math.floor(smallWidth * (input.height / input.width));
-    newFramebuffer = new Framebuffer(this, {
-      width,
-      height,
-      density: 1,
-    });
-    // create framebuffer is like making a new sketch, all functions on main
-    // sketch it would be available on framebuffer
-    if (!this.diffusedShader) {
-      this.diffusedShader = this._pInst.createShader(
-        defaultShaders.imageLightVert,
-        defaultShaders.imageLightDiffusedFrag
-      );
-    }
-    newFramebuffer.draw(() => {
-      this.shader(this.diffusedShader);
-      this.diffusedShader.setUniform("environmentMap", input);
-      this.states.setValue("strokeColor", null);
-      this.noLights();
-      this.plane(width, height);
-    });
-    this.diffusedTextures.set(input, newFramebuffer);
-    return newFramebuffer;
-  }
-
-  // TODO move to super class
-  /*
-   *  used in imageLight,
-   *  To create a texture from the input non blurry image, if it doesn't already exist
-   *  Creating 8 different levels of textures according to different
-   *  sizes and atoring them in `levels` array
-   *  Creating a new Mipmap texture with that `levels` array
-   *  Storing the texture for input image in map called `specularTextures`
-   *  maps the input Image to a p5.MipmapTexture
-   */
-  getSpecularTexture(input) {
-    // check if already exits (there are tex of diff resolution so which one to check)
-    // currently doing the whole array
-    if (this.specularTextures.get(input) != null) {
-      return this.specularTextures.get(input);
-    }
-    // Hardcoded size
-    const size = 512;
-    let tex;
-    const levels = [];
-    const framebuffer = new Framebuffer(this, {
-      width: size,
-      height: size,
-      density: 1,
-    });
-    let count = Math.log(size) / Math.log(2);
-    if (!this.specularShader) {
-      this.specularShader = this._pInst.createShader(
-        defaultShaders.imageLightVert,
-        defaultShaders.imageLightSpecularFrag
-      );
-    }
-    // currently only 8 levels
-    // This loop calculates 8 framebuffers of varying size of canvas
-    // and corresponding different roughness levels.
-    // Roughness increases with the decrease in canvas size,
-    // because rougher surfaces have less detailed/more blurry reflections.
-    for (let w = size; w >= 1; w /= 2) {
-      framebuffer.resize(w, w);
-      let currCount = Math.log(w) / Math.log(2);
-      let roughness = 1 - currCount / count;
-      framebuffer.draw(() => {
-        this.shader(this.specularShader);
-        this.clear();
-        this.specularShader.setUniform("environmentMap", input);
-        this.specularShader.setUniform("roughness", roughness);
-        this.states.setValue("strokeColor", null);
-        this.noLights();
-        this.plane(w, w);
-      });
-      levels.push(framebuffer.get().drawingContext.getImageData(0, 0, w, w));
-    }
-    // Free the Framebuffer
-    framebuffer.remove();
-    tex = new MipmapTexture(this, levels, {});
-    this.specularTextures.set(input, tex);
-    return tex;
-  }
-
-  /* Binds a buffer to the drawing context
-   * when passed more than two arguments it also updates or initializes
-   * the data associated with the buffer
-   */
-  _bindBuffer(buffer, target, values, type, usage) {
-    const gl = this.GL;
-    if (!target) target = gl.ARRAY_BUFFER;
-    gl.bindBuffer(target, buffer);
-
-    if (values !== undefined) {
-      const data = this._normalizeBufferData(values, type);
-      gl.bufferData(target, data, usage || gl.STATIC_DRAW);
-    }
-  }
-
-  _makeFilterShader(renderer, operation) {
-    return new Shader(
-      renderer,
-      filterShaderVert,
-      filterShaderFrags[operation]
-    );
-  }
 
   _prepareBuffer(renderBuffer, geometry, shader) {
     const attributes = shader.attributes;
@@ -1140,251 +1473,6 @@ class RendererGL extends Renderer3D {
       // Record register availability
       this.registerEnabled.delete(loc);
     }
-  }
-
-  _enableAttrib(_shader, attr, size, type, normalized, stride, offset) {
-    const loc = attr.location;
-    const gl = this.GL;
-    // Enable register even if it is disabled
-    if (!this.registerEnabled.has(loc)) {
-      gl.enableVertexAttribArray(loc);
-      // Record register availability
-      this.registerEnabled.add(loc);
-    }
-    gl.vertexAttribPointer(
-      loc,
-      size,
-      type || gl.FLOAT,
-      normalized || false,
-      stride || 0,
-      offset || 0
-    );
-  }
-
-  _ensureGeometryBuffers(buffers, indices, indexType) {
-    const gl = this.GL;
-
-    if (indices) {
-      const buffer = gl.createBuffer();
-      this._bindBuffer(buffer, gl.ELEMENT_ARRAY_BUFFER, indices, indexType);
-
-      buffers.indexBuffer = buffer;
-
-      // If we're using a Uint32Array for our indexBuffer we will need to pass a
-      // different enum value to WebGL draw triangles. This happens in
-      // the _drawElements function.
-      buffers.indexBufferType = indexType === Uint32Array ? gl.UNSIGNED_INT : gl.UNSIGNED_SHORT;
-    } else if (buffers.indexBuffer) {
-      // the index buffer is unused, remove it
-      gl.deleteBuffer(buffers.indexBuffer);
-      buffers.indexBuffer = null;
-    }
-  }
-
-  _freeBuffers(buffers) {
-    const gl = this.GL;
-    if (buffers.indexBuffer) {
-      gl.deleteBuffer(buffers.indexBuffer);
-    }
-
-    function freeBuffers(defs) {
-      for (const def of defs) {
-        if (buffers[def.dst]) {
-          gl.deleteBuffer(buffers[def.dst]);
-          buffers[def.dst] = null;
-        }
-      }
-    }
-
-    // free all the buffers
-    freeBuffers(this.buffers.stroke);
-    freeBuffers(this.buffers.fill);
-    freeBuffers(this.buffers.user);
-  }
-
-  _initShader(shader) {
-    const gl = this.GL;
-
-    const vertShader = gl.createShader(gl.VERTEX_SHADER);
-    gl.shaderSource(vertShader, shader.vertSrc());
-    gl.compileShader(vertShader);
-    if (!gl.getShaderParameter(vertShader, gl.COMPILE_STATUS)) {
-      throw new Error(`Yikes! An error occurred compiling the vertex shader: ${
-        gl.getShaderInfoLog(vertShader)
-      } in:\n\n${shader.vertSrc()}`);
-    }
-
-    const fragShader = gl.createShader(gl.FRAGMENT_SHADER);
-    gl.shaderSource(fragShader, shader.fragSrc());
-    gl.compileShader(fragShader);
-    if (!gl.getShaderParameter(fragShader, gl.COMPILE_STATUS)) {
-      throw new Error(`Darn! An error occurred compiling the fragment shader: ${
-        gl.getShaderInfoLog(fragShader)
-      }`);
-    }
-
-    const program = gl.createProgram();
-    gl.attachShader(program, vertShader);
-    gl.attachShader(program, fragShader);
-    gl.linkProgram(program);
-
-    if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
-      throw new Error(
-        `Snap! Error linking shader program: ${gl.getProgramInfoLog(program)}`
-      );
-    }
-
-    shader._glProgram = program;
-    shader._vertShader = vertShader;
-    shader._fragShader = fragShader;
-  }
-
-  _finalizeShader() {}
-
-  _getShaderAttributes(shader) {
-    return getWebGLShaderAttributes(shader, this.GL);
-  }
-
-  getUniformMetadata(shader) {
-    return getWebGLUniformMetadata(shader, this.GL);
-  }
-
-  updateUniformValue(shader, uniform, data) {
-    return setWebGLUniformValue(
-      shader,
-      uniform,
-      data,
-      (tex) => this.getTexture(tex),
-      this.GL
-    );
-  }
-
-  _updateTexture(uniform, tex) {
-    const gl = this.GL;
-    gl.activeTexture(gl.TEXTURE0 + uniform.samplerIndex);
-    tex.bindTexture();
-    tex.update();
-    gl.uniform1i(uniform.location, uniform.samplerIndex);
-  }
-
-  bindTexture(tex) {
-    // bind texture using gl context + glTarget and
-    // generated gl texture object
-    this.GL.bindTexture(this.GL.TEXTURE_2D, tex.getTexture().texture);
-  }
-
-  unbindTexture() {
-    // unbind per above, disable texturing on glTarget
-    this.GL.bindTexture(this.GL.TEXTURE_2D, null);
-  }
-
-  _unbindFramebufferTexture(uniform) {
-    // Make sure an empty texture is bound to the slot so that we don't
-    // accidentally leave a framebuffer bound, causing a feedback loop
-    // when something else tries to write to it
-    const gl = this.GL;
-    const empty = this._getEmptyTexture();
-    gl.activeTexture(gl.TEXTURE0 + uniform.samplerIndex);
-    empty.bindTexture();
-    gl.uniform1i(uniform.location, uniform.samplerIndex);
-  }
-
-  createTexture({ width, height, format, dataType }) {
-    const gl = this.GL;
-    const tex = gl.createTexture();
-    gl.bindTexture(gl.TEXTURE_2D, tex);
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, width, height, 0,
-                       gl.RGBA, gl.UNSIGNED_BYTE, null);
-    // TODO use format and data type
-    return { texture: tex, glFormat: gl.RGBA, glDataType: gl.UNSIGNED_BYTE };
-  }
-
-  uploadTextureFromSource({ texture, glFormat, glDataType }, source) {
-    const gl = this.GL;
-    gl.texImage2D(gl.TEXTURE_2D, 0, glFormat, glFormat, glDataType, source);
-  }
-
-  uploadTextureFromData({ texture, glFormat, glDataType }, data, width, height) {
-    const gl = this.GL;
-    gl.texImage2D(
-      gl.TEXTURE_2D,
-      0,
-      glFormat,
-      width,
-      height,
-      0,
-      glFormat,
-      glDataType,
-      data
-    );
-  }
-
-  getSampler(_texture) {
-    return undefined;
-  }
-
-  bindTextureToShader({ texture }, sampler, uniformName, unit) {
-    const gl = this.GL;
-    gl.activeTexture(gl.TEXTURE0 + unit);
-    gl.bindTexture(gl.TEXTURE_2D, texture);
-    const location = gl.getUniformLocation(glProgram, uniformName);
-    gl.uniform1i(location, unit);
-  }
-
-  setTextureParams(texture) {
-    return setWebGLTextureParams(texture, this.GL, this.webglVersion);
-  }
-
-  deleteTexture({ texture }) {
-    this.GL.deleteTexture(texture);
-  }
-
-
-  /**
-   * @private blends colors according to color components.
-   * If alpha value is less than 1, or non-standard blendMode
-   * we need to enable blending on our gl context.
-   * @param  {Number[]} color The currently set color, with values in 0-1 range
-   * @param  {Boolean} [hasTransparency] Whether the shape being drawn has other
-   * transparency internally, e.g. via vertex colors
-   * @return {Number[]}  Normalized numbers array
-   */
-  _applyColorBlend(colors, hasTransparency) {
-    const gl = this.GL;
-
-    const isTexture = this.states.drawMode === constants.TEXTURE;
-    const doBlend =
-      hasTransparency ||
-      this.states.userFillShader ||
-      this.states.userStrokeShader ||
-      this.states.userPointShader ||
-      isTexture ||
-      this.states.curBlendMode !== constants.BLEND ||
-      colors[colors.length - 1] < 1.0 ||
-      this._isErasing;
-
-    if (doBlend !== this._isBlending) {
-      if (
-        doBlend ||
-        (this.states.curBlendMode !== constants.BLEND &&
-          this.states.curBlendMode !== constants.ADD)
-      ) {
-        gl.enable(gl.BLEND);
-      } else {
-        gl.disable(gl.BLEND);
-      }
-      gl.depthMask(true);
-      this._isBlending = doBlend;
-    }
-    this._applyBlendMode();
-    return colors;
-  }
-
-  //////////////////////////////////////////////
-  // Shader hooks
-  //////////////////////////////////////////////
-  populateHooks(shader, src, shaderType) {
-    return populateGLSLHooks(shader, src, shaderType);
   }
 }
 
