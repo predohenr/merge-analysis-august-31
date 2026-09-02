@@ -19,8 +19,8 @@ import (
 	"github.com/traefik/traefik/v3/integration/try"
 	"github.com/traefik/traefik/v3/pkg/config/dynamic"
 	traefiktls "github.com/traefik/traefik/v3/pkg/tls"
-	"github.com/traefik/traefik/v3/pkg/types"
 	"golang.org/x/net/http2"
+	"github.com/traefik/traefik/v3/pkg/types"
 )
 
 // HTTPSSuite tests suite.
