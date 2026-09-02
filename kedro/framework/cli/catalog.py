@@ -13,8 +13,10 @@ from click import secho
 from kedro.framework.cli.utils import KedroCliError, env_option, split_string
 from kedro.framework.project import pipelines, settings
 from kedro.framework.session import KedroSession
-from kedro.io.core import is_parameter
 from kedro.io.kedro_data_catalog import KedroDataCatalog, _LazyDataset
+from kedro.io.data_catalog import DataCatalog
+from kedro.io.core import is_parameter
+from kedro.io.kedro_data_catalog import _LazyDataset
 
 if TYPE_CHECKING:
     from pathlib import Path
