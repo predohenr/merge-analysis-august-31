@@ -1005,6 +1005,7 @@ class User:
                 # avoid logging noisy traceback on HTTPError,
                 # since this should be informative and will be relayed to the user
                 self.log.error(f"Error starting {self.name}'s server: {e}")
+                self.settings['statsd'].incr('spawner.failure.error')
                 e.reason = 'error'
             else:
                 self.log.exception(
