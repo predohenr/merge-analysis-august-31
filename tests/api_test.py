@@ -5481,7 +5481,6 @@ class APITest(jtu.JaxTestCase):
     self.assertEqual(x_grad, jax.ad.DidntWant())
     self.assertAllClose(y_grad, x)
     self.assertLen(g.trace().jaxpr.eqns, 1)
-
   def test_while_jvp_debug_info_crash(self):
     def loop_fun(x, p):
       cond = lambda val: val[0] < 3
