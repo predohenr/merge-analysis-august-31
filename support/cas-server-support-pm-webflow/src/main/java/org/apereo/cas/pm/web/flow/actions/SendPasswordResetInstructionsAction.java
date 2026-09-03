@@ -297,6 +297,7 @@ public class SendPasswordResetInstructionsAction extends BaseCasWebflowAction {
                 .emailProperties(reset)
                 .principal(person)
                 .to(recipients)
+                .attribute(reset.getAttributeName().get(0))
                 .locale(locale.orElseGet(Locale::getDefault))
                 .body(text)
                 .tenant(communicationsManager.getTenantExtractor().extract(requestContext)
