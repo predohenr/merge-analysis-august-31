@@ -26,8 +26,8 @@ import org.junit.Test;
 
 import org.apache.cassandra.config.CassandraRelevantProperties;
 import org.apache.cassandra.cql3.CQLTester;
-import org.apache.cassandra.distributed.shared.WithProperties;
 import org.apache.cassandra.io.sstable.format.SSTableFormat.Components;
+import org.apache.cassandra.distributed.shared.WithProperties;
 import org.apache.cassandra.io.sstable.format.SSTableReader;
 import org.apache.cassandra.io.util.File;
 import org.apache.cassandra.schema.SchemaConstants;
@@ -62,8 +62,10 @@ public class SnapshotTest extends CQLTester
         ColumnFamilyStore cfs = getCurrentColumnFamilyStore();
         String sep = File.pathSeparator();
 
-        try (WithProperties p = new WithProperties().set(CassandraRelevantProperties.SNAPSHOT_NAME_VALIDATION, true))
+        try (WithProperties p = new WithProperties())
         {
+            p.set(CassandraRelevantProperties.SNAPSHOT_NAME_VALIDATION, true);
+
             // Previously-allowed alphanumerics, '-' and '_' must still be accepted.
             assertThatCode(() -> cfs.snapshot("atag")).doesNotThrowAnyException();
             assertThatCode(() -> cfs.snapshot("a-tag")).doesNotThrowAnyException();
@@ -94,24 +96,24 @@ public class SnapshotTest extends CQLTester
             // The shell-significant S3 "safe" characters (! * ' ( )) are deliberately NOT allowed.
             assertThatThrownBy(() -> cfs.snapshot("important!"))
             .isInstanceOf(IllegalArgumentException.class)
-            .hasMessage("Snapshot name contains illegal characters: important!");
+            .hasMessageContaining("Snapshot name contains illegal characters: important!");
             assertThatThrownBy(() -> cfs.snapshot("backup*"))
             .isInstanceOf(IllegalArgumentException.class)
-            .hasMessage("Snapshot name contains illegal characters: backup*");
+            .hasMessageContaining("Snapshot name contains illegal characters: backup*");
             assertThatThrownBy(() -> cfs.snapshot("o'snap"))
             .isInstanceOf(IllegalArgumentException.class)
-            .hasMessage("Snapshot name contains illegal characters: o'snap");
+            .hasMessageContaining("Snapshot name contains illegal characters: o'snap");
             assertThatThrownBy(() -> cfs.snapshot("snap(1)"))
             .isInstanceOf(IllegalArgumentException.class)
-            .hasMessage("Snapshot name contains illegal characters: snap(1)");
+            .hasMessageContaining("Snapshot name contains illegal characters: snap(1)");
 
             // Other characters outside the allowed set must still be rejected.
             assertThatThrownBy(() -> cfs.snapshot("a tag"))
             .isInstanceOf(IllegalArgumentException.class)
-            .hasMessage("Snapshot name contains illegal characters: a tag");
+            .hasMessageContaining("Snapshot name contains illegal characters: a tag");
             assertThatThrownBy(() -> cfs.snapshot("a:tag"))
             .isInstanceOf(IllegalArgumentException.class)
-            .hasMessage("Snapshot name contains illegal characters: a:tag");
+            .hasMessageContaining("Snapshot name contains illegal characters: a:tag");
 
             // "." and ".." pass the charset check but resolve to the snapshots/ dir itself
             // and its parent (the live table dir) respectively, so they must be rejected as reserved.
@@ -123,8 +125,10 @@ public class SnapshotTest extends CQLTester
             .hasMessage("Snapshot name '..' is reserved");
         }
 
-        try (WithProperties p = new WithProperties().set(CassandraRelevantProperties.SNAPSHOT_NAME_VALIDATION, false))
+        try (WithProperties p = new WithProperties())
         {
+            p.set(CassandraRelevantProperties.SNAPSHOT_NAME_VALIDATION, false);
+
             // The character check is bypassed entirely: space, ':', and the now-disallowed
             // shell-significant characters (! * ' ( )) are all accepted.
             assertThatCode(() -> cfs.snapshot("a tag")).doesNotThrowAnyException();

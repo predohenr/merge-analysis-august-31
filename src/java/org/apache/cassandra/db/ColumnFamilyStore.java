@@ -91,14 +91,14 @@ import org.apache.cassandra.db.compaction.CompactionStrategyManager;
 import org.apache.cassandra.db.compaction.OperationType;
 import org.apache.cassandra.db.filter.ClusteringIndexFilter;
 import org.apache.cassandra.db.filter.DataLimits;
+import org.apache.cassandra.db.memtable.Flushing;
+import org.apache.cassandra.db.memtable.Memtable;
+import org.apache.cassandra.db.memtable.ShardBoundaries;
 import org.apache.cassandra.db.lifecycle.LifecycleNewTracker;
 import org.apache.cassandra.db.lifecycle.LifecycleTransaction;
 import org.apache.cassandra.db.lifecycle.SSTableSet;
 import org.apache.cassandra.db.lifecycle.Tracker;
 import org.apache.cassandra.db.lifecycle.View;
-import org.apache.cassandra.db.memtable.Flushing;
-import org.apache.cassandra.db.memtable.Memtable;
-import org.apache.cassandra.db.memtable.ShardBoundaries;
 import org.apache.cassandra.db.partitions.CachedPartition;
 import org.apache.cassandra.db.partitions.PartitionUpdate;
 import org.apache.cassandra.db.repair.CassandraTableRepairManager;
@@ -178,8 +178,8 @@ import org.apache.cassandra.utils.concurrent.Future;
 import org.apache.cassandra.utils.concurrent.OpOrder;
 import org.apache.cassandra.utils.concurrent.Refs;
 import org.apache.cassandra.utils.concurrent.UncheckedInterruptedException;
-
 import static java.lang.String.format;
+
 import static org.apache.cassandra.concurrent.ExecutorFactory.Global.executorFactory;
 import static org.apache.cassandra.config.DatabaseDescriptor.getFlushWriters;
 import static org.apache.cassandra.db.commitlog.CommitLogPosition.NONE;
@@ -218,7 +218,7 @@ public class ColumnFamilyStore implements ColumnFamilyStoreMBean, Memtable.Owner
 
     private static final PerDiskFlushExecutors perDiskflushExecutors = DatabaseDescriptor.isDaemonInitialized()
                                                                        ? new PerDiskFlushExecutors(DatabaseDescriptor.getFlushWriters(),
-                                                                                                  DatabaseDescriptor.getNonLocalSystemKeyspacesDataFileLocations(),
+                                                                                                 DatabaseDescriptor.getNonLocalSystemKeyspacesDataFileLocations(),
                                                                                                   DatabaseDescriptor.useSpecificLocationForLocalSystemData())
                                                                        : null;
 
@@ -401,7 +401,7 @@ public class ColumnFamilyStore implements ColumnFamilyStoreMBean, Memtable.Owner
         memtableFactory = metadata().params.memtable.factory();
 
         if (DatabaseDescriptor.isDaemonInitialized())
-            switchMemtableOrNotify(FlushReason.SCHEMA_CHANGE, Memtable::metadataUpdated);
+        switchMemtableOrNotify(FlushReason.SCHEMA_CHANGE, Memtable::metadataUpdated);
     }
 
     public static Runnable getBackgroundCompactionTaskSubmitter()
@@ -626,7 +626,7 @@ public class ColumnFamilyStore implements ColumnFamilyStoreMBean, Memtable.Owner
     }
 
     @Override
-    public List<String> getDataPaths() throws IOException
+public List<String> getDataPaths() throws IOException
     {
         List<String> dataPaths = new ArrayList<>();
         for (File dataPath : directories.getCFDirectories())
@@ -868,12 +868,12 @@ public class ColumnFamilyStore implements ColumnFamilyStoreMBean, Memtable.Owner
                                           boolean extendedVerify, boolean copyData)
     {
         return sstableImporter.importNewSSTables(SSTableImporter.Options.options(srcPaths)
-                                                                        .resetLevel(resetLevel)
-                                                                        .clearRepaired(clearRepaired)
-                                                                        .verifySSTables(verifySSTables)
-                                                                        .verifyTokens(verifyTokens)
-                                                                        .invalidateCaches(invalidateCaches)
-                                                                        .extendedVerify(extendedVerify)
+                                                                 .resetLevel(resetLevel)
+                                                                 .clearRepaired(clearRepaired)
+                                                                 .verifySSTables(verifySSTables)
+                                                                 .verifyTokens(verifyTokens)
+                                                                 .invalidateCaches(invalidateCaches)
+                                                                 .extendedVerify(extendedVerify)
                                                                         .copyData(copyData).build());
     }
 
@@ -1972,7 +1972,7 @@ public class ColumnFamilyStore implements ColumnFamilyStoreMBean, Memtable.Owner
         return nowInSec - metadata().params.gcGraceSeconds;
     }
 
-    public RefViewFragment selectAndReference(Function<View, Iterable<SSTableReader>> filter)
+        public RefViewFragment selectAndReference(Function<View, Iterable<SSTableReader>> filter)
     {
         long failingSince = -1L;
         while (true)
@@ -2053,7 +2053,7 @@ public class ColumnFamilyStore implements ColumnFamilyStoreMBean, Memtable.Owner
     }
 
     @Override
-    public void beginLocalSampling(String sampler, int capacity, int durationMillis)
+public void beginLocalSampling(String sampler, int capacity, int durationMillis)
     {
         metric.samplers.get(SamplerType.valueOf(sampler)).beginSampling(capacity, durationMillis);
     }
@@ -2079,13 +2079,13 @@ public class ColumnFamilyStore implements ColumnFamilyStoreMBean, Memtable.Owner
     }
 
     @Override
-    public boolean isCompactionDiskSpaceCheckEnabled()
+public boolean isCompactionDiskSpaceCheckEnabled()
     {
         return compactionSpaceCheck;
     }
 
     @Override
-    public void compactionDiskSpaceCheck(boolean enable)
+public void compactionDiskSpaceCheck(boolean enable)
     {
         compactionSpaceCheck = enable;
     }
@@ -2199,7 +2199,9 @@ public class ColumnFamilyStore implements ColumnFamilyStoreMBean, Memtable.Owner
         // which is what blocks traversal attempts such as "../../mysnapshot"
         if (!Pattern.compile("[a-zA-Z0-9_.+-]+").matcher(snapshotName).matches())
         {
-            throw new IllegalArgumentException("Snapshot name contains illegal characters: " + snapshotName);
+            throw new IllegalArgumentException("Snapshot name contains illegal characters: " + snapshotName + ". " +
+                                               "Allowed characters must match the pattern: [a-zA-Z0-9_.+-]+" +
+                                               " with a maximum of length of " + FILENAME_LENGTH + " characters.");
         }
     }
 
@@ -3058,7 +3060,7 @@ public class ColumnFamilyStore implements ColumnFamilyStoreMBean, Memtable.Owner
 
 
     @Override
-    public Double getCrcCheckChance()
+public Double getCrcCheckChance()
     {
         return crcCheckChance.value();
     }
@@ -3183,19 +3185,19 @@ public class ColumnFamilyStore implements ColumnFamilyStoreMBean, Memtable.Owner
     }
 
     @Override
-    public int getUnleveledSSTables()
+public int getUnleveledSSTables()
     {
         return compactionStrategyManager.getUnleveledSSTables();
     }
 
     @Override
-    public int[] getSSTableCountPerLevel()
+public int[] getSSTableCountPerLevel()
     {
         return compactionStrategyManager.getSSTableCountPerLevel();
     }
 
     @Override
-    public long[] getPerLevelSizeBytes()
+public long[] getPerLevelSizeBytes()
     {
         return compactionStrategyManager.getPerLevelSizeBytes();
     }
@@ -3213,7 +3215,7 @@ public class ColumnFamilyStore implements ColumnFamilyStoreMBean, Memtable.Owner
     }
 
     @Override
-    public int getLevelFanoutSize()
+public int getLevelFanoutSize()
     {
         return compactionStrategyManager.getLevelFanoutSize();
     }
@@ -3319,7 +3321,7 @@ public class ColumnFamilyStore implements ColumnFamilyStoreMBean, Memtable.Owner
     }
 
     @Override
-    public double getDroppableTombstoneRatio()
+public double getDroppableTombstoneRatio()
     {
         double allDroppable = 0;
         long allColumns = 0;
@@ -3334,7 +3336,7 @@ public class ColumnFamilyStore implements ColumnFamilyStoreMBean, Memtable.Owner
     }
 
     @Override
-    public long trueSnapshotsSize()
+public long trueSnapshotsSize()
     {
         return getDirectories().trueSnapshotsSize();
     }
