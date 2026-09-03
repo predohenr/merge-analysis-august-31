@@ -668,7 +668,7 @@ public abstract class AbstractWrapper<T, R, Children extends AbstractWrapper<T, 
      * @param paramAlias 参数别名
      * @return Children
      */
-    public Children setParamAlias(String paramAlias) {
+        public Children setParamAlias(String paramAlias) {
         String oldParamAlias = getParamAlias();
         this.paramAlias = new SharedString(paramAlias);
         if (this.expression != null && !oldParamAlias.equals(paramAlias)) {
