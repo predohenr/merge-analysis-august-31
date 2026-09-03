@@ -1147,21 +1147,8 @@ public class WindowedValues {
     }
 
     @Override
-    public void encode(WindowedValue<T> windowedElem, OutputStream outStream, Coder.Context context)
-        throws CoderException, IOException {
-      valueCoder.encode(windowedElem.getValue(), outStream, context);
-    }
-
-    @Override
     public WindowedValue<T> decode(InputStream inStream) throws CoderException, IOException {
       return decode(inStream, Coder.Context.NESTED);
-    }
-
-    @Override
-    public WindowedValue<T> decode(InputStream inStream, Coder.Context context)
-        throws CoderException, IOException {
-      T value = valueCoder.decode(inStream, context);
-      return WindowedValues.valueInGlobalWindow(value);
     }
 
     @Override
@@ -1258,20 +1245,8 @@ public class WindowedValues {
     }
 
     @Override
-    public void encode(WindowedValue<T> windowedElem, OutputStream outStream, Coder.Context context)
-        throws CoderException, IOException {
-      valueCoder.encode(windowedElem.getValue(), outStream, context);
-    }
-
-    @Override
     public WindowedValue<T> decode(InputStream inStream) throws CoderException, IOException {
       return decode(inStream, Coder.Context.NESTED);
-    }
-
-    @Override
-    public WindowedValue<T> decode(InputStream inStream, Coder.Context context)
-        throws CoderException, IOException {
-      return WindowedValues.withValue(windowedValuePrototype, valueCoder.decode(inStream, context));
     }
 
     @Override
