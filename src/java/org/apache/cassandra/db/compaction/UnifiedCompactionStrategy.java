@@ -396,10 +396,10 @@ public class UnifiedCompactionStrategy extends AbstractCompactionStrategy
                     && shardManager.isOutOfDate(ClusterMetadata.current().epoch.getEpoch())))
             {
                 shardManager = ShardManager.create(cfs);
-                // Note: this can just as well be done without the synchronization (races would be benign, just doing some
-                // redundant work). For the current usages of this blocking is fine and expected to perform no worse.
-            }
+            // Note: this can just as well be done without the synchronization (races would be benign, just doing some
+            // redundant work). For the current usages of this blocking is fine and expected to perform no worse.
         }
+    }
     }
 
     @VisibleForTesting
@@ -703,7 +703,7 @@ public class UnifiedCompactionStrategy extends AbstractCompactionStrategy
 
         void complete()
         {
-            logger.trace("Level: {}", this);
+                logger.trace("Level: {}", this);
         }
 
         /**
@@ -777,7 +777,7 @@ public class UnifiedCompactionStrategy extends AbstractCompactionStrategy
         {
             List<SSTableReader> liveSet = sstables;
 
-            logger.trace("Creating compaction pick with live set {}", liveSet);
+                logger.trace("Creating compaction pick with live set {}", liveSet);
 
             List<Set<SSTableReader>> overlaps = Overlaps.constructOverlapSets(liveSet,
                                                                               UnifiedCompactionStrategy::startsAfter,
