@@ -243,7 +243,7 @@ public class BuyerStep2View extends TradeStepView {
     ///////////////////////////////////////////////////////////////////////////////////////////
 
     @SuppressWarnings("deprecation")
-    @Override
+@Override
     protected void addContent() {
         gridPane.getColumnConstraints().get(1).setHgrow(Priority.ALWAYS);
 
@@ -746,15 +746,15 @@ public class BuyerStep2View extends TradeStepView {
     private void validatePayoutTx() {
         Transaction delayedPayoutTx = trade.getDelayedPayoutTx();
         if (delayedPayoutTx != null) {
-            try {
+        try {
                 DelayedPayoutTxValidation.checkDelayedPayoutTx(delayedPayoutTx,
-                        trade,
-                        model.dataModel.btcWalletService);
-            } catch (RuntimeException e) {
-                if (!model.dataModel.tradeManager.isAllowFaultyDelayedTxs()) {
-                    new Popup().warning(Res.get("portfolio.pending.invalidTx", e.getMessage())).show();
-                }
+                    trade,
+                    model.dataModel.btcWalletService);
+        } catch (RuntimeException e) {
+            if (!model.dataModel.tradeManager.isAllowFaultyDelayedTxs()) {
+                new Popup().warning(Res.get("portfolio.pending.invalidTx", e.getMessage())).show();
             }
+        }
         } else {
             // We don't react on those errors as a failed trade might get listed initially but getting removed from the
             // trade manager after initPendingTrades which happens after activate might be called.

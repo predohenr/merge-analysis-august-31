@@ -391,7 +391,7 @@ public class OfferUtil {
         checkArgument(buyerSecurityDeposit >= getMinBuyerSecurityDepositAsPercent(),
                 "securityDeposit must not be less than " +
                         getMinBuyerSecurityDepositAsPercent());
-        if ((paymentAccount instanceof SameBankAccount) || (paymentAccount instanceof SpecificBanksAccount)) {
+        if ((paymentAccount instanceof SameBankAccount) || (paymentAccount instanceof SpecificBanksAccount) ) {
             checkArgument(!acceptedBanks.contains(null), "acceptedBanks must not be null for SAME_BANK or SPECIFIC_BANKS accounts");
         }
     }
@@ -409,7 +409,7 @@ public class OfferUtil {
     // mutableOfferPayloadFields param, e.g., payment account details, price, etc.
     // Immutable fields are sourced from the original openOffer param.
     @SuppressWarnings("deprecation")
-    public OfferPayload getMergedOfferPayload(OpenOffer openOffer,
+public OfferPayload getMergedOfferPayload(OpenOffer openOffer,
                                               MutableOfferPayloadFields mutableOfferPayloadFields) {
         OfferPayload original = openOffer.getOffer().getOfferPayload().orElseThrow();
         return new OfferPayload(original.getId(),
