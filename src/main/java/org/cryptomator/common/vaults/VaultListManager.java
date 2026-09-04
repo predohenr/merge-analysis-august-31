@@ -7,35 +7,33 @@
  *     Sebastian Stenzel - initial API and implementation
  *******************************************************************************/
 package org.cryptomator.common.vaults;
-
-import org.apache.commons.lang3.SystemUtils;
-import org.cryptomator.common.recovery.BackupRestorer;
-import org.cryptomator.common.settings.Settings;
-import org.cryptomator.common.settings.VaultSettings;
-import org.cryptomator.cryptofs.CryptoFileSystemProvider;
-import org.cryptomator.cryptofs.DirStructure;
-import org.cryptomator.cryptofs.migration.Migrators;
-import org.cryptomator.integrations.mount.MountService;
-import org.cryptomator.ui.keyloading.masterkeyfile.MasterkeyFileLoadingStrategy;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import javax.inject.Inject;
-import javax.inject.Singleton;
 import javafx.collections.ObservableList;
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.NoSuchFileException;
-import java.nio.file.Path;
+import org.apache.commons.lang3.SystemUtils;
+import org.cryptomator.common.settings.Settings;
 import java.util.Collection;
-import java.util.List;
-import java.util.Objects;
-import java.util.Optional;
+import org.cryptomator.ui.keyloading.masterkeyfile.MasterkeyFileLoadingStrategy;
+import javax.inject.Inject;
+import org.cryptomator.cryptofs.DirStructure;
+import javax.inject.Singleton;
 import java.util.ResourceBundle;
-
+import java.util.Objects;
+import org.cryptomator.cryptofs.migration.Migrators;
+import org.slf4j.LoggerFactory;
 import static org.cryptomator.common.Constants.MASTERKEY_FILENAME;
+import java.nio.file.Path;
+import java.util.List;
+import java.nio.file.Files;
+import org.cryptomator.integrations.mount.MountService;
 import static org.cryptomator.common.Constants.VAULTCONFIG_FILENAME;
+import org.cryptomator.cryptofs.CryptoFileSystemProvider;
+import org.cryptomator.common.Constants;
+import java.io.IOException;
+import org.cryptomator.common.settings.VaultSettings;
+import org.slf4j.Logger;
+import java.nio.file.NoSuchFileException;
+import java.util.Optional;
 import static org.cryptomator.common.vaults.VaultState.Value.*;
+import org.cryptomator.common.recovery.BackupRestorer;
 
 @Singleton
 public class VaultListManager {
