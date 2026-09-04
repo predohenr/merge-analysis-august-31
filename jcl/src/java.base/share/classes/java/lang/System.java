@@ -1269,9 +1269,9 @@ public static void setProperties(Properties p) {
 
 static void checkTmpDir() {
 	/*[IF JAVA_SPEC_VERSION >= 20]*/
-	if (SystemProps.isBadIoTmpdir()) {
-		System.err.println("WARNING: java.io.tmpdir directory does not exist"); //$NON-NLS-1$
-	}
+			if (SystemProps.isBadIoTmpdir()) {
+				System.err.println("WARNING: java.io.tmpdir directory does not exist"); //$NON-NLS-1$
+			}
 	/*[ENDIF] JAVA_SPEC_VERSION >= 20 */
 }
 
