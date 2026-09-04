@@ -395,7 +395,7 @@ public class ChatView extends AnchorPane {
                                         + (isMyMsg ? "" : " from " + counterpartyName);
                             headerLabel.setText(metaData);
                             messageLabel.setText(message.getMessage());
-                            AnchorPane.setBottomAnchor(messageLabel, bottomBorder + 10);
+                                AnchorPane.setBottomAnchor(messageLabel, bottomBorder + 10);
 
                             // Need to set it here otherwise style is not correct
                             AwesomeDude.setIcon(copyIcon, AwesomeIcon.COPY, "16.0");
