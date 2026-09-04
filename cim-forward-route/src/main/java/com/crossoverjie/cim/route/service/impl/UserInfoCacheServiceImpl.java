@@ -28,7 +28,7 @@ import static com.crossoverjie.cim.route.constant.Constant.LOGIN_STATUS_PREFIX;
 public class UserInfoCacheServiceImpl implements UserInfoCacheService {
 
     @Autowired
-    private RedisTemplate<String, String> redisTemplate;
+    private RedisTemplate<String,String> redisTemplate ;
 
     @Resource(name = "userInfoCache")
     private LoadingCache<Long, Optional<CIMUserInfo>> userInfoMap;
@@ -48,15 +48,15 @@ public class UserInfoCacheServiceImpl implements UserInfoCacheService {
 
     @Override
     public Set<CIMUserInfo> onlineUser() {
-        Set<CIMUserInfo> set = null;
+        Set<CIMUserInfo> set = null ;
         Set<String> members = redisTemplate.opsForSet().members(LOGIN_STATUS_PREFIX);
         for (String member : members) {
-            if (set == null) {
-                set = new HashSet<>(64);
+            if (set == null){
+                set = new HashSet<>(64) ;
             }
             try {
-                Optional<CIMUserInfo> cimUserInfo = loadUserInfoByUserId(Long.valueOf(member));
-                cimUserInfo.ifPresent(set::add);
+            Optional<CIMUserInfo> cimUserInfo = loadUserInfoByUserId(Long.valueOf(member)) ;
+            cimUserInfo.ifPresent(set::add);
             } catch (NumberFormatException e) {
                 log.warn("Skipping invalid user ID format in Redis set: {}", member);
             }
