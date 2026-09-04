@@ -10,19 +10,19 @@ package org.cryptomator.common.vaults;
 
 import org.apache.commons.lang3.SystemUtils;
 import org.cryptomator.common.Constants;
-import org.cryptomator.common.FilsystemOwnerSupplier;
 import org.cryptomator.common.mount.Mounter;
-import org.cryptomator.common.settings.Settings;
-import org.cryptomator.common.settings.VaultSettings;
-import org.cryptomator.cryptofs.CryptoFileSystem;
-import org.cryptomator.cryptofs.CryptoFileSystemProperties;
-import org.cryptomator.cryptofs.CryptoFileSystemProperties.FileSystemFlags;
-import org.cryptomator.cryptofs.CryptoFileSystemProvider;
-import org.cryptomator.cryptofs.common.FileSystemCapabilityChecker;
-import org.cryptomator.cryptofs.event.FilesystemEvent;
-import org.cryptomator.cryptolib.api.CryptoException;
 import org.cryptomator.cryptolib.api.MasterkeyLoader;
+import org.cryptomator.cryptofs.CryptoFileSystemProvider;
+import org.cryptomator.cryptofs.CryptoFileSystemProperties.FileSystemFlags;
+import org.cryptomator.common.FilsystemOwnerSupplier;
+import org.cryptomator.common.settings.Settings;
+import org.cryptomator.cryptofs.CryptoFileSystem;
 import org.cryptomator.cryptolib.api.MasterkeyLoadingFailedException;
+import org.cryptomator.cryptofs.CryptoFileSystemProperties;
+import org.cryptomator.cryptolib.api.CryptoException;
+import org.cryptomator.cryptofs.common.FileSystemCapabilityChecker;
+import org.cryptomator.common.settings.VaultSettings;
+import org.cryptomator.cryptofs.event.FilesystemEvent;
 import org.cryptomator.event.FileSystemEventAggregator;
 import org.cryptomator.event.NotificationManager;
 import org.cryptomator.integrations.mount.MountFailedException;
@@ -117,10 +117,6 @@ public class Vault {
 		this.showingStats = new SimpleBooleanProperty(false);
 		this.quickAccessEntry = new AtomicReference<>(null);
 	}
-
-	// ******************************************************************************
-	// Commands
-	// ********************************************************************************/
 
 	private CryptoFileSystem createCryptoFileSystem(MasterkeyLoader keyLoader) throws IOException, MasterkeyLoadingFailedException {
 		Set<FileSystemFlags> flags = EnumSet.noneOf(FileSystemFlags.class);
@@ -273,10 +269,6 @@ public class Vault {
 		notificationManager.offer(this, e);
 	}
 
-	// ******************************************************************************
-	// Observable Properties
-	// *******************************************************************************
-
 	public VaultState stateProperty() {
 		return state;
 	}
@@ -393,11 +385,6 @@ public class Vault {
 		return mountHandle.get() != null;
 	}
 
-
-	// ******************************************************************************
-	// Getter/Setter
-	// *******************************************************************************/
-
 	public VaultStats getStats() {
 		return stats;
 	}
@@ -414,14 +401,6 @@ public class Vault {
 	public Path getPath() {
 		return vaultSettings.path.get();
 	}
-
-	/**
-	 * Gets from the cleartext path its ciphertext counterpart.
-	 *
-	 * @return Local os path to the ciphertext resource
-	 * @throws IOException if an I/O error occurs
-	 * @throws IllegalStateException if the vault is not unlocked
-	 */
 	public Path getCiphertextPath(Path cleartextPath) throws IOException {
 		if (!state.getValue().equals(VaultState.Value.UNLOCKED)) {
 			throw new IllegalStateException("Vault is not unlocked");
@@ -441,10 +420,6 @@ public class Vault {
 			throw new UnsupportedOperationException("URI mount points not supported.");
 		}
 	}
-
-	/**
-	 * Gets the cleartext name from a given path to an encrypted vault file
-	 */
 	public String getCleartextName(Path ciphertextPath) throws IOException {
 		if (!state.getValue().equals(VaultState.Value.UNLOCKED)) {
 			throw new IllegalStateException("Vault is not unlocked");
@@ -460,10 +435,6 @@ public class Vault {
 	public String getId() {
 		return vaultSettings.id;
 	}
-
-	// ******************************************************************************
-	// Hashcode / Equals
-	// *******************************************************************************/
 
 	@Override
 	public int hashCode() {
@@ -486,5 +457,34 @@ public class Vault {
 		}
 		return mountHandle.get().supportsUnmountForced();
 	}
+
+	// ******************************************************************************
+	// Commands
+	// ********************************************************************************/
+
+	// ******************************************************************************
+	// Observable Properties
+	// *******************************************************************************
+
+
+	// ******************************************************************************
+	// Getter/Setter
+	// *******************************************************************************/
+
+	/**
+	 * Gets from the cleartext path its ciphertext counterpart.
+	 *
+	 * @return Local os path to the ciphertext resource
+	 * @throws IOException if an I/O error occurs
+	 * @throws IllegalStateException if the vault is not unlocked
+	 */
+
+	/**
+	 * Gets the cleartext name from a given path to an encrypted vault file
+	 */
+
+	// ******************************************************************************
+	// Hashcode / Equals
+	// *******************************************************************************/
 
 }
