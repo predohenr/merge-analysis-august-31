@@ -31,6 +31,7 @@ import bisq.common.config.Config;
 import bisq.common.taskrunner.TaskRunner;
 
 import org.bitcoinj.core.ECKey;
+
 import org.bitcoinj.core.Coin;
 
 import java.util.List;

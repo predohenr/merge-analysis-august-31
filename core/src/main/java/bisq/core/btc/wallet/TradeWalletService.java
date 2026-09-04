@@ -320,8 +320,8 @@ public class TradeWalletService {
      * @throws TransactionVerificationException if there was an unexpected problem with the created dummy tx
      */
     public List<RawTransactionInput> takerCreatesDepositTxInputs(Transaction takeOfferFeeTx,
-                                                                 Coin inputAmount,
-                                                                 Coin txFee)
+                                                             Coin inputAmount,
+                                                             Coin txFee)
             throws TransactionVerificationException {
         // We add the mining fee 2 times to the deposit tx:
         // 1. Will be spent when publishing the deposit tx (paid by buyer)
@@ -363,11 +363,11 @@ public class TradeWalletService {
 
         return dummyTX.getInputs().stream()
                 .map(e -> {
-                    checkNotNull(e.getConnectedOutput(), "e.getConnectedOutput() must not be null");
-                    checkNotNull(e.getConnectedOutput().getParentTransaction(),
-                            "e.getConnectedOutput().getParentTransaction() must not be null");
-                    checkNotNull(e.getValue(), "e.getValue() must not be null");
-                    return getRawInputFromTransactionInput(e);
+            checkNotNull(e.getConnectedOutput(), "e.getConnectedOutput() must not be null");
+            checkNotNull(e.getConnectedOutput().getParentTransaction(),
+                    "e.getConnectedOutput().getParentTransaction() must not be null");
+            checkNotNull(e.getValue(), "e.getValue() must not be null");
+            return getRawInputFromTransactionInput(e);
                 })
                 .collect(Collectors.toList());
     }
