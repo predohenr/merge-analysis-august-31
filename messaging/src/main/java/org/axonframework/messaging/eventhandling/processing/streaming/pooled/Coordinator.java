@@ -83,6 +83,23 @@ import static org.axonframework.common.ProcessUtils.executeUntilTrue;
  * @see WorkPackage
  * @since 4.5
  */
+
+/**
+ * Coordinator for the {@link PooledStreamingEventProcessor}. Uses coordination tasks (separate threads) to start a work
+ * package for every {@link TrackingToken} it is able to claim. The tokens for every work package are combined and the
+ * lower bound of this combined token is used to open an event stream from a {@link StreamableEventSource}. Events are
+ * scheduled one by one to <em>all</em> work packages coordinated by this service.
+ * <p>
+ * Coordination tasks will run and be rerun as long as this service is considered to be {@link #isRunning()}.
+ * Coordination will continue whenever exceptions occur, albeit with an incremental back off. Due to this, both
+ * {@link #isError()} and {@link #isRunning()} can result in {@code true} at the same time.
+ *
+ * @author Allard Buijze
+ * @author Steven van Beelen
+ * @see PooledStreamingEventProcessor
+ * @see WorkPackage
+ * @since 4.5
+ */
 class Coordinator {
 
     private static final Logger logger = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
@@ -1083,9 +1100,9 @@ class Coordinator {
                         ));
                         newClaims.put(segment, token);
                         logger.debug("Processor [{}] (Coordination Task [{}]) claimed the token for segment {}.",
-                                     name,
-                                     generation,
-                                     segmentId);
+                                    name,
+                                    generation,
+                                    segmentId);
                     } catch (UnableToClaimTokenException e) {
                         processingStatusUpdater.accept(segmentId, u -> null);
                         logger.debug(

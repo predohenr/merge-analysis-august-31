@@ -15,9 +15,6 @@
  */
 
 package org.axonframework.messaging.eventhandling.gateway;
-
-import jakarta.annotation.Nonnull;
-import jakarta.annotation.Nullable;
 import org.axonframework.common.FutureUtils;
 import org.axonframework.common.infra.ComponentDescriptor;
 import org.axonframework.messaging.core.MessageTypeResolver;
@@ -29,6 +26,9 @@ import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
+
+
+import org.jspecify.annotations.Nullable;
 
 /**
  * Default implementation of the {@link EventGateway} interface using the {@link EventSink} to publish events.

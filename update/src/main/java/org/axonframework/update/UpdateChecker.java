@@ -158,7 +158,7 @@ public class UpdateChecker implements Runnable {
         delayedTask = DelayedTask.of(this, nextInvocationTime);
     }
 
-        private UpdateCheckRequest buildRequest() {
+            private UpdateCheckRequest buildRequest() {
         String jvmVendor = System.getProperty("java.vendor");
         String javaVersion = System.getProperty("java.version");
         String osName = System.getProperty("os.name");
