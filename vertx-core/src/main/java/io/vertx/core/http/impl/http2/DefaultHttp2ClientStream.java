@@ -48,6 +48,10 @@ import static io.netty.handler.codec.http.HttpHeaderNames.TRANSFER_ENCODING;
 /**
  * @author <a href="mailto:julien@julienviet.com">Julien Viet</a>
  */
+
+/**
+ * @author <a href="mailto:julien@julienviet.com">Julien Viet</a>
+ */
 class DefaultHttp2ClientStream extends DefaultHttp2Stream<DefaultHttp2ClientStream> implements HttpClientStream, Http2ClientStream {
 
   // Temporary id assignments
