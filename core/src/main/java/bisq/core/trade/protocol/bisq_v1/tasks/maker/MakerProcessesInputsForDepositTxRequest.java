@@ -175,7 +175,7 @@ public class MakerProcessesInputsForDepositTxRequest extends TradeTask {
     }
 
     public static boolean verifyBurningManSelectionHeight(int takersBurningManSelectionHeight,
-                                                          int makersBurningManSelectionHeight) {
+                                                   int makersBurningManSelectionHeight) {
         if (takersBurningManSelectionHeight == makersBurningManSelectionHeight) {
             return true;
 
