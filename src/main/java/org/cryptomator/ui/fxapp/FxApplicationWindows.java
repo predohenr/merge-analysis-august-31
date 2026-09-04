@@ -145,7 +145,7 @@ public class FxApplicationWindows {
 	}
 
 	public void showQuitWindow(QuitResponse response, boolean forced) {
-		CompletableFuture.runAsync(() -> quitWindowBuilder.build().showQuitWindow(response, forced), Platform::runLater);
+			CompletableFuture.runAsync(() -> quitWindowBuilder.build().showQuitWindow(response,forced), Platform::runLater);
 	}
 
 	public void showUpdateReminderWindow() {
