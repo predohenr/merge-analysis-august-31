@@ -325,9 +325,9 @@ public class RpcService {
 
                 public void onFailure(@NotNull Throwable throwable) {
                     if (!shutdownInProgress) {
-                        log.error("Error at requestChainHeadHeight", throwable);
-                        UserThread.execute(() -> errorHandler.accept(throwable));
-                    }
+                    log.error("Error at requestChainHeadHeight", throwable);
+                    UserThread.execute(() -> errorHandler.accept(throwable));
+                }
                 }
             }, MoreExecutors.directExecutor());
         } catch (RejectedExecutionException e) {
@@ -367,9 +367,9 @@ public class RpcService {
                 @Override
                 public void onFailure(@NotNull Throwable throwable) {
                     if (!shutdownInProgress) {
-                        log.error("Error at requestDtoBlock: blockHeight={}, error={}", blockHeight, throwable);
-                        UserThread.execute(() -> errorHandler.accept(throwable));
-                    }
+                    log.error("Error at requestDtoBlock: blockHeight={}, error={}", blockHeight, throwable);
+                    UserThread.execute(() -> errorHandler.accept(throwable));
+                }
                 }
             }, MoreExecutors.directExecutor());
         } catch (RejectedExecutionException e) {
@@ -413,9 +413,9 @@ public class RpcService {
                 @Override
                 public void onFailure(@NotNull Throwable throwable) {
                     if (!shutdownInProgress) {
-                        log.error("Error at requestRawDtoBlock: blockHeight={}", blockHeight);
-                        UserThread.execute(() -> errorHandler.accept(throwable));
-                    }
+                    log.error("Error at requestRawDtoBlock: blockHeight={}", blockHeight);
+                    UserThread.execute(() -> errorHandler.accept(throwable));
+                }
                 }
             }, MoreExecutors.directExecutor());
         } catch (RejectedExecutionException e) {
