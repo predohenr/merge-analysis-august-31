@@ -30,8 +30,9 @@ import bisq.core.trade.protocol.bisq_v1.tasks.TradeTask;
 import bisq.common.config.Config;
 import bisq.common.taskrunner.TaskRunner;
 
-import org.bitcoinj.core.ECKey;
 import org.bitcoinj.core.Coin;
+
+import org.bitcoinj.core.ECKey;
 
 import java.util.List;
 import java.util.Optional;
