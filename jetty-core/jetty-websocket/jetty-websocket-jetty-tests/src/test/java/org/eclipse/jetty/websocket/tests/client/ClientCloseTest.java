@@ -516,7 +516,7 @@ public class ClientCloseTest
                 {
                     session.close(closeInfo.getCode(), reason, callback);
                     return;
-                }
+            }
             }
             else if (frame.getEffectiveOpCode() == OpCode.TEXT)
             {
