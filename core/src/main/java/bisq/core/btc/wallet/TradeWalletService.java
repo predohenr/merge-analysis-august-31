@@ -596,7 +596,7 @@ public class TradeWalletService {
             }
 
             // Add seller inputs
-            // We get the deposit tx unsigned if maker is seller
+                // We get the deposit tx unsigned if maker is seller
             for (int k = 0; k < sellerInputs.size(); k++) {
                 TransactionInput input = getTransactionInput(depositTx, new byte[]{}, sellerInputs.get(k));
                 // Maker inputs are validated upstream by TradePeerTxInputValidator
