@@ -811,7 +811,7 @@ public class RomClassWalker extends ClassWalker {
 			if (walkBaseFrame) {
 				classWalkerCallback.addSlot(clazz, SlotType.J9_U8, cursor, "baseFrameType");
 			} else {
-				classWalkerCallback.addSlot(clazz, SlotType.J9_U8, cursor, "stackMapFrameType");
+			classWalkerCallback.addSlot(clazz, SlotType.J9_U8, cursor, "stackMapFrameType");
 			}
 			frameType = cursor.at(0).longValue();
 			cursor = cursor.add(1);

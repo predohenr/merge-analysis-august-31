@@ -1171,10 +1171,10 @@ public class J9BCUtil {
 
 				if (mapType < 64) {
 					mapPC += mapType;
-					out.println("pc: " + mapPC +" same");
+					out.println("      pc: " + mapPC +" same");
 				} else if (mapType < 128) {
 					mapPC += (mapType - 64);
-					out.print("pc: " + mapPC +" same_locals_1_stack_item: ");
+					out.print("      pc: " + mapPC +" same_locals_1_stack_item: ");
 					stackMapData = dumpStackMapSlots(out, romclass, stackMapData, 1);
 					out.println();
 				} else if (mapType < (romClassIsStrictFieldsVersion ? CFR_STACKMAP_EARLY_LARVAL : CFR_STACKMAP_SAME_LOCALS_1_STACK_EXTENDED)) {
@@ -1188,33 +1188,33 @@ public class J9BCUtil {
 					long offset = new U16(stackMapData.at(0)).leftShift(8).add(stackMapData.at(1)).longValue();
 					stackMapData = stackMapData.add(2);
 					mapPC += offset;
-					out.print("pc: "+ mapPC +" same_locals_1_stack_item_extended: ");
+					out.print("      pc: "+ mapPC +" same_locals_1_stack_item_extended: ");
 					stackMapData = dumpStackMapSlots(out, romclass, stackMapData, 1);
 					out.println();
 				} else if (mapType < 251) {
 					long offset = new U16(stackMapData.at(0)).leftShift(8).add(stackMapData.at(1)).longValue();
 					stackMapData = stackMapData.add(2);
 					mapPC += offset;
-					out.println("pc: "+ mapPC +" chop " + (251 - mapType));
+					out.println("      pc: "+ mapPC +" chop " + (251 - mapType));
 
 				} else if (mapType == 251) {
 					long offset = new U16(stackMapData.at(0)).leftShift(8).add(stackMapData.at(1)).longValue();
 					stackMapData = stackMapData.add(2);
 					mapPC += offset;
-					out.println("pc: "+ mapPC +" same_extended\n");
+					out.println("      pc: "+ mapPC +" same_extended\n");
 
 				} else if (mapType < 255) {
 					long offset = new U16(stackMapData.at(0)).leftShift(8).add(stackMapData.at(1)).longValue();
 					stackMapData = stackMapData.add(2);
 					mapPC += offset;
-					out.print("pc: "+ mapPC +" append: ");
+					out.print("      pc: "+ mapPC +" append: ");
 					stackMapData = dumpStackMapSlots(out, romclass, stackMapData, (mapType - 251));
 					out.println();
 				} else if (mapType == 255) {
 					long offset = new U16(stackMapData.at(0)).leftShift(8).add(stackMapData.at(1)).longValue();
 					stackMapData = stackMapData.add(2);
 					mapPC += offset;
-					out.print("pc: "+ mapPC +" full, local(s): ");
+					out.print("      pc: "+ mapPC +" full, local(s): ");
 					offset = new U16(stackMapData.at(0)).leftShift(8).add(stackMapData.at(1)).longValue();
 					stackMapData = stackMapData.add(2);
 					stackMapData = dumpStackMapSlots(out, romclass, stackMapData, offset);
