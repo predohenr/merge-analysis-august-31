@@ -4,6 +4,8 @@ import java.lang.annotation.*;
 import java.util.Locale;
 import java.util.TimeZone;
 
+import com.fasterxml.jackson.annotation.JsonFormat.Shape;
+
 /**
  * General-purpose annotation used for configuring details of how
  * values of properties are to be serialized and deserialized.
@@ -17,7 +19,7 @@ import java.util.TimeZone;
  * or String (such as ISO-8601 compatible time value) -- as well as configuring
  * exact details with {@link #pattern} property.
  *<p>
- * As of Jackson 2.20, known special handling includes:
+ * As of Jackson 2.19, known special handling includes:
  *<ul>
  * <li>{@link java.util.Date} or {@link java.util.Calendar}: Shape can  be {@link Shape#STRING} or {@link Shape#NUMBER};
  *    pattern may contain {@link java.text.SimpleDateFormat}-compatible pattern definition.
@@ -499,19 +501,19 @@ public @interface JsonFormat
         private final Locale _locale;
 
         private final String _timezoneStr;
+        private final Boolean _lenient;
+        private final Features _features;
+        private transient TimeZone _timezone;
 
         /**
-         * @since 2.9
-         */
-        private final Boolean _lenient;
+     * @since 2.9
+     */
 
         /**
          * @since 2.6
          */
-        private final Features _features;
 
         // lazily constructed when created from annotations
-        private transient TimeZone _timezone;
 
         public Value() {
             this("", Shape.ANY, "", "", Features.empty(), null);
@@ -521,10 +523,6 @@ public @interface JsonFormat
             this(ann.pattern(), ann.shape(), ann.locale(), ann.timezone(),
                     Features.construct(ann), ann.lenient().asBoolean());
         }
-
-        /**
-         * @since 2.9
-         */
         public Value(String p, Shape sh, String localeStr, String tzStr, Features f,
                 Boolean lenient)
         {
@@ -535,10 +533,6 @@ public @interface JsonFormat
                             null : tzStr,
                     null, f, lenient);
         }
-
-        /**
-         * @since 2.9
-         */
         public Value(String p, Shape sh, Locale l, TimeZone tz, Features f,
                 Boolean lenient)
         {
@@ -550,10 +544,6 @@ public @interface JsonFormat
             _features = (f == null) ? Features.empty() : f;
             _lenient = lenient;
         }
-
-        /**
-         * @since 2.9
-         */
         public Value(String p, Shape sh, Locale l, String tzStr, TimeZone tz, Features f,
                 Boolean lenient)
         {
@@ -565,34 +555,14 @@ public @interface JsonFormat
             _features = (f == null) ? Features.empty() : f;
             _lenient = lenient;
         }
-
-        /**
-         * @since 2.7
-         */
         public final static Value empty() {
             return EMPTY;
         }
-
-        /**
-         * Helper method that will try to combine values from two {@link Value}
-         * instances, using one as base settings, and the other as overrides
-         * to use instead of base values when defined; base values are only
-         * use if override does not specify a value (matching value is null
-         * or logically missing).
-         * Note that one or both of value instances may be `null`, directly;
-         * if both are `null`, result will also be `null`; otherwise never null.
-         *
-         * @since 2.8
-         */
         public static Value merge(Value base, Value overrides)
         {
             return (base == null) ? overrides
                     : base.withOverrides(overrides);
         }
-
-        /**
-         * @since 2.8
-         */
         public static Value mergeAll(Value... values)
         {
             Value result = null;
@@ -603,17 +573,9 @@ public @interface JsonFormat
             }
             return result;
         }
-
-        /**
-         * @since 2.7
-         */
         public final static Value from(JsonFormat ann) {
             return (ann == null) ? EMPTY : new Value(ann);
         }
-
-        /**
-         * @since 2.7
-         */
         public final Value withOverrides(Value overrides) {
             if ((overrides == null) || (overrides == EMPTY) || (overrides == this)) {
                 return this;
@@ -656,40 +618,20 @@ public @interface JsonFormat
             }
             return new Value(p, sh, l, tzStr, tz, f, lenient);
         }
-
-        /**
-         * @since 2.6
-         */
         public static Value forPattern(String p) {
             return new Value(p, null, null, null, null, Features.empty(), null);
         }
-
-        /**
-         * @since 2.7
-         */
         public static Value forShape(Shape sh) {
             return new Value("", sh, null, null, null, Features.empty(), null);
         }
-
-        /**
-         * @since 2.9
-         */
         public static Value forLeniency(boolean lenient) {
             return new Value("", null, null, null, null, Features.empty(),
                     Boolean.valueOf(lenient));
         }
-
-        /**
-         * @since 2.1
-         */
         public Value withPattern(String p) {
             return new Value(p, _shape, _locale, _timezoneStr, _timezone,
                     _features, _lenient);
         }
-
-        /**
-         * @since 2.1
-         */
         public Value withShape(Shape s) {
             if (s == _shape) {
                 return this;
@@ -697,26 +639,14 @@ public @interface JsonFormat
             return new Value(_pattern, s, _locale, _timezoneStr, _timezone,
                     _features, _lenient);
         }
-
-        /**
-         * @since 2.1
-         */
         public Value withLocale(Locale l) {
             return new Value(_pattern, _shape, l, _timezoneStr, _timezone,
                     _features, _lenient);
         }
-
-        /**
-         * @since 2.1
-         */
         public Value withTimeZone(TimeZone tz) {
             return new Value(_pattern, _shape, _locale, null, tz,
                     _features, _lenient);
         }
-
-        /**
-         * @since 2.9
-         */
         public Value withLenient(Boolean lenient) {
             if (lenient == _lenient) {
                 return this;
@@ -724,20 +654,12 @@ public @interface JsonFormat
             return new Value(_pattern, _shape, _locale, _timezoneStr, _timezone,
                     _features, lenient);
         }
-
-        /**
-         * @since 2.6
-         */
         public Value withFeature(JsonFormat.Feature f) {
             Features newFeats = _features.with(f);
             return (newFeats == _features) ? this :
                 new Value(_pattern, _shape, _locale, _timezoneStr, _timezone,
                         newFeats, _lenient);
         }
-
-        /**
-         * @since 2.6
-         */
         public Value withoutFeature(JsonFormat.Feature f) {
             Features newFeats = _features.without(f);
             return (newFeats == _features) ? this :
@@ -753,39 +675,12 @@ public @interface JsonFormat
         public String getPattern() { return _pattern; }
         public Shape getShape() { return _shape; }
         public Locale getLocale() { return _locale; }
-
-        /**
-         * @return {@code Boolean.TRUE} if explicitly set to true; {@code Boolean.FALSE}
-         *   if explicit set to false; or {@code null} if not set either way (assuming
-         *   "default leniency" for the context)
-         *
-         * @since 2.9
-         */
         public Boolean getLenient() {
             return _lenient;
         }
-
-        /**
-         * Convenience method equivalent to
-         *<pre>
-         *   Boolean.TRUE.equals(getLenient())
-         *</pre>
-         * that is, returns {@code true} if (and only if) leniency has been explicitly
-         * set to {code true}; but not if it is undefined.
-         *
-         * @since 2.9
-         */
         public boolean isLenient() {
             return Boolean.TRUE.equals(_lenient);
         }
-
-        /**
-         * Alternate access (compared to {@link #getTimeZone()}) which is useful
-         * when caller just wants time zone id to convert, but not as JDK
-         * provided {@link TimeZone}
-         *
-         * @since 2.4
-         */
         public String timeZoneAsString() {
             if (_timezone != null) {
                 return _timezone.getID();
@@ -804,60 +699,20 @@ public @interface JsonFormat
             }
             return tz;
         }
-
-        /**
-         * @since 2.4
-         */
         public boolean hasShape() { return _shape != Shape.ANY; }
-
-        /**
-         * @since 2.4
-         */
         public boolean hasPattern() {
             return (_pattern != null) && (_pattern.length() > 0);
         }
-
-        /**
-         * @since 2.4
-         */
         public boolean hasLocale() { return _locale != null; }
-
-        /**
-         * @since 2.4
-         */
         public boolean hasTimeZone() {
             return (_timezone != null) || (_timezoneStr != null && !_timezoneStr.isEmpty());
         }
-
-        /**
-         * Accessor for checking whether there is a setting for leniency.
-         * NOTE: does NOT mean that `lenient` is `true` necessarily; just that
-         * it has been set.
-         *
-         * @since 2.9
-         */
         public boolean hasLenient() {
             return _lenient != null;
         }
-
-        /**
-         * Accessor for checking whether this format value has specific setting for
-         * given feature. Result is 3-valued with either `null`, {@link Boolean#TRUE} or
-         * {@link Boolean#FALSE}, indicating 'yes/no/dunno' choices, where `null` ("dunno")
-         * indicates that the default handling should be used based on global defaults,
-         * and there is no format override.
-         *
-         * @since 2.6
-         */
         public Boolean getFeature(JsonFormat.Feature f) {
             return _features.get(f);
         }
-
-        /**
-         * Accessor for getting full set of features enabled/disabled.
-         *
-         * @since 2.8
-         */
         public Features getFeatures() {
             return _features;
         }
@@ -913,5 +768,152 @@ public @interface JsonFormat
             }
             return value1.equals(value2);
         }
+
+        /**
+     * @since 2.9
+     */
+
+        /**
+         * @since 2.9
+         */
+
+        /**
+         * @since 2.9
+         */
+
+        /**
+         * @since 2.7
+         */
+
+        /**
+         * Helper method that will try to combine values from two {@link Value}
+         * instances, using one as base settings, and the other as overrides
+         * to use instead of base values when defined; base values are only
+         * use if override does not specify a value (matching value is null
+         * or logically missing).
+         * Note that one or both of value instances may be `null`, directly;
+         * if both are `null`, result will also be `null`; otherwise never null.
+         *
+         * @since 2.8
+         */
+
+        /**
+         * @since 2.8
+         */
+
+        /**
+         * @since 2.7
+         */
+
+        /**
+         * @since 2.7
+         */
+
+        /**
+         * @since 2.6
+         */
+
+        /**
+         * @since 2.7
+         */
+
+        /**
+         * @since 2.9
+         */
+
+        /**
+         * @since 2.1
+         */
+
+        /**
+         * @since 2.1
+         */
+
+        /**
+         * @since 2.1
+         */
+
+        /**
+         * @since 2.1
+         */
+
+        /**
+         * @since 2.9
+         */
+
+        /**
+         * @since 2.6
+         */
+
+        /**
+         * @since 2.6
+         */
+
+        /**
+         * @return {@code Boolean.TRUE} if explicitly set to true; {@code Boolean.FALSE}
+         *   if explicit set to false; or {@code null} if not set either way (assuming
+         *   "default leniency" for the context)
+         *
+         * @since 2.9
+         */
+
+        /**
+         * Convenience method equivalent to
+         *<pre>
+         *   Boolean.TRUE.equals(getLenient())
+         *</pre>
+         * that is, returns {@code true} if (and only if) leniency has been explicitly
+         * set to {code true}; but not if it is undefined.
+         *
+         * @since 2.9
+         */
+
+        /**
+         * Alternate access (compared to {@link #getTimeZone()}) which is useful
+         * when caller just wants time zone id to convert, but not as JDK
+         * provided {@link TimeZone}
+         *
+         * @since 2.4
+         */
+
+        /**
+         * @since 2.4
+         */
+
+        /**
+         * @since 2.4
+         */
+
+        /**
+         * @since 2.4
+         */
+
+        /**
+         * @since 2.4
+         */
+
+        /**
+         * Accessor for checking whether there is a setting for leniency.
+         * NOTE: does NOT mean that `lenient` is `true` necessarily; just that
+         * it has been set.
+         *
+         * @since 2.9
+         */
+
+        /**
+         * Accessor for checking whether this format value has specific setting for
+         * given feature. Result is 3-valued with either `null`, {@link Boolean#TRUE} or
+         * {@link Boolean#FALSE}, indicating 'yes/no/dunno' choices, where `null` ("dunno")
+         * indicates that the default handling should be used based on global defaults,
+         * and there is no format override.
+         *
+         * @since 2.6
+         */
+
+        /**
+         * Accessor for getting full set of features enabled/disabled.
+         *
+         * @since 2.8
+         */
     }
 }
