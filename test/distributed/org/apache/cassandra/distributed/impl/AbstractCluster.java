@@ -1143,8 +1143,8 @@ public abstract class AbstractCluster<I extends IInstance> implements ICluster<I
 
         List<Future<?>> futures = new ArrayList<>();
         futures = instances.stream()
-                           .filter(i -> !i.isShutdown())
-                           .map(IInstance::shutdown)
+                                           .filter(i -> !i.isShutdown())
+                                           .map(IInstance::shutdown)
                            .collect(Collectors.toList());
         try
         {
@@ -1276,11 +1276,11 @@ public abstract class AbstractCluster<I extends IInstance> implements ICluster<I
     {
         Reflections reflections = new Reflections(ConfigurationBuilder.build("org.apache.cassandra").setExpandSuperTypes(false));
         return Utils.INSTANCE.forNames(reflections.get(Scanners.TypesAnnotated.get(annotation.getName())),
-                                       reflections.getConfiguration().getClassLoaders())
-                             .stream()
-                             .filter(testAnnotation(annotation, testAnnotation))
-                             .flatMap(expander())
-                             .collect(Collectors.toSet());
+                        reflections.getConfiguration().getClassLoaders())
+               .stream()
+               .filter(testAnnotation(annotation, testAnnotation))
+               .flatMap(expander())
+               .collect(Collectors.toSet());
     }
 
     private static Set<String> toNames(Set<Class<?>> classes)
