@@ -827,9 +827,9 @@ public class TradeWalletService {
         Script redeemScript = get2of2MultiSigRedeemScript(buyerPubKey, sellerPubKey);
         // MS output from prev. tx is index 0
         TransactionOutput hashedMultiSigOutput = depositTx.getOutput(0);
-        Coin inputValue = hashedMultiSigOutput.getValue();
+            Coin inputValue = hashedMultiSigOutput.getValue();
         Sha256Hash sigHash = preparedPayoutTx.hashForWitnessSignature(0, redeemScript,
-                inputValue, Transaction.SigHash.ALL, false);
+                    inputValue, Transaction.SigHash.ALL, false);
         checkNotNull(multiSigKeyPair, "multiSigKeyPair must not be null");
         if (multiSigKeyPair.isEncrypted()) {
             checkNotNull(aesKey);
@@ -873,9 +873,9 @@ public class TradeWalletService {
         Script redeemScript = get2of2MultiSigRedeemScript(buyerPubKey, sellerPubKey);
         // MS output from prev. tx is index 0
         TransactionOutput hashedMultiSigOutput = depositTx.getOutput(0);
-        Coin inputValue = hashedMultiSigOutput.getValue();
+            Coin inputValue = hashedMultiSigOutput.getValue();
         Sha256Hash sigHash = payoutTx.hashForWitnessSignature(0, redeemScript,
-                inputValue, Transaction.SigHash.ALL, false);
+                    inputValue, Transaction.SigHash.ALL, false);
         checkNotNull(multiSigKeyPair, "multiSigKeyPair must not be null");
         if (multiSigKeyPair.isEncrypted()) {
             checkNotNull(aesKey);
@@ -886,8 +886,8 @@ public class TradeWalletService {
         TransactionSignature sellerTxSig = new TransactionSignature(sellerSignature, Transaction.SigHash.ALL, false);
         // Take care of order of signatures. Need to be reversed here. See comment below at getMultiSigRedeemScript (seller, buyer)
         TransactionInput input = payoutTx.getInput(0);
-        input.setScriptSig(ScriptBuilder.createEmpty());
-        input.setWitness(TransactionWitness.redeemP2WSH(redeemScript, sellerTxSig, buyerTxSig));
+            input.setScriptSig(ScriptBuilder.createEmpty());
+            input.setWitness(TransactionWitness.redeemP2WSH(redeemScript, sellerTxSig, buyerTxSig));
         WalletService.printTx("payoutTx", payoutTx);
         WalletService.verifyTransaction(payoutTx);
         WalletService.checkWalletConsistency(wallet);
@@ -916,9 +916,9 @@ public class TradeWalletService {
         Script redeemScript = get2of2MultiSigRedeemScript(buyerPubKey, sellerPubKey);
         // MS output from prev. tx is index 0
         TransactionOutput hashedMultiSigOutput = depositTx.getOutput(0);
-        Coin inputValue = hashedMultiSigOutput.getValue();
+            Coin inputValue = hashedMultiSigOutput.getValue();
         Sha256Hash sigHash = preparedPayoutTx.hashForWitnessSignature(0, redeemScript,
-                inputValue, Transaction.SigHash.ALL, false);
+                    inputValue, Transaction.SigHash.ALL, false);
         checkNotNull(myMultiSigKeyPair, "myMultiSigKeyPair must not be null");
         if (myMultiSigKeyPair.isEncrypted()) {
             checkNotNull(aesKey);
@@ -951,8 +951,8 @@ public class TradeWalletService {
                 Transaction.SigHash.ALL, false);
         // Take care of order of signatures. Need to be reversed here. See comment below at getMultiSigRedeemScript (seller, buyer)
         TransactionInput input = payoutTx.getInput(0);
-        input.setScriptSig(ScriptBuilder.createEmpty());
-        input.setWitness(TransactionWitness.redeemP2WSH(redeemScript, sellerTxSig, buyerTxSig));
+            input.setScriptSig(ScriptBuilder.createEmpty());
+            input.setWitness(TransactionWitness.redeemP2WSH(redeemScript, sellerTxSig, buyerTxSig));
         WalletService.printTx("mediated payoutTx", payoutTx);
         WalletService.verifyTransaction(payoutTx);
         WalletService.checkWalletConsistency(wallet);
