@@ -381,7 +381,7 @@ public class POJOPropertiesCollector
      * @deprecated Since 3.2
      */
     @Deprecated // since 3.2; remove from 3.3 or later
-    public JsonFormat.Value getFormatOverrides() {
+public JsonFormat.Value getFormatOverrides() {
         if (_formatOverrides == null) {
             // Let's check both per-type defaults and annotations;
             // per-type defaults having higher precedence, so start with annotations
