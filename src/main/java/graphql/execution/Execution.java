@@ -260,7 +260,7 @@ public class Execution {
         if (executionContext.getDataLoaderRegistry() == EMPTY_DATALOADER_REGISTRY || doNotAutomaticallyDispatchDataLoader) {
             return DataLoaderDispatchStrategy.NO_OP;
         }
-        return new PerLevelDataLoaderDispatchStrategy(executionContext);
+            return new PerLevelDataLoaderDispatchStrategy(executionContext);
     }
 
 
