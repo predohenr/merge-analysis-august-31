@@ -16,8 +16,7 @@ import java.lang.annotation.Target;
 @Target({ElementType.ANNOTATION_TYPE, ElementType.METHOD, ElementType.FIELD, ElementType.PARAMETER})
 @Retention(RetentionPolicy.RUNTIME)
 @JacksonAnnotation
-public @interface JacksonInject
-{
+public@interface JacksonInject{
     /**
      * Logical id of the value to inject; if not specified (or specified
      * as empty String), will use id based on declared type of property.
@@ -245,5 +244,4 @@ public @interface JacksonInject
         private static boolean _empty(Object id, Boolean useInput, Boolean optional) {
             return (id == null) && (useInput == null) && optional == null;
         }
-    }
-}
+    }}
