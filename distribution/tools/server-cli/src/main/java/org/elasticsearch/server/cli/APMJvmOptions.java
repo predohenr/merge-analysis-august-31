@@ -40,6 +40,13 @@ import static org.elasticsearch.telemetry.TelemetryProvider.OTEL_METRICS_ENABLED
  * APM doesn't need to be enabled, as that can be toggled at runtime, but some configuration e.g.
  * server URL and secret key can only be provided when Elasticsearch starts.
  */
+
+/**
+ * This class is responsible for working out if APM telemetry is configured and if so, preparing
+ * a temporary config file for the APM Java agent and CLI options to the JVM to configure APM.
+ * APM doesn't need to be enabled, as that can be toggled at runtime, but some configuration e.g.
+ * server URL and secret key can only be provided when Elasticsearch starts.
+ */
 class APMJvmOptions {
 
     /**
@@ -320,7 +327,7 @@ class APMJvmOptions {
      * @throws IOException if a problem occurs reading the filesystem
      */
     @Nullable
-    static Path findAgentJar(String installDir) throws IOException, UserException {
+static Path findAgentJar(String installDir) throws IOException, UserException {
         final Path apmModule = Path.of(installDir).resolve("modules").resolve("apm");
 
         if (Files.notExists(apmModule)) {
