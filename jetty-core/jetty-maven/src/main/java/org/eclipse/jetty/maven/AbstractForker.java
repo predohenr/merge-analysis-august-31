@@ -65,7 +65,7 @@ public abstract class AbstractForker extends AbstractLifeCycle
         this.javaPath = javaPath;
     }
 
-    protected abstract ProcessBuilder createCommand();
+    protected abstract ProcessBuilder  createCommand();
     
     protected abstract void redeployWebApp() throws Exception;
     
