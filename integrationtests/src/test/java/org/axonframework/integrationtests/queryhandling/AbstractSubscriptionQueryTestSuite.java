@@ -37,12 +37,11 @@ import org.axonframework.queryhandling.QueryMessage;
 import org.axonframework.queryhandling.QueryResponseMessage;
 import org.axonframework.queryhandling.QueryUpdateEmitter;
 import org.axonframework.queryhandling.SubscriptionQueryUpdateMessage;
-import org.axonframework.queryhandling.annotations.AnnotatedQueryHandlingComponent;
 import org.axonframework.queryhandling.annotations.QueryHandler;
-import org.axonframework.conversion.json.JacksonConverter;
+import org.axonframework.queryhandling.annotations.AnnotatedQueryHandlingComponent;
 import org.axonframework.queryhandling.gateway.DefaultQueryGateway;
 import org.axonframework.queryhandling.gateway.QueryGateway;
-import org.axonframework.serialization.json.JacksonConverter;
+import org.axonframework.conversion.json.JacksonConverter;
 import org.junit.jupiter.api.*;
 import reactor.core.Exceptions;
 import reactor.core.publisher.Flux;
@@ -88,8 +87,6 @@ public abstract class AbstractSubscriptionQueryTestSuite extends AbstractQueryTe
     protected static final String FOUND = "found";
 
     protected static final MessageConverter CONVERTER = new DelegatingMessageConverter(new JacksonConverter());
-
-    // Unique query name using UUID for the commonly used chat messages query
     protected final QualifiedName CHAT_MESSAGES_QUERY_NAME = new QualifiedName("test.chatMessages." + UUID.randomUUID());
     protected final MessageType CHAT_MESSAGES_QUERY_TYPE = new MessageType(CHAT_MESSAGES_QUERY_NAME.fullName());
 
@@ -98,6 +95,8 @@ public abstract class AbstractSubscriptionQueryTestSuite extends AbstractQueryTe
 
     protected QueryBus queryBus;
     protected RuntimeException toBeThrown;
+
+    // Unique query name using UUID for the commonly used chat messages query
 
     @BeforeEach
     void setUp() {
@@ -800,11 +799,6 @@ public abstract class AbstractSubscriptionQueryTestSuite extends AbstractQueryTe
         assertEquals(FOUND, result);
     }
 
-
-    private record SomeQuery(String filter) {
-
-    }
-
     private void scheduleAfterDelay(Runnable task) {
         CountDownLatch latch = new CountDownLatch(1);
         Thread.ofVirtual().start(() -> {
@@ -823,5 +817,10 @@ public abstract class AbstractSubscriptionQueryTestSuite extends AbstractQueryTe
             Thread.currentThread().interrupt();
             throw new RuntimeException(e);
         }
+    }
+
+
+    private record SomeQuery(String filter) {
+
     }
 }
