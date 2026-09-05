@@ -14,6 +14,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
 // for [core#1418]
+
+// for [core#1418]
 class ParserFilterEmpty1418Test extends JacksonCoreTestBase
 {
     // Custom TokenFilter that only includes the "one" property
@@ -58,7 +60,7 @@ class ParserFilterEmpty1418Test extends JacksonCoreTestBase
     private final JsonFactory JSON_F = newStreamFactory();
 
     // [core#1418]: case #1
-    @Test
+        @Test
     void filterArrayWithObjectsEndingWithFilteredProperty1() throws Exception
     {
         final String json = "[{\"one\":1},{\"two\":2}]";
