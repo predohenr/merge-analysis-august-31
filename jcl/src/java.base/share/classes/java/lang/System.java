@@ -739,8 +739,8 @@ private static void ensureProperties(boolean isInitialization) {
 	} else
 	/*[ENDIF] JAVA_SPEC_VERSION == 17 */
 	{
-		/* TODO disable JFR JCL APIs until JFR natives are implemented. */
-		initializedProperties.put("jfr.unsupported.vm", "true"); //$NON-NLS-1$ //$NON-NLS-2$
+	/* TODO disable JFR JCL APIs until JFR natives are implemented. */
+	initializedProperties.put("jfr.unsupported.vm", "true"); //$NON-NLS-1$ //$NON-NLS-2$
 	}
 	/*[ENDIF] JFR_SUPPORT */
 
