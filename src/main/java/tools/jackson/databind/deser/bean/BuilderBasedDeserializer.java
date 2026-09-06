@@ -690,8 +690,8 @@ public class BuilderBasedDeserializer
             // 29-Dec-2025: [databind#650] We can avoid buffering and passing to any props
             if (_unwrappedPropertyHandler.hasUnwrappedProperty(propName)) {
                 hasUnwrappedContent = true;
-                tokens.writeName(propName);
-                tokens.copyCurrentStructure(p);
+            tokens.writeName(propName);
+            tokens.copyCurrentStructure(p);
                 continue;
             }
             // how about any setter?
@@ -699,11 +699,11 @@ public class BuilderBasedDeserializer
                 handleUnknownVanilla(p, ctxt, bean, propName);
                 continue;
             }
-            try {
-                _anySetter.deserializeAndSet(p, ctxt, bean, propName);
-            } catch (Exception e) {
-                throw wrapAndThrow(e, bean, propName, ctxt);
-            }
+                try {
+                    _anySetter.deserializeAndSet(p, ctxt, bean, propName);
+                } catch (Exception e) {
+                    throw wrapAndThrow(e, bean, propName, ctxt);
+                }
         }
         tokens.writeEndObject();
         return _unwrappedPropertyHandler.processUnwrapped(p, ctxt, bean, tokens, hasUnwrappedContent);
@@ -746,8 +746,8 @@ public class BuilderBasedDeserializer
             // 29-Dec-2025: [databind#650] We can avoid buffering and passing to any props
             if (_unwrappedPropertyHandler.hasUnwrappedProperty(propName)) {
                 hasUnwrappedContent = true;
-                tokens.writeName(propName);
-                tokens.copyCurrentStructure(p);
+            tokens.writeName(propName);
+            tokens.copyCurrentStructure(p);
                 continue;
             }
             // how about any setter?
@@ -755,8 +755,8 @@ public class BuilderBasedDeserializer
                 handleUnknownVanilla(p, ctxt, builder, propName);
                 continue;
             }
-            _anySetter.deserializeAndSet(p, ctxt, builder, propName);
-        }
+                _anySetter.deserializeAndSet(p, ctxt, builder, propName);
+            }
         tokens.writeEndObject();
         return _unwrappedPropertyHandler.processUnwrapped(p, ctxt, builder, tokens, hasUnwrappedContent);
     }
@@ -821,8 +821,8 @@ public class BuilderBasedDeserializer
             // 29-Dec-2025: [databind#650] We can avoid buffering and passing to any props
             if (_unwrappedPropertyHandler.hasUnwrappedProperty(propName)) {
                 hasUnwrappedContent = true;
-                tokens.writeName(propName);
-                tokens.copyCurrentStructure(p);
+            tokens.writeName(propName);
+            tokens.copyCurrentStructure(p);
                 continue;
             }
             // how about any setter?
