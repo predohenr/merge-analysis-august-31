@@ -594,7 +594,7 @@ public class AstPrinter {
         while (clazz != Object.class) {
             NodePrinter nodePrinter = printers.get(clazz);
             if (nodePrinter != null) {
-                // noinspection unchecked
+                //noinspection unchecked
                 return nodePrinter;
             }
             clazz = clazz.getSuperclass();
@@ -822,6 +822,12 @@ public class AstPrinter {
         NodePrinter<Node> printer = astPrinter._findPrinter(node);
         printer.print(writer, node);
     }
+
+    /**
+     * These print nodes into output writers
+     *
+     * @param <T> the type of node
+     */
 
     /**
      * These print nodes into output writers
