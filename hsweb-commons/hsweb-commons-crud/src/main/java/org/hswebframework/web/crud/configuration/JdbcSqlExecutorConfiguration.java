@@ -47,8 +47,6 @@ public class JdbcSqlExecutorConfiguration {
         return environment.getProperty("spring.dao.exceptiontranslation.enabled", Boolean.class, Boolean.TRUE)
             ? new JdbcTransactionManager(dataSource) : new DataSourceTransactionManager(dataSource);
     }
-
-
     @Bean
     @ConditionalOnMissingBean
     public SyncSqlExecutor syncSqlExecutor(DataSource dataSource) {
