@@ -18,6 +18,7 @@ import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Set;
+import java.util.function.BiFunction;
 import java.util.function.BinaryOperator;
 import java.util.function.Function;
 import java.util.function.Predicate;
@@ -34,9 +35,6 @@ public class FpKit {
     public static <T> Map<String, T> getByName(List<T> namedObjects, Function<T, String> nameFn, BinaryOperator<T> mergeFunc) {
         return toMap(namedObjects, nameFn, mergeFunc);
     }
-
-    //
-    // From a collection of keyed things, get a map of them by key, merging them according to the merge function
     public static <T, NewKey> Map<NewKey, T> toMap(Collection<T> collection, Function<T, NewKey> keyFunction, BinaryOperator<T> mergeFunc) {
         Map<NewKey, T> resultMap = new LinkedHashMap<>();
         for (T obj : collection) {
@@ -51,8 +49,6 @@ public class FpKit {
         }
         return resultMap;
     }
-
-    // normal groupingBy but with LinkedHashMap
     public static <T, NewKey> Map<NewKey, ImmutableList<T>> groupingBy(Collection<T> list, Function<T, NewKey> function) {
         return filterAndGroupingBy(list, ALWAYS_TRUE, function);
     }
@@ -92,21 +88,10 @@ public class FpKit {
     }
 
 
-    private static final Predicate<Object> ALWAYS_TRUE = o -> true;
-
-    private static final BinaryOperator<Object> THROWING_MERGER_SINGLETON = (u, v) -> {
-        throw new IllegalStateException(String.format("Duplicate key %s", u));
-    };
-
-
     private static <T> BinaryOperator<T> throwingMerger() {
         //noinspection unchecked
         return (BinaryOperator<T>) THROWING_MERGER_SINGLETON;
     }
-
-
-    //
-    // From a list of named things, get a map of them by name, merging them first one added
     public static <T> Map<String, T> getByName(List<T> namedObjects, Function<T, String> nameFn) {
         return getByName(namedObjects, nameFn, mergeFirst());
     }
@@ -114,18 +99,6 @@ public class FpKit {
     public static <T> BinaryOperator<T> mergeFirst() {
         return (o1, o2) -> o1;
     }
-
-    /**
-     * Converts an object that should be an Iterable into a Collection efficiently, leaving
-     * it alone if it is already is one.  Useful when you want to get the size of something
-     *
-     * @param iterableResult the result object
-     * @param <T>            the type of thing
-     *
-     * @return an Iterable from that object
-     *
-     * @throws java.lang.ClassCastException if it's not an Iterable
-     */
     @SuppressWarnings("unchecked")
     public static <T> Collection<T> toCollection(Object iterableResult) {
         if (iterableResult instanceof Collection) {
@@ -139,16 +112,6 @@ public class FpKit {
         }
         return list;
     }
-
-    /**
-     * Converts a value into a list if it's really a collection or array of things
-     * else it turns it into a singleton list containing that one value
-     *
-     * @param possibleIterable the possible
-     * @param <T>              for two
-     *
-     * @return an list one way or another
-     */
     @SuppressWarnings("unchecked")
     public static <T> List<T> toListOrSingletonList(Object possibleIterable) {
         if (possibleIterable instanceof List) {
@@ -186,34 +149,6 @@ public class FpKit {
         throw new ClassCastException("not Iterable: " + iterableResult.getClass());
     }
 
-    private static class ArrayIterator<T> implements Iterator<T> {
-
-        private final Object array;
-        private final int size;
-        private int i;
-
-        private ArrayIterator(Object array) {
-            this.array = array;
-            this.size = Array.getLength(array);
-            this.i = 0;
-        }
-
-        @Override
-        public boolean hasNext() {
-            return i < size;
-        }
-
-        @SuppressWarnings("unchecked")
-        @Override
-        public T next() {
-            if (!hasNext()) {
-                throw new NoSuchElementException();
-            }
-            return (T) Array.get(array, i++);
-        }
-
-    }
-
     public static OptionalInt toSize(Object iterableResult) {
         if (iterableResult instanceof Collection) {
             return OptionalInt.of(((Collection<?>) iterableResult).size());
@@ -225,38 +160,15 @@ public class FpKit {
 
         return OptionalInt.empty();
     }
-
-    /**
-     * Concatenates (appends) a single elements to an existing list
-     *
-     * @param l   the list onto which to append the element
-     * @param t   the element to append
-     * @param <T> the type of elements of the list
-     *
-     * @return a <strong>new</strong> list composed of the first list elements and the new element
-     */
     public static <T> List<T> concat(List<T> l, T t) {
         return concat(l, singletonList(t));
     }
-
-    /**
-     * Concatenates two lists into one
-     *
-     * @param l1  the first list to concatenate
-     * @param l2  the second list to concatenate
-     * @param <T> the type of element of the lists
-     *
-     * @return a <strong>new</strong> list composed of the two concatenated lists elements
-     */
     public static <T> List<T> concat(List<T> l1, List<T> l2) {
         ArrayList<T> l = new ArrayList<>(l1);
         l.addAll(l2);
         l.trimToSize();
         return l;
     }
-
-    //
-    // quickly turn a map of values into its list equivalent
     public static <T> List<T> valuesToList(Map<?, T> map) {
         return new ArrayList<>(map.values());
     }
@@ -318,57 +230,15 @@ public class FpKit {
         }
         return result.build();
     }
-
-    /**
-     * Used in simple {@link Map#computeIfAbsent(Object, java.util.function.Function)} cases
-     *
-     * @param <K> for Key
-     * @param <V> for Value
-     *
-     * @return a function that allocates a list
-     */
     public static <K, V> Function<K, List<V>> newList() {
         return k -> new ArrayList<>();
     }
-
-    /**
-     * This will memoize the Supplier within the current thread's visibility, that is it does not
-     * use volatile reads but rather use a sentinel check and re-reads the delegate supplier
-     * value if the read has not stuck to this thread.  This means that it's possible that your delegate
-     * supplier MAY be called more than once across threads, but only once on the same thread.
-     *
-     * @param delegate the supplier to delegate to
-     * @param <T>      for two
-     *
-     * @return a supplier that will memoize values in the context of the current thread
-     */
     public static <T> Supplier<T> intraThreadMemoize(Supplier<T> delegate) {
         return new IntraThreadMemoizedSupplier<>(delegate);
     }
-
-    /**
-     * This will memoize the Supplier across threads and make sure the Supplier is exactly called once.
-     * <p>
-     * Use for potentially costly actions. Otherwise consider {@link #intraThreadMemoize(Supplier)}
-     *
-     * @param delegate the supplier to delegate to
-     * @param <T>      for two
-     *
-     * @return a supplier that will memoize values in the context of the all the threads
-     */
     public static <T> Supplier<T> interThreadMemoize(Supplier<T> delegate) {
         return new InterThreadMemoizedSupplier<>(delegate);
     }
-
-    /**
-     * Faster set intersection.
-     *
-     * @param <T>  for two
-     * @param set1 first set
-     * @param set2 second set
-     *
-     * @return intersection set
-     */
     public static <T> Set<T> intersection(Set<T> set1, Set<T> set2) {
         // Set intersection calculation is expensive when either set is large. Often, either set has only one member.
         // When either set contains only one member, it is equivalent and much cheaper to calculate intersection via contains.
@@ -384,5 +254,136 @@ public class FpKit {
         }
         return Sets.intersection(set2, set1);
     }
+
+    //
+    // From a collection of keyed things, get a map of them by key, merging them according to the merge function
+
+    // normal groupingBy but with LinkedHashMap
+
+
+    private static final Predicate<Object> ALWAYS_TRUE = o -> true;
+
+    private static final BinaryOperator<Object> THROWING_MERGER_SINGLETON = (u, v) -> {
+        throw new IllegalStateException(String.format("Duplicate key %s", u));
+    };
+
+
+    //
+    // From a list of named things, get a map of them by name, merging them first one added
+
+    /**
+     * Converts an object that should be an Iterable into a Collection efficiently, leaving
+     * it alone if it is already is one.  Useful when you want to get the size of something
+     *
+     * @param iterableResult the result object
+     * @param <T>            the type of thing
+     *
+     * @return an Iterable from that object
+     *
+     * @throws java.lang.ClassCastException if it's not an Iterable
+     */
+
+    /**
+     * Converts a value into a list if it's really a collection or array of things
+     * else it turns it into a singleton list containing that one value
+     *
+     * @param possibleIterable the possible
+     * @param <T>              for two
+     *
+     * @return an list one way or another
+     */
+
+    private static class ArrayIterator<T> implements Iterator<T> {
+
+        private final Object array;
+        private final int size;
+        private int i;
+
+        private ArrayIterator(Object array) {
+            this.array = array;
+            this.size = Array.getLength(array);
+            this.i = 0;
+        }
+
+        @Override
+        public boolean hasNext() {
+            return i < size;
+        }
+
+        @SuppressWarnings("unchecked")
+        @Override
+        public T next() {
+            if (!hasNext()) {
+                throw new NoSuchElementException();
+            }
+            return (T) Array.get(array, i++);
+        }
+
+    }
+
+    /**
+     * Concatenates (appends) a single elements to an existing list
+     *
+     * @param l   the list onto which to append the element
+     * @param t   the element to append
+     * @param <T> the type of elements of the list
+     *
+     * @return a <strong>new</strong> list composed of the first list elements and the new element
+     */
+
+    /**
+     * Concatenates two lists into one
+     *
+     * @param l1  the first list to concatenate
+     * @param l2  the second list to concatenate
+     * @param <T> the type of element of the lists
+     *
+     * @return a <strong>new</strong> list composed of the two concatenated lists elements
+     */
+
+    //
+    // quickly turn a map of values into its list equivalent
+
+    /**
+     * Used in simple {@link Map#computeIfAbsent(Object, java.util.function.Function)} cases
+     *
+     * @param <K> for Key
+     * @param <V> for Value
+     *
+     * @return a function that allocates a list
+     */
+
+    /**
+     * This will memoize the Supplier within the current thread's visibility, that is it does not
+     * use volatile reads but rather use a sentinel check and re-reads the delegate supplier
+     * value if the read has not stuck to this thread.  This means that it's possible that your delegate
+     * supplier MAY be called more than once across threads, but only once on the same thread.
+     *
+     * @param delegate the supplier to delegate to
+     * @param <T>      for two
+     *
+     * @return a supplier that will memoize values in the context of the current thread
+     */
+
+    /**
+     * This will memoize the Supplier across threads and make sure the Supplier is exactly called once.
+     * <p>
+     * Use for potentially costly actions. Otherwise consider {@link #intraThreadMemoize(Supplier)}
+     *
+     * @param delegate the supplier to delegate to
+     * @param <T>      for two
+     *
+     * @return a supplier that will memoize values in the context of the all the threads
+     */
+
+    /**
+     * Faster set intersection.
+     *
+     * @param <T>  for two
+     * @param set1 first set
+     * @param set2 second set
+     *
+     * @return intersection set
+     */
 
 }
