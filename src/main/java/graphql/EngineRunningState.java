@@ -32,7 +32,7 @@ public class EngineRunningState {
 
     // will be null after updateExecutionInput is called
     @Nullable
-    private volatile ExecutionId executionId;
+private volatile ExecutionId executionId;
 
     // if true the last decrementRunning() call will be ignored
     private volatile boolean finished;

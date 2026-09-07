@@ -65,7 +65,7 @@ public class ExecutionInput {
      * @return the name of the query operation
      */
     @Nullable
-    public String getOperationName() {
+public String getOperationName() {
         return operationName;
     }
 
@@ -94,7 +94,7 @@ public class ExecutionInput {
      * @return the local context object to pass to all top level (i.e. query, mutation, subscription) data fetchers
      */
     @Nullable
-    public Object getLocalContext() {
+public Object getLocalContext() {
         return localContext;
     }
 
@@ -102,7 +102,7 @@ public class ExecutionInput {
      * @return the root object to start the query execution on
      */
     @Nullable
-    public Object getRoot() {
+public Object getRoot() {
         return root;
     }
 
@@ -135,7 +135,7 @@ public class ExecutionInput {
      * @return Id that will be/was used to execute this operation.
      */
     @Nullable
-    public ExecutionId getExecutionId() {
+public ExecutionId getExecutionId() {
         return executionId;
     }
 
@@ -255,7 +255,7 @@ public class ExecutionInput {
     }
 
     @NullUnmarked
-    public static class Builder {
+public static class Builder {
 
         private String query;
         private String operationName;
