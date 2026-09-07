@@ -105,11 +105,6 @@ public class SecurityUtils
             return null;
         }
     }
-
-    /**
-     * Get the current security manager, if available.
-     * @return the current security manager, if available
-     */
     public static Object getSecurityManager()
     {
         if (getSecurityManager == null)
@@ -125,14 +120,6 @@ public class SecurityUtils
             return null;
         }
     }
-
-    /**
-     * <p>Checks the given permission, if the {@link #getSecurityManager() security manager}
-     * is set.</p>
-     *
-     * @param permission the permission to check
-     * @throws SecurityException if the permission check fails
-     */
     public static void checkPermission(Permission permission) throws SecurityException
     {
         if (getSecurityManager == null || checkPermission == null)
@@ -154,15 +141,6 @@ public class SecurityUtils
         {
         }
     }
-
-    /**
-     * <p>Runs the given action with the calling context restricted
-     * to just the calling frame, not all the frames in the stack.</p>
-     *
-     * @param action the action to run
-     * @return the result of running the action
-     * @param <T> the type of the result
-     */
     public static <T> T doPrivileged(PrivilegedAction<T> action)
     {
         if (doPrivileged == null)
@@ -186,30 +164,11 @@ public class SecurityUtils
             throw new RuntimeException(x);
         }
     }
-
-    /**
-     * <p>Runs the  action as the given subject.</p>
-     *
-     * @param subject the subject this action runs as
-     * @param action the action to run
-     * @return the result of the action
-     * @param <T> the type of the result
-     * @deprecated use {@link #callAs(Subject, Callable)}
-     */
     @Deprecated(forRemoval = true, since = "12.1.0")
     public static <T> T doAs(Subject subject, Callable<T> action)
     {
         return callAs(subject, action);
     }
-
-    /**
-     * <p>Runs the action as the specified subject.</p>
-     *
-     * @param subject the subject this action runs as
-     * @param action the action to run
-     * @return the result of the action
-     * @param <T> the type of the result
-     */
     @SuppressWarnings("unchecked")
     public static <T> T callAs(Subject subject, Callable<T> action)
     {
@@ -252,4 +211,45 @@ public class SecurityUtils
     private SecurityUtils()
     {
     }
+
+    /**
+ * Get the current security manager, if available.
+ * @return the current security manager, if available
+ */
+
+    /**
+     * <p>Checks the given permission, if the {@link #getSecurityManager() security manager}
+     * is set.</p>
+     *
+     * @param permission the permission to check
+     * @throws SecurityException if the permission check fails
+     */
+
+    /**
+     * <p>Runs the given action with the calling context restricted
+     * to just the calling frame, not all the frames in the stack.</p>
+     *
+     * @param action the action to run
+     * @return the result of running the action
+     * @param <T> the type of the result
+     */
+
+    /**
+     * <p>Runs the  action as the given subject.</p>
+     *
+     * @param subject the subject this action runs as
+     * @param action the action to run
+     * @return the result of the action
+     * @param <T> the type of the result
+     * @deprecated use {@link #callAs(Subject, Callable)}
+     */
+
+    /**
+     * <p>Runs the action as the specified subject.</p>
+     *
+     * @param subject the subject this action runs as
+     * @param action the action to run
+     * @return the result of the action
+     * @param <T> the type of the result
+     */
 }
