@@ -60,10 +60,10 @@ import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.RateLimiter;
 import com.google.common.util.concurrent.Uninterruptibles;
 
-import net.openhft.chronicle.core.util.ThrowingSupplier;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import net.openhft.chronicle.core.util.ThrowingSupplier;
 
 import org.apache.cassandra.cache.AutoSavingCache;
 import org.apache.cassandra.concurrent.ExecutorFactory;
@@ -269,8 +269,8 @@ public class CompactionManager implements CompactionManagerMBean, ICompactionMan
         if (count > 0 && executor.getActiveTaskCount() >= executor.getMaximumPoolSize())
         {
             if (logger.isTraceEnabled())
-                logger.trace("Background compaction is still running for {}.{} ({} remaining). Skipping",
-                             cfs.getKeyspaceName(), cfs.name, count);
+            logger.trace("Background compaction is still running for {}.{} ({} remaining). Skipping",
+                         cfs.getKeyspaceName(), cfs.name, count);
 
             return Collections.emptyList();
         }
@@ -405,14 +405,14 @@ public class CompactionManager implements CompactionManagerMBean, ICompactionMan
                 {
                     // If just one task, run it directly on this thread
                     for (AbstractCompactionTask task : tasks)
-                        task.execute(active);
+                    task.execute(active);
                     ranCompaction = true;
                 }
                 else
-                {
+            {
                     // more than 1 task: we need to do this outside the catch and complete block
                     async = true;
-                }
+            }
             }
             catch (Throwable t)
             {
@@ -1523,18 +1523,18 @@ public class CompactionManager implements CompactionManagerMBean, ICompactionMan
 
         if (!options.onlySai)
         {
-            try (IVerifier verifier = sstable.getVerifier(cfs, new OutputHandler.LogOutput(), false, options))
-            {
-                verifyInfo = verifier.getVerifyInfo();
-                activeCompactions.beginCompaction(verifyInfo);
-                verifier.verify();
-            }
-            finally
-            {
-                if (verifyInfo != null)
-                    activeCompactions.finishCompaction(verifyInfo);
-            }
+        try (IVerifier verifier = sstable.getVerifier(cfs, new OutputHandler.LogOutput(), false, options))
+        {
+            verifyInfo = verifier.getVerifyInfo();
+            activeCompactions.beginCompaction(verifyInfo);
+            verifier.verify();
         }
+        finally
+        {
+            if (verifyInfo != null)
+                activeCompactions.finishCompaction(verifyInfo);
+        }
+    }
 
         if ((options.onlySai || options.includeSai) && !skipSaiCheck)
         {
@@ -1629,7 +1629,7 @@ public class CompactionManager implements CompactionManagerMBean, ICompactionMan
         long totalkeysWritten = 0;
 
         long expectedBloomFilterSize = Math.max(cfs.metadata().params.minIndexInterval,
-                                                SSTableReader.getApproximateKeyCount(txn.originals()));
+                                               SSTableReader.getApproximateKeyCount(txn.originals()));
 
         logger.trace("Expected bloom filter size : {}", expectedBloomFilterSize);
         logger.info("Cleaning up {}", sstable);
