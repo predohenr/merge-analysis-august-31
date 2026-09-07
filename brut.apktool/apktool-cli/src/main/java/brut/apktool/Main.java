@@ -47,95 +47,95 @@ public class Main {
     private enum Verbosity { NORMAL, VERBOSE, QUIET }
 
     private static final Option verboseOption = Option.builder("v")
-        .longOpt("verbose")
-        .desc("Increase output verbosity.")
-        .build();
+            .longOpt("verbose")
+            .desc("Increase output verbosity.")
+            .build();
 
     private static final Option quietOption = Option.builder("q")
-        .longOpt("quiet")
-        .desc("Suppress normal output.")
-        .build();
+            .longOpt("quiet")
+            .desc("Suppress normal output.")
+            .build();
 
     private static final Option jobsOption = Option.builder("j")
-        .longOpt("jobs")
-        .desc("Set the number of jobs to execute in parallel to <num>.")
-        .hasArg()
-        .argName("num")
-        .type(Integer.class)
-        .build();
+            .longOpt("jobs")
+            .desc("Set the number of jobs to execute in parallel to <num>.")
+            .hasArg()
+            .argName("num")
+            .type(Integer.class)
+            .build();
 
     private static final Option frameDirOption = Option.builder("p")
-        .longOpt("frame-path")
-        .desc("Use framework files located in <dir>.")
-        .hasArg()
-        .argName("dir")
-        .build();
+            .longOpt("frame-path")
+            .desc("Use framework files located in <dir>.")
+            .hasArg()
+            .argName("dir")
+            .build();
 
     private static final Option frameTagOption = Option.builder("t")
-        .longOpt("frame-tag")
-        .desc("Use framework files tagged with <tag>.")
-        .hasArg()
-        .argName("tag")
-        .build();
+            .longOpt("frame-tag")
+            .desc("Use framework files tagged with <tag>.")
+            .hasArg()
+            .argName("tag")
+            .build();
 
     private static final Option libOption = Option.builder("l")
-        .longOpt("lib")
-        .desc("Use shared library <package> located in <file>.\n"
-            + "Can be specified multiple times.")
-        .hasArg()
-        .argName("package:file")
-        .build();
+            .longOpt("lib")
+            .desc("Use shared library <package> located in <file>.\n"
+                    + "            Can be specified multiple times.")
+            .hasArg()
+            .argName("package:file")
+            .build();
 
     private static final Option decodeForceOption = Option.builder("f")
-        .longOpt("force")
-        .desc("Force delete destination directory.")
-        .build();
+            .longOpt("force")
+            .desc("Force delete destination directory.")
+            .build();
 
     private static final Option decodeNoSrcOption = Option.builder("s")
-        .longOpt("no-src")
-        .desc("Do not decode sources.")
-        .build();
+            .longOpt("no-src")
+            .desc("Do not decode sources.")
+            .build();
 
     private static final Option decodeOnlyMainClassesOption = Option.builder()
-        .longOpt("only-main-classes")
-        .desc("Only disassemble the main dex classes (classes[0-9]*.dex) in the root.")
-        .build();
+            .longOpt("only-main-classes")
+            .desc("Only disassemble the main dex classes (classes[0-9]*.dex) in the root.")
+            .build();
 
     private static final Option decodeNoDebugInfoOption = Option.builder()
-        .longOpt("no-debug-info")
+            .longOpt("no-debug-info")
         .desc("Do not include debug info in sources (.local, .param, .line, etc.)")
-        .build();
+            .build();
 
     private static final Option decodeNoResOption = Option.builder("r")
-        .longOpt("no-res")
-        .desc("Do not decode resources.")
-        .build();
+            .longOpt("no-res")
+            .desc("Do not decode resources.")
+            .build();
 
     private static final Option decodeOnlyManifestOption = Option.builder()
-        .longOpt("only-manifest")
-        .desc("Only decode AndroidManifest.xml without resources.")
-        .build();
+            .longOpt("only-manifest")
+            .desc("Only decode AndroidManifest.xml without resources.")
+            .build();
 
     private static final Option decodeResResolveModeOption = Option.builder()
-        .longOpt("res-resolve-mode")
-        .desc("Set the resolve mode for resources to <mode>.\n"
-            + "Possible values are: 'remove' (default), 'dummy' or 'keep'.")
-        .hasArg()
-        .argName("mode")
-        .build();
+            .longOpt("res-resolve-mode")
+            .desc("Set the resolve mode for resources to <mode>.\n"
+                    + "            Possible values are: 'remove' (default), 'dummy' or 'keep'.")
+            .hasArg()
+            .argName("mode")
+            .build();
 
     private static final Option decodeKeepBrokenResOption = Option.builder()
-        .longOpt("keep-broken-res")
-        .desc("Use if there was an error and some resources were dropped, e.g.\n"
-            + "\"Invalid config flags detected. Dropping resources\", but you\n"
-            + "want to decode them anyway, even with errors. You will have to\n"
-            + "fix them manually before building.")
-        .build();
+            .longOpt("keep-broken-res")
+            .desc("Use if there was an error and some resources were dropped, e.g.\n"
+                    + "            \"Invalid config flags detected. Dropping resources\", but you\n"
+                    + "            want to decode them anyway, even with errors. You will have to\n"
+                    + "            fix them manually before building.")
+            .build();
 
     private static final Option decodeMatchOriginalOption = Option.builder()
-        .longOpt("match-original")
-        .desc("Keep files closest to original as possible (prevents rebuild).")
-        .build();
+            .longOpt("match-original")
+            .desc("Keep files closest to original as possible (prevents rebuild).")
+            .build();
 
     private static final Option decodeNoAssetsOption = Option.builder()
         .longOpt("no-assets")
@@ -143,69 +143,62 @@ public class Main {
         .build();
 
     private static final Option decodeOutputOption = Option.builder("o")
-        .longOpt("output")
-        .desc("Output decoded files to <dir>. (default: apk.out)")
-        .hasArg()
-        .argName("dir")
-        .build();
+            .longOpt("output")
+            .desc("Output decoded files to <dir>. (default: apk.out)")
+            .hasArg()
+            .argName("dir")
+            .build();
 
     private static final Option buildForceOption = Option.builder("f")
-        .longOpt("force")
-        .desc("Skip changes detection and build all files.")
-        .build();
+            .longOpt("force")
+            .desc("Skip changes detection and build all files.")
+            .build();
 
-    private static final Option buildNoApkOption = Option.builder()
-        .longOpt("no-apk")
-        .desc("Disable repacking of the built files into a new apk.")
-        .build();
-
-    private static final Option buildNoCrunchOption = Option.builder()
-        .longOpt("no-crunch")
-        .desc("Disable crunching of resource files during the build step.")
-        .build();
+    private static final Option buildNetSecConfOption = Option.builder()
+            .longOpt("net-sec-conf")
+            .desc("Add a generic network security configuration file to the built apk.")
+            .build();
 
     private static final Option buildCopyOriginalOption = Option.builder()
-        .longOpt("copy-original")
-        .desc("Copy original AndroidManifest.xml and META-INF. See project page for more info.")
-        .build();
+            .longOpt("copy-original")
+            .desc("Copy original AndroidManifest.xml and META-INF. See project page for more info.")
+            .build();
 
     private static final Option buildDebuggableOption = Option.builder()
         .longOpt("debuggable")
         .desc("Set android:debuggable to \"true\" in AndroidManifest.xml for the built apk.")
         .build();
 
-    private static final Option buildNetSecConfOption = Option.builder()
-        .longOpt("net-sec-conf")
-        .desc("Add a generic network security configuration file to the built apk.")
-        .build();
+    private static final Option buildNoCrunchOption = Option.builder()
+            .longOpt("no-crunch")
+            .desc("Disable crunching of resource files during the build step.")
+            .build();
+
+    private static final Option buildNoApkOption = Option.builder()
+            .longOpt("no-apk")
+            .desc("Disable repacking of the built files into a new apk.")
+            .build();
 
     private static final Option buildAaptOption = Option.builder()
-        .longOpt("aapt")
+            .longOpt("aapt")
         .desc("Use aapt2 binary located in <file>.")
-        .hasArg()
-        .argName("file")
-        .build();
+            .hasArg()
+            .argName("file")
+            .build();
 
     private static final Option buildOutputOption = Option.builder("o")
-        .longOpt("output")
-        .desc("Output the built apk to <file>. (default: dist/name.apk)")
-        .hasArg()
-        .argName("file")
-        .build();
-
-    private static final Option frameFrameDirOption = Option.builder("p")
-        .longOpt("frame-path")
-        .desc("Set the path for framework files to <dir>.")
-        .hasArg()
-        .argName("dir")
-        .build();
+            .longOpt("output")
+            .desc("Output the built apk to <file>. (default: dist/name.apk)")
+            .hasArg()
+            .argName("file")
+            .build();
 
     private static final Option frameFrameTagOption = Option.builder("t")
-        .longOpt("frame-tag")
+            .longOpt("frame-tag")
         .desc("Suffix framework files with <tag>.")
-        .hasArg()
-        .argName("tag")
-        .build();
+            .hasArg()
+            .argName("tag")
+            .build();
 
     private static final Option frameForceAllOption = Option.builder("a")
         .longOpt("all")
@@ -213,6 +206,13 @@ public class Main {
         .build();
 
     private static final Options generalOptions = new Options();
+
+    private static final Option frameFrameDirOption = Option.builder("p")
+            .longOpt("frame-path")
+        .desc("Set the path for framework files to <dir>.")
+            .hasArg()
+            .argName("dir")
+            .build();
     private static final Options decodeOptions = new Options();
     private static final Options buildOptions = new Options();
     private static final Options installFrameworkOptions = new Options();
@@ -506,7 +506,7 @@ public class Main {
         }
 
         try (ExtFile apkFile = new ExtFile(apkName)) {
-            ApkDecoder decoder = new ApkDecoder(apkFile, config);
+        ApkDecoder decoder = new ApkDecoder(apkFile, config);
             decoder.decode(outDir);
         } catch (IOException ignored) {
             // Input file could not be closed, just ignore.
