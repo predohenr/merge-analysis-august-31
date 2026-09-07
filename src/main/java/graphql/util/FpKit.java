@@ -58,7 +58,7 @@ public class FpKit {
     }
 
     @SuppressWarnings("unchecked")
-    public static <T, NewKey> Map<NewKey, ImmutableList<T>> filterAndGroupingBy(Collection<T> list,
+public static <T, NewKey> Map<NewKey, ImmutableList<T>> filterAndGroupingBy(Collection<T> list,
                                                                                 Predicate<? super T> predicate,
                                                                                 Function<T, NewKey> function) {
         //
