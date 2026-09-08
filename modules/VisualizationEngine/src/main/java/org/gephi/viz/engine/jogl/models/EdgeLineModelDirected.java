@@ -258,4 +258,5 @@ public class EdgeLineModelDirected {
             programWithSelectionUnselected = null;
         }
     }
+
 }
