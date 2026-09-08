@@ -291,7 +291,7 @@ public class Execution {
 
     private boolean propagateErrorsOnNonNullContractFailure(List<Directive> directives) {
         boolean jvmWideEnabled = Directives.isExperimentalDisableErrorPropagationDirectiveEnabled();
-        if (!jvmWideEnabled) {
+        if (! jvmWideEnabled) {
             return true;
         }
         Directive foundDirective = NodeUtil.findNodeByName(directives, EXPERIMENTAL_DISABLE_ERROR_PROPAGATION_DIRECTIVE_DEFINITION.getName());

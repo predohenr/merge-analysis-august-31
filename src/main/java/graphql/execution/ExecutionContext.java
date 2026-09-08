@@ -299,7 +299,7 @@ public class ExecutionContext {
     }
 
     @Internal
-    public ResponseMapFactory getResponseMapFactory() {
+public ResponseMapFactory getResponseMapFactory() {
         return responseMapFactory;
     }
 
@@ -384,7 +384,6 @@ public class ExecutionContext {
     Throwable possibleCancellation(@Nullable Throwable currentThrowable) {
         return engineRunningState.possibleCancellation(currentThrowable);
     }
-}
 
     @Internal
     void throwIfCancelled() throws AbortExecutionException {
