@@ -215,7 +215,7 @@ public class LocalOutgoingServerSession extends LocalServerSession implements Ou
 
                         session.addOutgoingDomainPair(domainPair);
                         try {
-                            sessionManager.outgoingServerSessionCreated((LocalOutgoingServerSession) session);
+                        sessionManager.outgoingServerSessionCreated((LocalOutgoingServerSession) session);
                         } catch (Exception e) {
                             log.debug("Failed to register close listener for newly created session to '{}'. Rolling back route registration to prevent an orphaned route.", remoteDomain, e);
                             // Explicitly remove all routes that were just added, as the close listener that would normally do so may never have been registered.
