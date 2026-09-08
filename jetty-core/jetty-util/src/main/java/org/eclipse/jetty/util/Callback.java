@@ -434,6 +434,20 @@ public interface Callback extends Invocable
      *   }
      * }</pre>
      */
+
+    /**
+     * A combination of multiple Callbacks, that must all be completed before a specific callback is completed.
+     * For example: <pre>{@code
+     *   void sendToAll(String message, Collection<Channel> channels, Callback callback)
+     *   {
+     *       try (Callback.Combination combination = new Callback.Combination(callback))
+     *       {
+     *           for (Channel channel : channels)
+     *               channel.send(message, combination.newCallback());
+     *       }
+     *   }
+     * }</pre>
+     */
     class Combination implements AutoCloseable
     {
         private final Callback andThen;
@@ -576,6 +590,10 @@ public interface Callback extends Invocable
     /**
      * <p>A Callback implementation that calls the {@link #completed()} method when it either succeeds or fails.</p>
      */
+
+    /**
+     * <p>A Callback implementation that calls the {@link #completed()} method when it either succeeds or fails.</p>
+     */
     interface Completing extends Callback
     {
         void completed();
@@ -600,6 +618,11 @@ public interface Callback extends Invocable
             }
         }
     }
+
+    /**
+     * Nested Completing Callback that completes after
+     * completing the nested callback
+     */
 
     /**
      * Nested Completing Callback that completes after
@@ -696,6 +719,10 @@ public interface Callback extends Invocable
             }
         };
     }
+
+    /**
+     * <p>A {@link CompletableFuture} that is also a {@link Callback}.</p>
+     */
 
     /**
      * <p>A {@link CompletableFuture} that is also a {@link Callback}.</p>
