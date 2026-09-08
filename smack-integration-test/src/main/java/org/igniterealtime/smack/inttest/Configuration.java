@@ -67,7 +67,7 @@ public final class Configuration {
     public enum AccountRegistration {
         disabled,
         inBandRegistration,
-        serviceAdministration,
+        serviceAdministration
     }
 
     public enum ExecutionOrder {
@@ -78,7 +78,7 @@ public final class Configuration {
     public enum DnsResolver {
         minidns,
         javax,
-        dnsjava,
+        dnsjava
     }
 
     public final DomainBareJid service;
@@ -145,7 +145,7 @@ public final class Configuration {
 
     public enum CompatibilityMode {
         standardsCompliant,
-        ejabberd,
+        ejabberd
     }
 
     public final CompatibilityMode compatibilityMode;
