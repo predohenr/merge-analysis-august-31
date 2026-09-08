@@ -260,8 +260,8 @@ public class TTLExpiryTest
         {
             try (UnfilteredRowIterator iter = scanner.next())
             {
-                assertEquals(Util.dk(noTTLKey), iter.partitionKey());
-            }
+            assertEquals(Util.dk(noTTLKey), iter.partitionKey());
+        }
         }
         scanner.close();
     }

@@ -607,9 +607,9 @@ public class LeveledCompactionStrategyTest
                     {
                         if (task instanceof LeveledCompactionTask)
                         {
-                            LeveledCompactionTask lcsTask = (LeveledCompactionTask) task;
-                            level = Math.max(level, lcsTask.getLevel());
-                        }
+                        LeveledCompactionTask lcsTask = (LeveledCompactionTask) task;
+                        level = Math.max(level, lcsTask.getLevel());
+                    }
                         else if (task instanceof SingleSSTableLCSTask)
                         {
                             SingleSSTableLCSTask singleSSTableLCSTask = (SingleSSTableLCSTask) task;
