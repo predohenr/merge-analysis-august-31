@@ -182,7 +182,7 @@ public class StandardSinttestDebugger implements SinttestDebugger {
         }
 
         completeWriter.append("Constructing: " + constructor.getDeclaringClass() + "\n");
-    };
+    };;
 
     @Override
     public void onTestStart(ConcreteTest test, ZonedDateTime startTime) throws IOException {

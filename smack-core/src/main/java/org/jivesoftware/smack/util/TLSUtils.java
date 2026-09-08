@@ -234,7 +234,7 @@ public class TLSUtils {
     enum DefaultTrustStoreType {
         jks,
         unknown,
-        no_default,
+        no_default
     }
 
     private static final int JKS_MAGIC = 0xfeedfeed;
