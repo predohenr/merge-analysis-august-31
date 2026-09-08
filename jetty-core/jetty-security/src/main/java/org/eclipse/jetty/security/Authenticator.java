@@ -109,6 +109,10 @@ public interface Authenticator
     /**
      * Authenticator Configuration
      */
+
+    /**
+     * Authenticator Configuration
+     */
     interface Configuration
     {
         String getAuthenticationType();
@@ -208,6 +212,10 @@ public interface Authenticator
             }
         }
     }
+
+    /**
+     * Authenticator Factory
+     */
 
     /**
      * Authenticator Factory
