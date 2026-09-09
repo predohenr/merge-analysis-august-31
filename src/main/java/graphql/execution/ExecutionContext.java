@@ -36,6 +36,7 @@ import java.util.function.Consumer;
 import java.util.function.Supplier;
 
 import static graphql.normalized.ExecutableNormalizedOperationFactory.Options;
+import static graphql.normalized.ExecutableNormalizedOperationFactory.*;
 import static graphql.normalized.ExecutableNormalizedOperationFactory.createExecutableNormalizedOperation;
 
 @SuppressWarnings("TypeParameterUnusedInFormals")
