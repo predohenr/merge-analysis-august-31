@@ -302,7 +302,6 @@ public class CassandraRoleManagerTest
         Assertions.assertThat(crm.getInvalidClientDisconnectMaxJitterMillis()).isEqualTo(1000);
     }
 
-    @Test
     public void testPasswordUpdateRateLimitingDisabled() throws Exception
     {
         try
