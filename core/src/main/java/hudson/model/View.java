@@ -95,8 +95,8 @@ import jenkins.model.ModelObjectWithContextMenu;
 import jenkins.model.item_category.Categories;
 import jenkins.model.item_category.Category;
 import jenkins.model.item_category.ItemCategory;
-import jenkins.search.SearchGroup;
 import jenkins.security.ExtendedReadRedaction;
+import jenkins.search.SearchGroup;
 import jenkins.security.stapler.StaplerNotDispatchable;
 import jenkins.util.xml.XMLUtils;
 import jenkins.widgets.HasWidgets;
@@ -151,32 +151,47 @@ public abstract class View extends AbstractModelObject implements AccessControll
      * and never change thereafter.
      */
     protected /*final*/ ViewGroup owner;
+    protected String name;
+    protected String description;
+    protected boolean filterExecutors;
+    protected boolean filterQueue;
+    private volatile DescribableList<ViewProperty, ViewPropertyDescriptor> properties = new PropertyList(this);
+
+    private static final int FILTER_LOOP_MAX_COUNT = 10;
+    @Deprecated
+    public static final DescriptorList<View> LIST = new DescriptorList<>(View.class);
+
+    public static final Comparator<View> SORTER = Comparator.comparing(View::getViewName);
+
+    public static final PermissionGroup PERMISSIONS = new PermissionGroup(View.class, Messages._View_Permissions_Title());
+    public static final Permission CREATE = new Permission(PERMISSIONS, "Create", Messages._View_CreatePermission_Description(), Permission.CREATE, PermissionScope.ITEM_GROUP);
+    public static final Permission DELETE = new Permission(PERMISSIONS, "Delete", Messages._View_DeletePermission_Description(), Permission.DELETE, PermissionScope.ITEM_GROUP);
+    public static final Permission CONFIGURE = new Permission(PERMISSIONS, "Configure", Messages._View_ConfigurePermission_Description(), Permission.CONFIGURE, PermissionScope.ITEM_GROUP);
+    public static final Permission READ = new Permission(PERMISSIONS, "Read", Messages._View_ReadPermission_Description(), Permission.READ, PermissionScope.ITEM_GROUP);
+    public static final Message<View> NEW_PRONOUN = new Message<>();
+
+    private static final Logger LOGGER = Logger.getLogger(View.class.getName());
 
     /**
      * Name of this view.
      */
-    protected String name;
 
     /**
      * Message displayed in the view page.
      */
-    protected String description;
 
     /**
      * If true, only show relevant executors
      */
-    protected boolean filterExecutors;
 
     /**
      * If true, only show relevant queue items
      */
-    protected boolean filterQueue;
 
     /**
      * List of {@link ViewProperty}s configured for this view.
      * @since 1.406
      */
-    private volatile DescribableList<ViewProperty, ViewPropertyDescriptor> properties = new PropertyList(this);
 
     protected View(String name) {
         this.name = name;
@@ -186,22 +201,9 @@ public abstract class View extends AbstractModelObject implements AccessControll
         this.name = name;
         this.owner = owner;
     }
-
-    /**
-     * Gets all the items in this collection in a read-only view.
-     */
     @NonNull
     @Exported(name = "jobs")
     public abstract Collection<TopLevelItem> getItems();
-
-    /**
-     * Gets all the items recursively contained in this collection in a read-only view.
-     * <p>
-     * The default implementation recursively adds the items of all contained Views
-     * in case this view implements {@link ViewGroup}, which should be enough for most cases.
-     *
-     * @since 1.520
-     */
     public Collection<TopLevelItem> getAllItems() {
 
         if (this instanceof ViewGroup) {
@@ -215,40 +217,18 @@ public abstract class View extends AbstractModelObject implements AccessControll
             return getItems();
         }
     }
-
-    /**
-     * Gets the {@link TopLevelItem} of the given name.
-     */
     public TopLevelItem getItem(String name) {
         return getOwner().getItemGroup().getItem(name);
     }
-
-    /**
-     * Alias for {@link #getItem(String)}. This is the one used in the URL binding.
-     */
     public final TopLevelItem getJob(String name) {
         return getItem(name);
     }
-
-    /**
-     * Checks if the job is in this collection.
-     */
     public abstract boolean contains(TopLevelItem item);
-
-    /**
-     * Gets the name of all this collection.
-     *
-     * @see #rename(String)
-     */
     @Exported(visibility = 2, name = "name")
     @NonNull
     public String getViewName() {
         return name;
     }
-
-    /**
-     * Renames this view.
-     */
     public void rename(String newName) throws Failure, FormException {
         if (name.equals(newName))    return; // noop
         Jenkins.checkGoodName(newName);
@@ -258,35 +238,21 @@ public abstract class View extends AbstractModelObject implements AccessControll
         name = newName;
         owner.onViewRenamed(this, oldName, newName);
     }
-
-    /**
-     * Gets the {@link ViewGroup} that this view belongs to.
-     */
     public ViewGroup getOwner() {
         return owner;
     }
-
-    /** @deprecated call {@link ViewGroup#getItemGroup} directly */
     @Deprecated
     public ItemGroup<? extends TopLevelItem> getOwnerItemGroup() {
         return owner.getItemGroup();
     }
-
-    /** @deprecated call {@link ViewGroup#getPrimaryView} directly */
     @Deprecated
     public View getOwnerPrimaryView() {
         return owner.getPrimaryView();
     }
-
-    /** @deprecated call {@link ViewGroup#getViewActions} directly */
     @Deprecated
     public List<Action> getOwnerViewActions() {
         return owner.getViewActions();
     }
-
-    /**
-     * Message displayed in the top page. Can be null. Includes HTML.
-     */
     @Exported
     public synchronized String getDescription() {
         return description;
@@ -296,11 +262,6 @@ public abstract class View extends AbstractModelObject implements AccessControll
     public synchronized void setDescription(String description) {
         this.description = Util.nullify(description);
     }
-
-    /**
-     * Gets the view properties configured for this view.
-     * @since 1.406
-     */
     public DescribableList<ViewProperty, ViewPropertyDescriptor> getProperties() {
         // readResolve was the best place to do this, but for compatibility reasons,
         // this class can no longer have readResolve() (the mechanism itself isn't suitable for class hierarchy)
@@ -316,12 +277,6 @@ public abstract class View extends AbstractModelObject implements AccessControll
             return properties;
         }
     }
-
-    /**
-     * Returns all the {@link ViewPropertyDescriptor}s that can be potentially configured
-     * on this view. Returns both {@link ViewPropertyDescriptor}s visible and invisible for user, see
-     * {@link View#getVisiblePropertyDescriptors} to filter invisible one.
-     */
     public List<ViewPropertyDescriptor> getApplicablePropertyDescriptors() {
         List<ViewPropertyDescriptor> r = new ArrayList<>();
         for (ViewPropertyDescriptor pd : ViewProperty.all()) {
@@ -330,12 +285,6 @@ public abstract class View extends AbstractModelObject implements AccessControll
         }
         return r;
     }
-
-    /**
-     * @return all the {@link ViewPropertyDescriptor}s that can be potentially configured on this View and are visible
-     * for the user. Use {@link DescriptorVisibilityFilter} to make a View property invisible for users.
-     * @since 2.214
-     */
     public List<ViewPropertyDescriptor> getVisiblePropertyDescriptors() {
         return DescriptorVisibilityFilter.apply(this, getApplicablePropertyDescriptors());
     }
@@ -348,11 +297,6 @@ public abstract class View extends AbstractModelObject implements AccessControll
             owner.save();
         }
     }
-
-    /**
-     * List of all {@link ViewProperty}s exposed primarily for the remoting API.
-     * @since 1.406
-     */
     @Exported(name = "property", inline = true)
     public List<ViewProperty> getAllProperties() {
         return getProperties().toList();
@@ -371,78 +315,33 @@ public abstract class View extends AbstractModelObject implements AccessControll
     public String getNewPronoun() {
         return AlternativeUiTextProvider.get(NEW_PRONOUN, this, Messages.AbstractItem_Pronoun());
     }
-
-    /**
-     * By default, return true to render the "Edit view" link on the page.
-     * This method is really just for the default "All" view to hide the edit link
-     * so that the default Hudson top page remains the same as before 1.316.
-     *
-     * @since 1.316
-     */
     public boolean isEditable() {
         return true;
     }
-
-    /**
-     * Used to enable or disable automatic refreshes of the view.
-     *
-     * @since 1.557
-     *
-     * @deprecated Auto-refresh has been removed
-     */
     @Deprecated
     public boolean isAutomaticRefreshEnabled() {
         return false;
     }
-
-    /**
-     * If true, only show relevant executors
-     */
     public boolean isFilterExecutors() {
         return filterExecutors;
     }
-
-    /**
-     * @since 2.426
-     */
     @DataBoundSetter
     public void setFilterExecutors(boolean filterExecutors) {
         this.filterExecutors = filterExecutors;
     }
-
-    /**
-     * If true, only show relevant queue items
-     */
     public boolean isFilterQueue() {
         return filterQueue;
     }
-
-    /**
-     * @since 2.426
-     */
     @DataBoundSetter
     public void setFilterQueue(boolean filterQueue) {
         this.filterQueue = filterQueue;
     }
-
-    /**
-     * If this view uses {@code <t:projectView>} for rendering, this method returns columns to be displayed.
-     */
     public Iterable<? extends ListViewColumn> getColumns() {
         return ListViewColumn.createDefaultInitialColumnList(this);
     }
-
-    /**
-     * If this view uses {@code t:projectView} for rendering, this method returns the indenter used
-     * to indent each row.
-     */
     public Indenter getIndenter() {
         return null;
     }
-
-    /**
-     * If true, this is a view that renders the top page of Hudson.
-     */
     public boolean isDefault() {
         return getOwner().getPrimaryView() == this;
     }
@@ -480,8 +379,6 @@ public abstract class View extends AbstractModelObject implements AccessControll
                 return true;
         return false;
     }
-
-    private static final int FILTER_LOOP_MAX_COUNT = 10;
 
     private List<Queue.Item> filterQueue(List<Queue.Item> base) {
         if (!isFilterQueue()) {
@@ -526,30 +423,13 @@ public abstract class View extends AbstractModelObject implements AccessControll
     public List<Queue.Item> getQueueItems() {
         return filterQueue(Arrays.asList(Jenkins.get().getQueue().getItems()));
     }
-
-    /**
-     * @return The items in the queue.
-     * @deprecated Use {@link #getQueueItems()}. As of 1.607 the approximation is no longer needed.
-     */
     @Deprecated
     public List<Queue.Item> getApproximateQueueItemsQuickly() {
         return filterQueue(Jenkins.get().getQueue().getApproximateItemsQuickly());
     }
-
-    /**
-     * Returns the path relative to the context root.
-     *
-     * Doesn't start with '/' but ends with '/' (except returns
-     * empty string when this is the default view).
-     */
     public String getUrl() {
         return isDefault() ? (owner != null ? owner.getUrl() : "") : getViewUrl();
     }
-
-    /**
-     * Same as {@link #getUrl()} except this returns a view/{name} path
-     * even for the default view.
-     */
     public String getViewUrl() {
         return (owner != null ? owner.getUrl() : "") + "view/" + Util.rawEncode(getViewName()) + '/';
     }
@@ -572,27 +452,12 @@ public abstract class View extends AbstractModelObject implements AccessControll
     public SearchGroup getSearchGroup() {
         return SearchGroup.get(SearchGroup.ViewSearchGroup.class);
     }
-
-    /**
-     * Returns the transient {@link Action}s associated with the top page.
-     *
-     * <p>
-     * If views don't want to show top-level actions, this method
-     * can be overridden to return different objects.
-     *
-     * @see Jenkins#getActions()
-     */
     public List<Action> getActions() {
         List<Action> result = new ArrayList<>();
         result.addAll(getOwner().getViewActions());
         result.addAll(TransientViewActionFactory.createAllFor(this));
         return result;
     }
-
-    /**
-     * No-op. Included to maintain backwards compatibility.
-     * @deprecated This method does nothing and should not be used
-     */
     @Restricted(DoNotUse.class)
     @Deprecated
     public void updateTransientActions() {}
@@ -606,10 +471,6 @@ public abstract class View extends AbstractModelObject implements AccessControll
         }
         return null;
     }
-
-    /**
-     * Gets the absolute URL of this view.
-     */
     @Exported(visibility = 2, name = "url")
     public String getAbsoluteUrl() {
         return Jenkins.get().getRootUrl() + getUrl();
@@ -618,27 +479,14 @@ public abstract class View extends AbstractModelObject implements AccessControll
     public Api getApi() {
         return new Api(this);
     }
-
-    /**
-     * Returns the page to redirect the user to, after the view is created.
-     *
-     * The returned string is appended to "/view/foobar/", so for example
-     * to direct the user to the top page of the view, return "", etc.
-     */
     public String getPostConstructLandingPage() {
         return "configure";
     }
-
-    /**
-     * Returns the {@link ACL} for this object.
-     */
     @NonNull
     @Override
     public ACL getACL() {
         return Jenkins.get().getAuthorizationStrategy().getACL(this);
     }
-
-    /** @deprecated Does not work properly with moved jobs. Use {@link ItemListener#onLocationChanged} instead. */
     @Deprecated
     public void onJobRenamed(Item item, String oldName, String newName) {}
 
@@ -652,13 +500,6 @@ public abstract class View extends AbstractModelObject implements AccessControll
             sib.add(item.getSearchUrl(), item.getDisplayName());
         }
     }
-
-    /**
-     * Add a simple CollectionSearchIndex object to sib
-     *
-     * @param sib the SearchIndexBuilder
-     * @since 2.200
-     */
     protected void makeSearchIndex(SearchIndexBuilder sib) {
         sib.add(new CollectionSearchIndex<TopLevelItem>() { // for jobs in the view
             @Override
@@ -685,10 +526,6 @@ public abstract class View extends AbstractModelObject implements AccessControll
 
         return sib;
     }
-
-    /**
-     * Accepts the new description.
-     */
     @RequirePOST
     public synchronized void doSubmitDescription(StaplerRequest2 req, StaplerResponse2 rsp) throws IOException, ServletException {
         if (Util.isOverridden(View.class, getClass(), "doSubmitDescription", StaplerRequest.class, StaplerResponse.class)) {
@@ -701,10 +538,6 @@ public abstract class View extends AbstractModelObject implements AccessControll
             doSubmitDescriptionImpl(req, rsp);
         }
     }
-
-    /**
-     * @deprecated use {@link #doSubmitDescription(StaplerRequest2, StaplerResponse2)}
-     */
     @Deprecated
     @StaplerNotDispatchable
     public synchronized void doSubmitDescription(StaplerRequest req, StaplerResponse rsp) throws IOException, javax.servlet.ServletException {
@@ -718,12 +551,6 @@ public abstract class View extends AbstractModelObject implements AccessControll
         save();
         rsp.sendRedirect(".");  // go to the top page
     }
-
-    /**
-     * Accepts submission from the configuration page.
-     *
-     * Subtypes should override the {@link #submit(StaplerRequest2)} method.
-     */
     @POST
     public final synchronized void doConfigSubmit(StaplerRequest2 req, StaplerResponse2 rsp) throws IOException, ServletException, FormException {
         checkPermission(CONFIGURE);
@@ -742,12 +569,6 @@ public abstract class View extends AbstractModelObject implements AccessControll
 
         FormApply.success("../" + Util.rawEncode(name)).generateResponse(req, rsp, this);
     }
-
-    /**
-     * Handles the configuration submission.
-     *
-     * Load view-specific properties here.
-     */
     protected /* abstract */ void submit(StaplerRequest2 req) throws IOException, ServletException, FormException {
         if (Util.isOverridden(View.class, getClass(), "submit", StaplerRequest.class)) {
             try {
@@ -760,10 +581,6 @@ public abstract class View extends AbstractModelObject implements AccessControll
                     + View.class.getSimpleName() + ".submit methods");
         }
     }
-
-    /**
-     * @deprecated use {@link #submit(StaplerRequest2)}
-     */
     @Deprecated
     protected void submit(StaplerRequest req) throws IOException, javax.servlet.ServletException, FormException {
         if (Util.isOverridden(View.class, getClass(), "submit", StaplerRequest2.class)) {
@@ -777,11 +594,6 @@ public abstract class View extends AbstractModelObject implements AccessControll
                     + View.class.getSimpleName() + ".submit methods");
         }
     }
-
-
-    /**
-     * Deletes this view.
-     */
     @RequirePOST
     public synchronized void doDoDelete(StaplerRequest2 req, StaplerResponse2 rsp) throws IOException, ServletException {
         checkPermission(DELETE);
@@ -790,19 +602,6 @@ public abstract class View extends AbstractModelObject implements AccessControll
 
         rsp.sendRedirect2(req.getContextPath() + "/" + owner.getUrl());
     }
-
-
-    /**
-     * Creates a new {@link Item} in this collection.
-     *
-     * <p>
-     * This method should call {@link ModifiableItemGroup#doCreateItem(StaplerRequest2, StaplerResponse2)}
-     * and then add the newly created item to this view.
-     *
-     * @return
-     *      null if fails.
-     * @since 2.475
-     */
     @RequirePOST
     public /* abstract */ Item doCreateItem(StaplerRequest2 req, StaplerResponse2 rsp) throws IOException, ServletException {
         if (Util.isOverridden(View.class, getClass(), "doCreateItem", StaplerRequest.class, StaplerResponse.class)) {
@@ -816,10 +615,6 @@ public abstract class View extends AbstractModelObject implements AccessControll
                     + View.class.getSimpleName() + ".doCreateItem methods");
         }
     }
-
-    /**
-     * @deprecated use {@link #doCreateItem(StaplerRequest2, StaplerResponse2)}
-     */
     @Deprecated
     @StaplerNotDispatchable
     public Item doCreateItem(StaplerRequest req, StaplerResponse rsp) throws IOException, javax.servlet.ServletException {
@@ -834,11 +629,6 @@ public abstract class View extends AbstractModelObject implements AccessControll
                     + View.class.getSimpleName() + ".doCreateItem methods");
         }
     }
-
-    /**
-     * Makes sure that the given name is good as a job name.
-     * For use from {@code newJob}.
-     */
     @Restricted(DoNotUse.class) // called from newJob view
     public FormValidation doCheckJobName(@QueryParameter String value) {
         // this method can be used to check if a file exists anywhere in the file system,
@@ -865,12 +655,6 @@ public abstract class View extends AbstractModelObject implements AccessControll
         // looks good
         return FormValidation.ok();
     }
-
-    /**
-     * An API REST method to get the allowed {$link TopLevelItem}s and its categories.
-     *
-     * @return A {@link Categories} entity that is shown as JSON file.
-     */
     @Restricted(DoNotUse.class)
     public Categories doItemCategories(StaplerRequest2 req, StaplerResponse2 rsp, @QueryParameter String iconStyle) throws IOException, ServletException {
         getOwner().checkPermission(Item.CREATE);
@@ -959,12 +743,6 @@ public abstract class View extends AbstractModelObject implements AccessControll
         }
         RSS.rss(req, rsp, "Jenkins:" + getDisplayName() + " (latest builds)", getUrl(), RunList.fromRuns(lastBuilds), Run.FEED_ADAPTER_LATEST);
     }
-
-    /**
-     * Accepts {@code config.xml} submission, as well as serve it.
-     *
-     * @since 2.475
-     */
     @WebMethod(name = "config.xml")
     public HttpResponse doConfigDotXml(StaplerRequest2 req) throws IOException {
         if (Util.isOverridden(View.class, getClass(), "doConfigDotXml", StaplerRequest.class)) {
@@ -973,10 +751,6 @@ public abstract class View extends AbstractModelObject implements AccessControll
             return doConfigDotXmlImpl(req);
         }
     }
-
-    /**
-     * @deprecated use {@link #doConfigDotXml(StaplerRequest2)}
-     */
     @Deprecated
     @StaplerNotDispatchable
     public HttpResponse doConfigDotXml(StaplerRequest req) throws IOException {
@@ -1013,23 +787,12 @@ public abstract class View extends AbstractModelObject implements AccessControll
         // huh?
         return HttpResponses.error(SC_BAD_REQUEST, "Unexpected request method " + req.getMethod());
     }
-
-    /**
-     * @since 1.538
-     */
     public void writeXml(OutputStream out) throws IOException {
         // pity we don't have a handy way to clone Jenkins.XSTREAM to temp add the omit Field
         XStream2 xStream2 = new XStream2();
         xStream2.omitField(View.class, "owner");
         xStream2.toXMLUTF8(View.this,  out);
     }
-
-    /**
-     * Updates the View with the new XML definition.
-     * @param source source of the Item's new definition.
-     *               The source should be either a {@link StreamSource} or {@link SAXSource}, other sources
-     *               may not be handled.
-     */
     public void updateByXml(Source source) throws IOException {
         checkPermission(CONFIGURE);
         StringWriter out = new StringWriter();
@@ -1072,29 +835,9 @@ public abstract class View extends AbstractModelObject implements AccessControll
             m.add(Functions.getRelativeLinkTo(i), Functions.getRelativeDisplayNameFrom(i, getOwner().getItemGroup()));
         return m;
     }
-
-    /**
-     * A list of available view types.
-     * @deprecated as of 1.286
-     *      Use {@link #all()} for read access, and use {@link Extension} for registration.
-     */
-    @Deprecated
-    public static final DescriptorList<View> LIST = new DescriptorList<>(View.class);
-
-    /**
-     * Returns all the registered {@link ViewDescriptor}s.
-     */
     public static DescriptorExtensionList<View, ViewDescriptor> all() {
         return Jenkins.get().getDescriptorList(View.class);
     }
-
-    /**
-     * Returns the {@link ViewDescriptor} instances that can be instantiated for the {@link ViewGroup} in the current
-     * {@link StaplerRequest2}.
-     * <p>
-     * <strong>NOTE: Historically this method is only ever called from a {@link StaplerRequest2}</strong>
-     * @return the list of instantiable {@link ViewDescriptor} instances for the current {@link StaplerRequest2}
-     */
     @NonNull
     public static List<ViewDescriptor> allInstantiable() {
         List<ViewDescriptor> r = new ArrayList<>();
@@ -1115,17 +858,6 @@ public abstract class View extends AbstractModelObject implements AccessControll
         return r;
     }
 
-    public static final Comparator<View> SORTER = Comparator.comparing(View::getViewName);
-
-    public static final PermissionGroup PERMISSIONS = new PermissionGroup(View.class, Messages._View_Permissions_Title());
-    /**
-     * Permission to create new views.
-     */
-    public static final Permission CREATE = new Permission(PERMISSIONS, "Create", Messages._View_CreatePermission_Description(), Permission.CREATE, PermissionScope.ITEM_GROUP);
-    public static final Permission DELETE = new Permission(PERMISSIONS, "Delete", Messages._View_DeletePermission_Description(), Permission.DELETE, PermissionScope.ITEM_GROUP);
-    public static final Permission CONFIGURE = new Permission(PERMISSIONS, "Configure", Messages._View_ConfigurePermission_Description(), Permission.CONFIGURE, PermissionScope.ITEM_GROUP);
-    public static final Permission READ = new Permission(PERMISSIONS, "Read", Messages._View_ReadPermission_Description(), Permission.READ, PermissionScope.ITEM_GROUP);
-
     @SuppressFBWarnings(value = "RV_RETURN_VALUE_IGNORED_NO_SIDE_EFFECT", justification = "to guard against potential future compiler optimizations")
     @Initializer(before = InitMilestone.SYSTEM_CONFIG_LOADED)
     @Restricted(DoNotUse.class)
@@ -1138,15 +870,9 @@ public abstract class View extends AbstractModelObject implements AccessControll
         // Objects.hash() to guard against potential future compiler optimizations.
         Objects.hash(PERMISSIONS, CREATE, DELETE, CONFIGURE, READ);
     }
-
-    // to simplify access from Jelly
     public static Permission getItemCreatePermission() {
         return Item.CREATE;
     }
-
-    /**
-     * @since 2.475
-     */
     public static View create(StaplerRequest2 req, StaplerResponse2 rsp, ViewGroup owner)
             throws FormException, IOException, ServletException {
         String mode = req.getParameter("mode");
@@ -1198,10 +924,6 @@ public abstract class View extends AbstractModelObject implements AccessControll
 
         return v;
     }
-
-    /**
-     * @deprecated use {@link #create(StaplerRequest2, StaplerResponse2, ViewGroup)}
-     */
     @Deprecated
     public static View create(StaplerRequest req, StaplerResponse rsp, ViewGroup owner)
             throws FormException, IOException, javax.servlet.ServletException {
@@ -1227,12 +949,6 @@ public abstract class View extends AbstractModelObject implements AccessControll
         v = createViewFromXML(name, new ByteArrayInputStream(xml.getBytes(Charset.defaultCharset())));
         return v;
     }
-
-    /**
-     * Instantiate View subtype from XML stream.
-     *
-     * @param name Alternative name to use or {@code null} to keep the one in xml.
-     */
     public static View createViewFromXML(String name, InputStream xml) throws IOException {
 
         try (InputStream in = new BufferedInputStream(xml)) {
@@ -1244,6 +960,293 @@ public abstract class View extends AbstractModelObject implements AccessControll
             throw new IOException("Unable to read", e);
         }
     }
+
+    /**
+     * Gets all the items in this collection in a read-only view.
+     */
+
+    /**
+     * Gets all the items recursively contained in this collection in a read-only view.
+     * <p>
+     * The default implementation recursively adds the items of all contained Views
+     * in case this view implements {@link ViewGroup}, which should be enough for most cases.
+     *
+     * @since 1.520
+     */
+
+    /**
+     * Gets the {@link TopLevelItem} of the given name.
+     */
+
+    /**
+     * Alias for {@link #getItem(String)}. This is the one used in the URL binding.
+     */
+
+    /**
+     * Checks if the job is in this collection.
+     */
+
+    /**
+     * Gets the name of all this collection.
+     *
+     * @see #rename(String)
+     */
+
+    /**
+     * Renames this view.
+     */
+
+    /**
+     * Gets the {@link ViewGroup} that this view belongs to.
+     */
+
+    /** @deprecated call {@link ViewGroup#getItemGroup} directly */
+
+    /** @deprecated call {@link ViewGroup#getPrimaryView} directly */
+
+    /** @deprecated call {@link ViewGroup#getViewActions} directly */
+
+    /**
+     * Message displayed in the top page. Can be null. Includes HTML.
+     */
+
+    /**
+     * Gets the view properties configured for this view.
+     * @since 1.406
+     */
+
+    /**
+     * Returns all the {@link ViewPropertyDescriptor}s that can be potentially configured
+     * on this view. Returns both {@link ViewPropertyDescriptor}s visible and invisible for user, see
+     * {@link View#getVisiblePropertyDescriptors} to filter invisible one.
+     */
+
+    /**
+     * @return all the {@link ViewPropertyDescriptor}s that can be potentially configured on this View and are visible
+     * for the user. Use {@link DescriptorVisibilityFilter} to make a View property invisible for users.
+     * @since 2.214
+     */
+
+    /**
+     * List of all {@link ViewProperty}s exposed primarily for the remoting API.
+     * @since 1.406
+     */
+
+    /**
+     * By default, return true to render the "Edit view" link on the page.
+     * This method is really just for the default "All" view to hide the edit link
+     * so that the default Hudson top page remains the same as before 1.316.
+     *
+     * @since 1.316
+     */
+
+    /**
+     * Used to enable or disable automatic refreshes of the view.
+     *
+     * @since 1.557
+     *
+     * @deprecated Auto-refresh has been removed
+     */
+
+    /**
+     * If true, only show relevant executors
+     */
+
+    /**
+     * @since 2.426
+     */
+
+    /**
+     * If true, only show relevant queue items
+     */
+
+    /**
+     * @since 2.426
+     */
+
+    /**
+     * If this view uses {@code <t:projectView>} for rendering, this method returns columns to be displayed.
+     */
+
+    /**
+     * If this view uses {@code t:projectView} for rendering, this method returns the indenter used
+     * to indent each row.
+     */
+
+    /**
+     * If true, this is a view that renders the top page of Hudson.
+     */
+
+    /**
+     * @return The items in the queue.
+     * @deprecated Use {@link #getQueueItems()}. As of 1.607 the approximation is no longer needed.
+     */
+
+    /**
+     * Returns the path relative to the context root.
+     *
+     * Doesn't start with '/' but ends with '/' (except returns
+     * empty string when this is the default view).
+     */
+
+    /**
+     * Same as {@link #getUrl()} except this returns a view/{name} path
+     * even for the default view.
+     */
+
+    /**
+     * Returns the transient {@link Action}s associated with the top page.
+     *
+     * <p>
+     * If views don't want to show top-level actions, this method
+     * can be overridden to return different objects.
+     *
+     * @see Jenkins#getActions()
+     */
+
+    /**
+     * No-op. Included to maintain backwards compatibility.
+     * @deprecated This method does nothing and should not be used
+     */
+
+    /**
+     * Gets the absolute URL of this view.
+     */
+
+    /**
+     * Returns the page to redirect the user to, after the view is created.
+     *
+     * The returned string is appended to "/view/foobar/", so for example
+     * to direct the user to the top page of the view, return "", etc.
+     */
+
+    /**
+     * Returns the {@link ACL} for this object.
+     */
+
+    /** @deprecated Does not work properly with moved jobs. Use {@link ItemListener#onLocationChanged} instead. */
+
+    /**
+     * Add a simple CollectionSearchIndex object to sib
+     *
+     * @param sib the SearchIndexBuilder
+     * @since 2.200
+     */
+
+    /**
+     * Accepts the new description.
+     */
+
+    /**
+     * @deprecated use {@link #doSubmitDescription(StaplerRequest2, StaplerResponse2)}
+     */
+
+    /**
+     * Accepts submission from the configuration page.
+     *
+     * Subtypes should override the {@link #submit(StaplerRequest2)} method.
+     */
+
+    /**
+     * Handles the configuration submission.
+     *
+     * Load view-specific properties here.
+     */
+
+    /**
+     * @deprecated use {@link #submit(StaplerRequest2)}
+     */
+
+
+    /**
+     * Deletes this view.
+     */
+
+
+    /**
+     * Creates a new {@link Item} in this collection.
+     *
+     * <p>
+     * This method should call {@link ModifiableItemGroup#doCreateItem(StaplerRequest2, StaplerResponse2)}
+     * and then add the newly created item to this view.
+     *
+     * @return
+     *      null if fails.
+     * @since 2.475
+     */
+
+    /**
+     * @deprecated use {@link #doCreateItem(StaplerRequest2, StaplerResponse2)}
+     */
+
+    /**
+     * Makes sure that the given name is good as a job name.
+     * For use from {@code newJob}.
+     */
+
+    /**
+     * An API REST method to get the allowed {$link TopLevelItem}s and its categories.
+     *
+     * @return A {@link Categories} entity that is shown as JSON file.
+     */
+
+    /**
+     * Accepts {@code config.xml} submission, as well as serve it.
+     *
+     * @since 2.475
+     */
+
+    /**
+     * @deprecated use {@link #doConfigDotXml(StaplerRequest2)}
+     */
+
+    /**
+     * @since 1.538
+     */
+
+    /**
+     * Updates the View with the new XML definition.
+     * @param source source of the Item's new definition.
+     *               The source should be either a {@link StreamSource} or {@link SAXSource}, other sources
+     *               may not be handled.
+     */
+
+    /**
+     * A list of available view types.
+     * @deprecated as of 1.286
+     *      Use {@link #all()} for read access, and use {@link Extension} for registration.
+     */
+
+    /**
+     * Returns all the registered {@link ViewDescriptor}s.
+     */
+
+    /**
+     * Returns the {@link ViewDescriptor} instances that can be instantiated for the {@link ViewGroup} in the current
+     * {@link StaplerRequest2}.
+     * <p>
+     * <strong>NOTE: Historically this method is only ever called from a {@link StaplerRequest2}</strong>
+     * @return the list of instantiable {@link ViewDescriptor} instances for the current {@link StaplerRequest2}
+     */
+    /**
+     * Permission to create new views.
+     */
+
+    // to simplify access from Jelly
+
+    /**
+     * @since 2.475
+     */
+
+    /**
+     * @deprecated use {@link #create(StaplerRequest2, StaplerResponse2, ViewGroup)}
+     */
+
+    /**
+     * Instantiate View subtype from XML stream.
+     *
+     * @param name Alternative name to use or {@code null} to keep the one in xml.
+     */
 
     public static class PropertyList extends DescribableList<ViewProperty, ViewPropertyDescriptor> {
         private PropertyList(View owner) {
@@ -1268,7 +1271,4 @@ public abstract class View extends AbstractModelObject implements AccessControll
      * "Job" in "New Job". When a view is used in a context that restricts the child type,
      * It might be useful to override this.
      */
-    public static final Message<View> NEW_PRONOUN = new Message<>();
-
-    private static final Logger LOGGER = Logger.getLogger(View.class.getName());
 }
