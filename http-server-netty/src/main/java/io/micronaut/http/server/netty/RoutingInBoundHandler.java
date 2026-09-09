@@ -71,9 +71,6 @@ import java.util.regex.Pattern;
 public final class RoutingInBoundHandler implements RequestHandler {
 
     private static final Logger LOG = LoggerFactory.getLogger(RoutingInBoundHandler.class);
-    /*
-     * Also present in {@link RouteExecutor}.
-     */
     private static final Pattern IGNORABLE_ERROR_MESSAGE = Pattern.compile(
         "^.*(?:connection (?:reset|closed|abort|broken)|broken pipe).*$", Pattern.CASE_INSENSITIVE);
 
@@ -88,11 +85,14 @@ public final class RoutingInBoundHandler implements RequestHandler {
     final ApplicationEventPublisher<HttpRequestReceivedEvent> receivedPublisher;
     final RouteExecutor routeExecutor;
     final ConversionService conversionService;
+    boolean supportLoggingHandler = false;
+    /*
+     * Also present in {@link RouteExecutor}.
+     */
     /**
      * This is set to {@code true} if <i>any</i> {@link HttpPipelineBuilder} has a logging handler.
      * When this is not set, we can do a shortcut for performance.
      */
-    boolean supportLoggingHandler = false;
 
     /**
      * @param serverConfiguration               The Netty HTTP server configuration
@@ -286,13 +286,6 @@ public final class RoutingInBoundHandler implements RequestHandler {
             outboundAccess.closeAfterWrite();
         }
     }
-
-    /**
-     * Is the exception ignorable by Micronaut.
-     *
-     * @param cause The cause
-     * @return True if it can be ignored.
-     */
     boolean isIgnorable(Throwable cause) {
         if (cause instanceof ClosedChannelException || cause.getCause() instanceof ClosedChannelException) {
             return true;
@@ -303,4 +296,11 @@ public final class RoutingInBoundHandler implements RequestHandler {
         String message = cause.getMessage();
         return cause instanceof IOException && message != null && IGNORABLE_ERROR_MESSAGE.matcher(message).matches();
     }
+
+    /**
+     * Is the exception ignorable by Micronaut.
+     *
+     * @param cause The cause
+     * @return True if it can be ignored.
+     */
 }
