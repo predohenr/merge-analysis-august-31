@@ -50,18 +50,6 @@ class SchemaTypeExtensionsChecker {
         checkScalarTypeExtensions(errors, typeRegistry, directiveDefinitionMap);
         checkInputObjectTypeExtensions(errors, typeRegistry, directiveDefinitionMap);
     }
-
-
-    /*
-     * Object type extensions have the potential to be invalid if incorrectly defined.
-     *
-     * The named type must already be defined and must be an Object type.
-     * The fields of an Object type extension must have unique names; no two fields may share the same name.
-     * Any fields of an Object type extension must not be already defined on the original Object type.
-     * Any directives provided must not already apply to the original Object type.
-     * Any interfaces provided must not be already implemented by the original Object type.
-     * The resulting extended object type must be a super-set of all interfaces it implements.
-     */
     private void checkObjectTypeExtensions(List<GraphQLError> errors, TypeDefinitionRegistry typeRegistry, Map<String, DirectiveDefinition> directiveDefinitionMap) {
         typeRegistry.objectTypeExtensions()
                 .forEach((name, extensions) -> {
@@ -99,16 +87,6 @@ class SchemaTypeExtensionsChecker {
                         }
                 );
     }
-
-    /*
-     * Interface type extensions have the potential to be invalid if incorrectly defined.
-     *
-     * The named type must already be defined and must be an Interface type.
-     * The fields of an Interface type extension must have unique names; no two fields may share the same name.
-     * Any fields of an Interface type extension must not be already defined on the original Interface type.
-     * Any Object type which implemented the original Interface type must also be a super-set of the fields of the Interface type extension (which may be due to Object type extension).
-     * Any directives provided must not already apply to the original Interface type.
-     */
     private void checkInterfaceTypeExtensions(List<GraphQLError> errors, TypeDefinitionRegistry typeRegistry, Map<String, DirectiveDefinition> directiveDefinitionMap) {
         typeRegistry.interfaceTypeExtensions()
                 .forEach((name, extensions) -> {
@@ -144,16 +122,6 @@ class SchemaTypeExtensionsChecker {
                     );
                 });
     }
-
-    /*
-     * Union type extensions have the potential to be invalid if incorrectly defined.
-     *
-     * The named type must already be defined and must be a Union type.
-     * The member types of a Union type extension must all be Object base types; Scalar, Interface and Union types must not be member types of a Union. Similarly, wrapping types must not be member types of a Union.
-     * All member types of a Union type extension must be unique.
-     * All member types of a Union type extension must not already be a member of the original Union type.
-     * Any directives provided must not already apply to the original Union type.
-     */
     private void checkUnionTypeExtensions(List<GraphQLError> errors, TypeDefinitionRegistry typeRegistry, Map<String, DirectiveDefinition> directiveDefinitionMap) {
         typeRegistry.unionTypeExtensions()
                 .forEach((name, extensions) -> {
@@ -177,15 +145,6 @@ class SchemaTypeExtensionsChecker {
                     });
                 });
     }
-
-    /*
-     * Enum type extensions have the potential to be invalid if incorrectly defined.
-     *
-     * The named type must already be defined and must be an Enum type.
-     * All values of an Enum type extension must be unique.
-     * All values of an Enum type extension must not already be a value of the original Enum.
-     * Any directives provided must not already apply to the original Enum type.
-     */
     private void checkEnumTypeExtensions(List<GraphQLError> errors, TypeDefinitionRegistry typeRegistry, Map<String, DirectiveDefinition> directiveDefinitionMap) {
         typeRegistry.enumTypeExtensions()
                 .forEach((name, extensions) -> {
@@ -210,13 +169,6 @@ class SchemaTypeExtensionsChecker {
                 });
     }
 
-    /*
-     * Scalar type extensions have the potential to be invalid if incorrectly defined.
-     *
-     * The named type must already be defined and must be a Scalar type.
-     * Any directives provided must not already apply to the original Scalar type.
-     */
-
     private void checkScalarTypeExtensions(List<GraphQLError> errors, TypeDefinitionRegistry typeRegistry, Map<String, DirectiveDefinition> directiveDefinitionMap) {
         typeRegistry.scalarTypeExtensions()
                 .forEach((name, extensions) -> {
@@ -224,15 +176,6 @@ class SchemaTypeExtensionsChecker {
                 });
 
     }
-
-    /*
-     * Input object type extensions have the potential to be invalid if incorrectly defined.
-     *
-     * The named type must already be defined and must be a Input Object type.
-     * All fields of an Input Object type extension must have unique names.
-     * All fields of an Input Object type extension must not already be a field of the original Input Object.
-     * Any directives provided must not already apply to the original Input Object type.
-     */
     private void checkInputObjectTypeExtensions(List<GraphQLError> errors, TypeDefinitionRegistry typeRegistry, Map<String, DirectiveDefinition> directiveDefinitionMap) {
         typeRegistry.inputObjectTypeExtensions()
                 .forEach((name, extensions) -> {
@@ -360,4 +303,61 @@ class SchemaTypeExtensionsChecker {
             }
         }
     }
+
+
+    /*
+     * Object type extensions have the potential to be invalid if incorrectly defined.
+     *
+     * The named type must already be defined and must be an Object type.
+     * The fields of an Object type extension must have unique names; no two fields may share the same name.
+     * Any fields of an Object type extension must not be already defined on the original Object type.
+     * Any directives provided must not already apply to the original Object type.
+     * Any interfaces provided must not be already implemented by the original Object type.
+     * The resulting extended object type must be a super-set of all interfaces it implements.
+     */
+
+    /*
+     * Interface type extensions have the potential to be invalid if incorrectly defined.
+     *
+     * The named type must already be defined and must be an Interface type.
+     * The fields of an Interface type extension must have unique names; no two fields may share the same name.
+     * Any fields of an Interface type extension must not be already defined on the original Interface type.
+     * Any Object type which implemented the original Interface type must also be a super-set of the fields of the Interface type extension (which may be due to Object type extension).
+     * Any directives provided must not already apply to the original Interface type.
+     */
+
+    /*
+     * Union type extensions have the potential to be invalid if incorrectly defined.
+     *
+     * The named type must already be defined and must be a Union type.
+     * The member types of a Union type extension must all be Object base types; Scalar, Interface and Union types must not be member types of a Union. Similarly, wrapping types must not be member types of a Union.
+     * All member types of a Union type extension must be unique.
+     * All member types of a Union type extension must not already be a member of the original Union type.
+     * Any directives provided must not already apply to the original Union type.
+     */
+
+    /*
+     * Enum type extensions have the potential to be invalid if incorrectly defined.
+     *
+     * The named type must already be defined and must be an Enum type.
+     * All values of an Enum type extension must be unique.
+     * All values of an Enum type extension must not already be a value of the original Enum.
+     * Any directives provided must not already apply to the original Enum type.
+     */
+
+    /*
+     * Scalar type extensions have the potential to be invalid if incorrectly defined.
+     *
+     * The named type must already be defined and must be a Scalar type.
+     * Any directives provided must not already apply to the original Scalar type.
+     */
+
+    /*
+     * Input object type extensions have the potential to be invalid if incorrectly defined.
+     *
+     * The named type must already be defined and must be a Input Object type.
+     * All fields of an Input Object type extension must have unique names.
+     * All fields of an Input Object type extension must not already be a field of the original Input Object.
+     * Any directives provided must not already apply to the original Input Object type.
+     */
 }
