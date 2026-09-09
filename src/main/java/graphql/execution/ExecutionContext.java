@@ -35,6 +35,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 
+import static graphql.normalized.ExecutableNormalizedOperationFactory.*;
 import static graphql.normalized.ExecutableNormalizedOperationFactory.Options;
 import static graphql.normalized.ExecutableNormalizedOperationFactory.createExecutableNormalizedOperation;
 
@@ -70,8 +71,6 @@ public class ExecutionContext {
     private final ExecutionInput executionInput;
     private final Supplier<ExecutableNormalizedOperation> queryTree;
     private final boolean propagateErrorsOnNonNullContractFailure;
-
-    // this is modified after creation so it needs to be volatile to ensure visibility across Threads
     private volatile DataLoaderDispatchStrategy dataLoaderDispatcherStrategy = DataLoaderDispatchStrategy.NO_OP;
 
     private final ResultNodesInfo resultNodesInfo = new ResultNodesInfo();
@@ -80,6 +79,8 @@ public class ExecutionContext {
     private final Supplier<Map<OperationDefinition, ImmutableList<QueryAppliedDirective>>> allOperationsDirectives;
     private final Supplier<Map<String, ImmutableList<QueryAppliedDirective>>> operationDirectives;
     private final Profiler profiler;
+
+    // this is modified after creation so it needs to be volatile to ensure visibility across Threads
 
     ExecutionContext(ExecutionContextBuilder builder) {
         this.graphQLSchema = builder.graphQLSchema;
@@ -159,18 +160,9 @@ public class ExecutionContext {
     public OperationDefinition getOperationDefinition() {
         return operationDefinition;
     }
-
-    /**
-     * @return the map of {@link QueryAppliedDirective}s by name that were on this executing operation
-     */
     public Map<String, ImmutableList<QueryAppliedDirective>> getOperationDirectives() {
         return operationDirectives.get();
     }
-
-    /**
-     * @return the map of all the  {@link QueryAppliedDirective}s that were on the {@link Document} including
-     * {@link OperationDefinition}s that are not currently executing.
-     */
     public Map<OperationDefinition, ImmutableList<QueryAppliedDirective>> getAllOperationDirectives() {
         return allOperationsDirectives.get();
     }
@@ -178,21 +170,9 @@ public class ExecutionContext {
     public CoercedVariables getCoercedVariables() {
         return coercedVariables;
     }
-
-    /**
-     * @return a supplier that will give out the operations variables in normalized form
-     */
     public Supplier<NormalizedVariables> getNormalizedVariables() {
         return normalizedVariables;
     }
-
-    /**
-     * @param <T> for two
-     *
-     * @return the legacy context
-     *
-     * @deprecated use {@link #getGraphQLContext()} instead
-     */
     @Deprecated(since = "2021-07-05")
     @SuppressWarnings({"unchecked", "TypeParameterUnusedInFormals"})
     public @Nullable <T> T getContext() {
@@ -228,36 +208,16 @@ public class ExecutionContext {
     public ValueUnboxer getValueUnboxer() {
         return valueUnboxer;
     }
-
-    /**
-     * @return true if the current operation should propagate errors in non-null positions
-     * Propagating errors is the default. Error aware clients may opt in returning null in non-null positions
-     * by using the `@experimental_disableErrorPropagation` directive.
-     *
-     * @see graphql.Directives#setExperimentalDisableErrorPropagationEnabled(boolean) to change the JVM wide default
-     */
     @ExperimentalApi
     public boolean propagateErrorsOnNonNullContractFailure() {
         return propagateErrorsOnNonNullContractFailure;
     }
-
-    /**
-     * @return true if the current operation is a Query
-     */
     public boolean isQueryOperation() {
         return isOpType(OperationDefinition.Operation.QUERY);
     }
-
-    /**
-     * @return true if the current operation is a Mutation
-     */
     public boolean isMutationOperation() {
         return isOpType(OperationDefinition.Operation.MUTATION);
     }
-
-    /**
-     * @return true if the current operation is a Subscription
-     */
     public boolean isSubscriptionOperation() {
         return isOpType(OperationDefinition.Operation.SUBSCRIPTION);
     }
@@ -268,13 +228,6 @@ public class ExecutionContext {
         }
         return false;
     }
-
-    /**
-     * This method will only put one error per field path.
-     *
-     * @param error     the error to add
-     * @param fieldPath the field path to put it under
-     */
     public void addError(GraphQLError error, ResultPath fieldPath) {
         errorsLock.runLocked(() -> {
             //
@@ -288,13 +241,6 @@ public class ExecutionContext {
             this.errors.set(ImmutableKit.addToList(this.errors.get(), error));
         });
     }
-
-    /**
-     * This method will allow you to add errors into the running execution context, without a check
-     * for per field unique-ness
-     *
-     * @param error the error to add
-     */
     public void addError(GraphQLError error) {
         errorsLock.runLocked(() -> {
             // see https://github.com/graphql-java/graphql-java/issues/888 on how the spec is unclear
@@ -307,13 +253,6 @@ public class ExecutionContext {
             this.errors.set(ImmutableKit.addToList(this.errors.get(), error));
         });
     }
-
-    /**
-     * This method will allow you to add errors into the running execution context, without a check
-     * for per field unique-ness
-     *
-     * @param errors the errors to add
-     */
     public void addErrors(List<GraphQLError> errors) {
         if (errors.isEmpty()) {
             return;
@@ -340,10 +279,6 @@ public class ExecutionContext {
     public ResponseMapFactory getResponseMapFactory() {
         return responseMapFactory;
     }
-
-    /**
-     * @return the total list of errors for this execution context
-     */
     public List<GraphQLError> getErrors() {
         return errors.get();
     }
@@ -387,15 +322,6 @@ public class ExecutionContext {
     public DataLoaderDispatchStrategy getDataLoaderDispatcherStrategy() {
         return dataLoaderDispatcherStrategy;
     }
-
-    /**
-     * This helps you transform the current ExecutionContext object into another one by starting a builder with all
-     * the current values and allows you to transform it how you want.
-     *
-     * @param builderConsumer the consumer code that will be given a builder to transform
-     *
-     * @return a new ExecutionContext object based on calling build on that builder
-     */
     public ExecutionContext transform(Consumer<ExecutionContextBuilder> builderConsumer) {
         ExecutionContextBuilder builder = ExecutionContextBuilder.newExecutionContextBuilder(this);
         builderConsumer.accept(builder);
@@ -433,4 +359,79 @@ public class ExecutionContext {
     void throwIfCancelled() throws AbortExecutionException {
         engineRunningState.throwIfCancelled();
     }
+
+    /**
+     * @return the map of {@link QueryAppliedDirective}s by name that were on this executing operation
+     */
+
+    /**
+     * @return the map of all the  {@link QueryAppliedDirective}s that were on the {@link Document} including
+     * {@link OperationDefinition}s that are not currently executing.
+     */
+
+    /**
+     * @return a supplier that will give out the operations variables in normalized form
+     */
+
+    /**
+     * @param <T> for two
+     *
+     * @return the legacy context
+     *
+     * @deprecated use {@link #getGraphQLContext()} instead
+     */
+
+    /**
+     * @return true if the current operation should propagate errors in non-null positions
+     * Propagating errors is the default. Error aware clients may opt in returning null in non-null positions
+     * by using the `@experimental_disableErrorPropagation` directive.
+     *
+     * @see graphql.Directives#setExperimentalDisableErrorPropagationEnabled(boolean) to change the JVM wide default
+     */
+
+    /**
+     * @return true if the current operation is a Query
+     */
+
+    /**
+     * @return true if the current operation is a Mutation
+     */
+
+    /**
+     * @return true if the current operation is a Subscription
+     */
+
+    /**
+     * This method will only put one error per field path.
+     *
+     * @param error     the error to add
+     * @param fieldPath the field path to put it under
+     */
+
+    /**
+     * This method will allow you to add errors into the running execution context, without a check
+     * for per field unique-ness
+     *
+     * @param error the error to add
+     */
+
+    /**
+     * This method will allow you to add errors into the running execution context, without a check
+     * for per field unique-ness
+     *
+     * @param errors the errors to add
+     */
+
+    /**
+     * @return the total list of errors for this execution context
+     */
+
+    /**
+     * This helps you transform the current ExecutionContext object into another one by starting a builder with all
+     * the current values and allows you to transform it how you want.
+     *
+     * @param builderConsumer the consumer code that will be given a builder to transform
+     *
+     * @return a new ExecutionContext object based on calling build on that builder
+     */
 }
