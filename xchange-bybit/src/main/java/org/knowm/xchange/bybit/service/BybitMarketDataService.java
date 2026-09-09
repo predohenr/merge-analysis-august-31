@@ -12,8 +12,8 @@ import org.knowm.xchange.bybit.BybitExchange;
 import org.knowm.xchange.bybit.dto.BybitCategory;
 import org.knowm.xchange.bybit.dto.BybitResult;
 import org.knowm.xchange.bybit.dto.marketdata.BybitOrderbook;
-import org.knowm.xchange.bybit.dto.marketdata.BybitFundingRateHistory;
 import org.knowm.xchange.bybit.dto.marketdata.BybitFundingRateHistoryRaw;
+import org.knowm.xchange.bybit.dto.marketdata.BybitFundingRateHistory;
 import org.knowm.xchange.bybit.dto.marketdata.tickers.BybitTicker;
 import org.knowm.xchange.bybit.dto.marketdata.tickers.BybitTickers;
 import org.knowm.xchange.bybit.dto.marketdata.tickers.linear.BybitLinearInverseTicker;
@@ -113,6 +113,19 @@ public class BybitMarketDataService extends BybitMarketDataServiceRaw implements
     return result;
   }
 
+  public List<BybitFundingRateHistory> getFundingRateHistory(Instrument instrument, Long startTime, Long endTime, Integer limit) throws IOException {
+    BybitCategory category = BybitAdapters.getCategory(instrument);
+    List<BybitFundingRateHistoryRaw> raw = getFundingRateHistoryRaw(instrument, startTime, endTime, limit);
+    List<BybitFundingRateHistory> result = new ArrayList<>();
+    for (BybitFundingRateHistoryRaw entry : raw) {
+      Instrument converted = BybitAdapters.convertBybitSymbolToInstrument(entry.getInstrument(), category);
+      result.add(new BybitFundingRateHistory(converted, entry.getFundingRate(), entry.getFundingRateTimestamp()));
+    }
+    // sort, oldest first
+    result.sort(Comparator.comparingLong(s -> s.getFundingRateTimestamp().toEpochMilli()));
+    return result;
+  }
+
   @Override
   public OrderBook getOrderBook(Instrument instrument, Object... args) throws IOException {
     Assert.notNull(instrument, "Null instrument");
@@ -145,18 +158,5 @@ public class BybitMarketDataService extends BybitMarketDataServiceRaw implements
             .collect(Collectors.toList());
     return new OrderBook(
         Date.from(Instant.ofEpochMilli(ob.getTimestamp())), asks, bids);
-  }
-
-  public List<BybitFundingRateHistory> getFundingRateHistory(Instrument instrument, Long startTime, Long endTime, Integer limit) throws IOException {
-    BybitCategory category = BybitAdapters.getCategory(instrument);
-    List<BybitFundingRateHistoryRaw> raw = getFundingRateHistoryRaw(instrument, startTime, endTime, limit);
-    List<BybitFundingRateHistory> result = new ArrayList<>();
-    for (BybitFundingRateHistoryRaw entry : raw) {
-      Instrument converted = BybitAdapters.convertBybitSymbolToInstrument(entry.getInstrument(), category);
-      result.add(new BybitFundingRateHistory(converted, entry.getFundingRate(), entry.getFundingRateTimestamp()));
-    }
-    // sort, oldest first
-    result.sort(Comparator.comparingLong(s -> s.getFundingRateTimestamp().toEpochMilli()));
-    return result;
   }
 }
