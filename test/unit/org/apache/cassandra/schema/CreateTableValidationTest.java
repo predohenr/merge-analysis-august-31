@@ -21,8 +21,8 @@ package org.apache.cassandra.schema;
 import org.apache.cassandra.cql3.CQLTester;
 import org.apache.cassandra.exceptions.ConfigurationException;
 import org.apache.cassandra.exceptions.InvalidRequestException;
-import org.apache.cassandra.exceptions.RequestValidationException;
 import org.apache.cassandra.utils.BloomCalculations;
+import org.apache.cassandra.exceptions.RequestValidationException;
 
 import org.junit.Test;
 
