@@ -41,8 +41,8 @@ import io.micronaut.python.processing.visitor.PythonFieldElement;
 import io.micronaut.python.processing.visitor.PythonMethodElement;
 import io.micronaut.python.processing.visitor.PythonParameterElement;
 import io.micronaut.sourcegen.model.EnumDef;
-import io.micronaut.inject.annotation.MutableAnnotationMetadata;
 import io.micronaut.sourcegen.model.MethodDef;
+import io.micronaut.inject.annotation.MutableAnnotationMetadata;
 import jakarta.inject.Named;
 import jakarta.inject.Scope;
 import jakarta.inject.Singleton;
@@ -390,94 +390,6 @@ public class PythonAstParserTest {
                 };
             }
         );
-    }
-
-    public static final class FakeNativeAnnotationType {
-        public FakeNativeAnnotationElement element() {
-            return new FakeNativeAnnotationElement();
-        }
-    }
-
-    public static final class FakeNativeAnnotationTypeWithMethod {
-        private final String returnType;
-
-        FakeNativeAnnotationTypeWithMethod(String returnType) {
-            this.returnType = returnType;
-        }
-
-        public FakeNativeAnnotationElementWithMethod element() {
-            return new FakeNativeAnnotationElementWithMethod(returnType);
-        }
-    }
-
-    public static final class FakeNativeAnnotationElement {
-        public FakeElementKind getKind() {
-            return new FakeElementKind("ANNOTATION_TYPE");
-        }
-
-        public List<FakeEnclosedElement> getEnclosedElements() {
-            return List.of(new FakeEnclosedElement("ENUM", "AccessKind"));
-        }
-    }
-
-    public static final class FakeNativeAnnotationElementWithMethod {
-        private final String returnType;
-
-        FakeNativeAnnotationElementWithMethod(String returnType) {
-            this.returnType = returnType;
-        }
-
-        public FakeElementKind getKind() {
-            return new FakeElementKind("ANNOTATION_TYPE");
-        }
-
-        public List<FakeEnclosedMethodElement> getEnclosedElements() {
-            return List.of(new FakeEnclosedMethodElement(returnType));
-        }
-    }
-
-    public static final class FakeEnclosedMethodElement {
-        private final String returnType;
-
-        FakeEnclosedMethodElement(String returnType) {
-            this.returnType = returnType;
-        }
-
-        public FakeElementKind getKind() {
-            return new FakeElementKind("METHOD");
-        }
-
-        public FakeReturnType getReturnType() {
-            return new FakeReturnType(returnType);
-        }
-    }
-
-    public static final class FakeEnclosedElement {
-        private final String kind;
-        private final String simpleName;
-
-        FakeEnclosedElement(String kind, String simpleName) {
-            this.kind = kind;
-            this.simpleName = simpleName;
-        }
-
-        public FakeElementKind getKind() {
-            return new FakeElementKind(kind);
-        }
-
-        public String getSimpleName() {
-            return simpleName;
-        }
-    }
-
-    public record FakeElementKind(String name) {
-    }
-
-    public record FakeReturnType(String name) {
-        @Override
-        public String toString() {
-            return name;
-        }
     }
 
     @Test
@@ -2322,5 +2234,93 @@ class ProductMappers:
         List<PropertyElement> noStaticProperties = pythonClass.getBeanProperties(noStaticQuery);
         // All our test properties are non-static, so size should remain the same
         assertEquals(allProperties.size(), noStaticProperties.size(), "Should include all non-static properties");
+    }
+
+    public static final class FakeNativeAnnotationType {
+        public FakeNativeAnnotationElement element() {
+            return new FakeNativeAnnotationElement();
+        }
+    }
+
+    public static final class FakeNativeAnnotationTypeWithMethod {
+        private final String returnType;
+
+        FakeNativeAnnotationTypeWithMethod(String returnType) {
+            this.returnType = returnType;
+        }
+
+        public FakeNativeAnnotationElementWithMethod element() {
+            return new FakeNativeAnnotationElementWithMethod(returnType);
+        }
+    }
+
+    public static final class FakeNativeAnnotationElement {
+        public FakeElementKind getKind() {
+            return new FakeElementKind("ANNOTATION_TYPE");
+        }
+
+        public List<FakeEnclosedElement> getEnclosedElements() {
+            return List.of(new FakeEnclosedElement("ENUM", "AccessKind"));
+        }
+    }
+
+    public static final class FakeNativeAnnotationElementWithMethod {
+        private final String returnType;
+
+        FakeNativeAnnotationElementWithMethod(String returnType) {
+            this.returnType = returnType;
+        }
+
+        public FakeElementKind getKind() {
+            return new FakeElementKind("ANNOTATION_TYPE");
+        }
+
+        public List<FakeEnclosedMethodElement> getEnclosedElements() {
+            return List.of(new FakeEnclosedMethodElement(returnType));
+        }
+    }
+
+    public static final class FakeEnclosedMethodElement {
+        private final String returnType;
+
+        FakeEnclosedMethodElement(String returnType) {
+            this.returnType = returnType;
+        }
+
+        public FakeElementKind getKind() {
+            return new FakeElementKind("METHOD");
+        }
+
+        public FakeReturnType getReturnType() {
+            return new FakeReturnType(returnType);
+        }
+    }
+
+    public static final class FakeEnclosedElement {
+        private final String kind;
+        private final String simpleName;
+
+        FakeEnclosedElement(String kind, String simpleName) {
+            this.kind = kind;
+            this.simpleName = simpleName;
+        }
+
+        public FakeElementKind getKind() {
+            return new FakeElementKind(kind);
+        }
+
+        public String getSimpleName() {
+            return simpleName;
+        }
+    }
+
+    public record FakeElementKind(String name) {
+    }
+
+    public record FakeReturnType(String name) {
+        @Override
+        public String toString() {
+            return name;
+        }
     }
 }
