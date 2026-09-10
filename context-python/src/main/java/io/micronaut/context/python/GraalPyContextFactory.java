@@ -46,10 +46,10 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
-import java.util.OptionalLong;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
+import java.util.concurrent.CompletableFuture;
+import java.util.OptionalLong;
+import java.util.Optional;
 
 import static io.micronaut.context.python.GraalPyRuntimeUtil.PYTHON;
 
@@ -78,15 +78,6 @@ public class GraalPyContextFactory implements BeanDestroyedEventListener<org.gra
     public GraalPyContextFactory(ApplicationContext applicationContext) {
         this.applicationContext = applicationContext;
     }
-
-    /**
-     * Create and initialize the GraalPy context.
-     * This bean loads on startup due to the @Context annotation.
-     *
-     * @param engine The engine
-     * @param hostAccess The host access
-     * @return The initialized GraalPy context
-     */
     @io.micronaut.context.annotation.Context
     @Singleton
     @Named(PYTHON)
@@ -123,16 +114,6 @@ public class GraalPyContextFactory implements BeanDestroyedEventListener<org.gra
                                                             @NonNull Map<String, String> options) throws IOException {
         return bootstrapReusableContext(classLoader, options, APPLICATION_MAIN);
     }
-
-    /**
-     * Create a reusable GraalPy context and evaluate the requested application bootstrap script.
-     *
-     * @param classLoader The application class loader
-     * @param options Additional GraalPy context options
-     * @param applicationMain The Python source resource to evaluate after the generated launcher
-     * @return The initialized GraalPy context
-     * @throws IOException If the context cannot load application resources
-     */
     public static @NonNull Context bootstrapReusableContext(@NonNull ClassLoader classLoader,
                                                             @NonNull Map<String, String> options,
                                                             @NonNull String applicationMain) throws IOException {
@@ -239,11 +220,6 @@ public class GraalPyContextFactory implements BeanDestroyedEventListener<org.gra
             return GraalPyContextFactory.class;
         }
     }
-
-    /**
-     * Cleanup method called during application shutdown.
-     * Resets the context in PythonContextRuntime to prevent memory leaks.
-     */
     @Override
     public void onDestroyed(@NonNull BeanDestroyedEvent<Context> event) {
         if (!PythonContextRuntime.isReuseContext()) {
@@ -310,4 +286,28 @@ public class GraalPyContextFactory implements BeanDestroyedEventListener<org.gra
     public int getOrder() {
         return Ordered.LOWEST_PRECEDENCE;
     }
+
+    /**
+     * Create and initialize the GraalPy context.
+     * This bean loads on startup due to the @Context annotation.
+     *
+     * @param engine The engine
+     * @param hostAccess The host access
+     * @return The initialized GraalPy context
+     */
+
+    /**
+     * Create a reusable GraalPy context and evaluate the requested application bootstrap script.
+     *
+     * @param classLoader The application class loader
+     * @param options Additional GraalPy context options
+     * @param applicationMain The Python source resource to evaluate after the generated launcher
+     * @return The initialized GraalPy context
+     * @throws IOException If the context cannot load application resources
+     */
+
+    /**
+     * Cleanup method called during application shutdown.
+     * Resets the context in PythonContextRuntime to prevent memory leaks.
+     */
 }
