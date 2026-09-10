@@ -319,8 +319,9 @@ public class PythonStubGenerator implements TypeElementVisitor<Object, Object> {
                                         for (PropertyElement beanProperty : beanProperties) {
                                             FieldDef field = propertyFields.get(beanProperty.getName());
                                             if (field == null) {
-                                            continue;
-                                        }ExpressionDef fieldRef = aThis.field(field);
+                                                continue;
+                                            }
+                                            ExpressionDef fieldRef = aThis.field(field);
                                             args.add(coerceTypedElementToPolyglotValue(beanProperty, fieldRef).cast(TypeDef.OBJECT));
                                         }
                                         return CONTEXT_HOLDER.invokeStatic(isAbstractIntro ? "newIntroduction" : "newInstance", POLYGLOT_VALUE, args).returning();
