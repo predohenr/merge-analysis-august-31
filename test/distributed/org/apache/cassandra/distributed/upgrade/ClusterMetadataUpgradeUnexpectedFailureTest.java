@@ -74,11 +74,11 @@ public class ClusterMetadataUpgradeUnexpectedFailureTest extends UpgradeTestBase
     {
         Consumer<UpgradeableCluster.Builder > builderUpdater = builder -> builder.withInstanceInitializer(BBInstaller::installUpgradeVersionBB);
         new TestCase()
-            .nodes(3)
-            .nodesToUpgrade(1, 2, 3)
-            .withConfig((cfg) -> cfg.with(Feature.NETWORK, Feature.GOSSIP)
-                                    .set(Constants.KEY_DTEST_FULL_STARTUP, true))
-            .singleUpgradeToCurrentFrom(v50)
+                .nodes(3)
+                .nodesToUpgrade(1, 2, 3)
+                .withConfig((cfg) -> cfg.with(Feature.NETWORK, Feature.GOSSIP)
+                        .set(Constants.KEY_DTEST_FULL_STARTUP, true))
+            .singleUpgradeToCurrentFrom(v41)
             .withBuilder(builderUpdater)
             .setup((cluster) -> {
                 BBState.failBeforePreInitialize.set(failBeforePreInit);
