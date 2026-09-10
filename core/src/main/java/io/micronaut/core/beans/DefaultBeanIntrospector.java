@@ -139,10 +139,14 @@ class DefaultBeanIntrospector implements BeanIntrospector {
         }
     }
 
+    private Map<String, BeanIntrospectionReference<Object>> getIntrospections() {
+        return getIntrospections(resolveClassLoader());
+    }
+
     @Nullable
     private BeanIntrospectionReference<Object> findIntrospectionReference(Class<?> beanType) {
         String beanTypeName = beanType.getName();
-        BeanIntrospectionReference<Object> reference = getIntrospections().get(beanTypeName);
+        BeanIntrospectionReference<Object> reference = getIntrospections(effectiveClassLoader).get(beanTypeName);
         if (reference != null) {
             return reference;
         }
@@ -152,10 +156,6 @@ class DefaultBeanIntrospector implements BeanIntrospector {
             return resolveIntrospections(beanClassLoader).get(beanTypeName);
         }
         return null;
-    }
-
-    private Map<String, BeanIntrospectionReference<Object>> getIntrospections() {
-        return getIntrospections(resolveClassLoader());
     }
 
     private Map<String, BeanIntrospectionReference<Object>> getIntrospections(ClassLoader effectiveClassLoader) {
