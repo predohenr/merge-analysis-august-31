@@ -21,8 +21,9 @@ import io.micrometer.core.instrument.config.validate.Validated;
 import io.micrometer.core.instrument.push.PushRegistryConfig;
 
 import java.net.URLDecoder;
-import java.time.Duration;
+import java.util.Locale;
 import java.util.*;
+import java.time.Duration;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
@@ -47,18 +48,6 @@ public interface OtlpConfig extends PushRegistryConfig {
     default String prefix() {
         return "otlp";
     }
-
-    /**
-     * If no value is returned by {@link #get(String)}, environment variables
-     * {@code OTEL_EXPORTER_OTLP_METRICS_ENDPOINT} and {@code OTEL_EXPORTER_OTLP_ENDPOINT}
-     * environment variables will be checked, in that order, by the default
-     * implementation.
-     * @return address to where metrics will be published. Default is
-     * {@code http://localhost:4318/v1/metrics}
-     * @see <a href=
-     * "https://opentelemetry.io/docs/languages/sdk-configuration/otlp-exporter/">OTLP
-     * Exporter Configuration</a>
-     */
     default String url() {
         return getUrlString(this, "url").orElseGet(() -> {
             Map<String, String> env = System.getenv();
@@ -75,15 +64,6 @@ public interface OtlpConfig extends PushRegistryConfig {
             return endpoint;
         });
     }
-
-    /**
-     * Default implementation supports the environment variable
-     * {@code OTEL_METRIC_EXPORT_INTERVAL} when the step value is not provided by the
-     * {@link #get(String)} implementation.
-     * @return step size (reporting frequency) to use. The default is 1 minute.
-     * @see <a href=
-     * "https://opentelemetry.io/docs/specs/otel/configuration/sdk-environment-variables/#periodic-exporting-metricreader">OTEL_METRIC_EXPORT_INTERVAL</a>
-     */
     @Override
     default Duration step() {
         Validated<Duration> step = getDuration(this, "step");
@@ -95,22 +75,6 @@ public interface OtlpConfig extends PushRegistryConfig {
             return PushRegistryConfig.super.step();
         });
     }
-
-    /**
-     * Attributes to set on the Resource that will be used for all metrics published. This
-     * should include a {@code service.name} attribute that identifies your service.
-     * <p>
-     * By default, resource attributes will load using the {@link #get(String)} method,
-     * extracting key values from a comma-separated list in the format
-     * {@code key1=value1,key2=value2}. Resource attributes will be loaded from the
-     * {@code OTEL_RESOURCE_ATTRIBUTES} environment variable and the service name from the
-     * {@code OTEL_SERVICE_NAME} environment variable if they are set and
-     * {@link #get(String)} does not return a value.
-     * @return map of key value pairs to use as resource attributes
-     * @see <a href=
-     * "https://opentelemetry.io/docs/reference/specification/resource/semantic_conventions/#service">OpenTelemetry
-     * Resource Semantic Conventions</a>
-     */
     default Map<String, String> resourceAttributes() {
         Map<String, String> env = System.getenv();
         String resourceAttributesConfig = getString(this, "resourceAttributes")
@@ -130,22 +94,6 @@ public interface OtlpConfig extends PushRegistryConfig {
 
         return resourceAttributes;
     }
-
-    /**
-     * {@link AggregationTemporality} of the OtlpMeterRegistry. This determines whether
-     * the meters should be cumulative(AGGREGATION_TEMPORALITY_CUMULATIVE) or
-     * step/delta(AGGREGATION_TEMPORALITY_DELTA). Default implementation supports the
-     * environment variable {@code OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE} when
-     * a value is not provided by {@link #get(String)}.
-     * @return the aggregationTemporality; default is Cumulative
-     * @see <a href=
-     * "https://opentelemetry.io/docs/reference/specification/metrics/data-model/#temporality">OTLP
-     * Temporality</a>
-     * @see <a href=
-     * "https://opentelemetry.io/docs/specs/otel/metrics/sdk_exporters/otlp/#additional-configuration">OpenTelemetry
-     * Metrics Exporter - OTLP</a>
-     * @since 1.11.0
-     */
     default AggregationTemporality aggregationTemporality() {
         return getEnum(this, AggregationTemporality.class, "aggregationTemporality").orElseGet(() -> {
             String preference = System.getenv().get("OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE");
@@ -155,24 +103,6 @@ public interface OtlpConfig extends PushRegistryConfig {
             return AggregationTemporality.CUMULATIVE;
         });
     }
-
-    /**
-     * Additional headers to send with exported metrics. This may be needed for
-     * authorization headers, for example.
-     * <p>
-     * By default, headers will be loaded from {@link #get(String)}. If that is not set,
-     * they will be taken from the environment variables
-     * {@code OTEL_EXPORTER_OTLP_HEADERS} and {@code OTEL_EXPORTER_OTLP_METRICS_HEADERS}.
-     * The header key-value pairs are expected to be in a comma-separated list in the
-     * format {@code key1=value1,key2=value2}. If a header is set in both
-     * {@code OTEL_EXPORTER_OTLP_HEADERS} and {@code OTEL_EXPORTER_OTLP_METRICS_HEADERS},
-     * the header in the latter will overwrite the former.
-     * @return a map of the headers' key-value pairs
-     * @see <a href=
-     * "https://opentelemetry.io/docs/reference/specification/protocol/exporter/#specifying-headers-via-environment-variables">OTLP
-     * Exporer headers configuration</a>
-     * @since 1.11.0
-     */
     default Map<String, String> headers() {
         String headersString = getString(this, "headers").orElse(null);
 
@@ -200,23 +130,6 @@ public interface OtlpConfig extends PushRegistryConfig {
             .collect(Collectors.toMap(keyValue -> keyValue.substring(0, keyValue.indexOf('=')).trim(),
                     keyValue -> keyValue.substring(keyValue.indexOf('=') + 1).trim(), (l, r) -> r));
     }
-
-    /**
-     * Histogram type to be preferred when histogram publishing is enabled. By default
-     * {@link HistogramFlavor#EXPLICIT_BUCKET_HISTOGRAM} is used for the supported meters.
-     * When this is set to {@link HistogramFlavor#BASE2_EXPONENTIAL_BUCKET_HISTOGRAM} and
-     * {@code publishPercentileHistogram} is enabled
-     * {@link io.micrometer.registry.otlp.internal.Base2ExponentialHistogram} is used for
-     * recording distributions.
-     * <p>
-     * Note: If specific SLO's are configured, this property is not honored and
-     * {@link HistogramFlavor#EXPLICIT_BUCKET_HISTOGRAM} is used for those meters.
-     * </p>
-     * @return - histogram flavor to be used
-     * @see #histogramFlavorPerMeter()
-     *
-     * @since 1.14.0
-     */
     default HistogramFlavor histogramFlavor() {
         return getEnum(this, HistogramFlavor.class, "histogramFlavor").orElseGet(() -> {
             String histogramPreference = System.getenv()
@@ -227,65 +140,16 @@ public interface OtlpConfig extends PushRegistryConfig {
             return HistogramFlavor.EXPLICIT_BUCKET_HISTOGRAM;
         });
     }
-
-    /**
-     * Configures the histogram flavor mapping to use on a per-meter level. This can
-     * override the {@link #histogramFlavor()} configuration for matching Meters.
-     * {@link OtlpMeterRegistry} uses the result of this method to look up the
-     * {@link HistogramFlavor} by {@link Meter.Id}. The longest dot-separated match wins.
-     * For example, if the returned Map has keys {@literal http} and
-     * {@literal http.server}, an ID with a name {@literal http.server.requests} would
-     * match with the entry having key {@literal http.server}, whereas an ID with name
-     * {@literal http.client.requests} would match with the entry having the key
-     * {@literal http}.
-     * @return mapping of meter name (or prefix) to histogram flavor
-     * @since 1.15.0
-     * @see #histogramFlavor()
-     */
     default Map<String, HistogramFlavor> histogramFlavorPerMeter() {
         return getStringMap(this, "histogramFlavorPerMeter", HistogramFlavor::fromString)
             .orElse(Collections.emptyMap());
     }
-
-    /**
-     * Max scale to use for exponential histograms, if configured.
-     * @return maxScale
-     * @see #histogramFlavor()
-     *
-     * @since 1.14.0
-     */
     default int maxScale() {
         return getInteger(this, "maxScale").orElse(20);
     }
-
-    /**
-     * Maximum number of buckets to be used for exponential histograms, if configured.
-     * This has no effect on explicit bucket histograms. This can be overridden per meter
-     * with {@link #maxBucketsPerMeter()}.
-     * @return - maxBuckets
-     * @see #histogramFlavor()
-     * @see #maxBucketsPerMeter()
-     *
-     * @since 1.14.0
-     */
     default int maxBucketCount() {
         return getInteger(this, "maxBucketCount").orElse(160);
     }
-
-    /**
-     * Configures the max bucket count mapping to use on a per-meter level. This can
-     * override the {@link #maxBucketCount()} configuration for matching Meters.
-     * {@link OtlpMeterRegistry} uses the result of this method to look up the max bucket
-     * count by {@link Meter.Id}. The longest dot-separated match wins. For example, if
-     * the returned Map has keys {@literal http} and {@literal http.server}, an ID with a
-     * name {@literal http.server.requests} would match with the entry having key
-     * {@literal http.server}, whereas an ID with name {@literal http.client.requests}
-     * would match with the entry having the key {@literal http}. This has no effect on a
-     * meter if it does not have an exponential bucket histogram configured.
-     * @return mapping of meter name to max bucket count
-     * @since 1.15.0
-     * @see #maxBucketCount()
-     */
     default Map<String, Integer> maxBucketsPerMeter() {
         return getStringMap(this, "maxBucketsPerMeter", Integer::parseInt).orElse(Collections.emptyMap());
     }
@@ -303,5 +167,142 @@ public interface OtlpConfig extends PushRegistryConfig {
     default TimeUnit baseTimeUnit() {
         return getTimeUnit(this, "baseTimeUnit").orElse(TimeUnit.MILLISECONDS);
     }
+
+    /**
+     * If no value is returned by {@link #get(String)}, environment variables
+     * {@code OTEL_EXPORTER_OTLP_METRICS_ENDPOINT} and {@code OTEL_EXPORTER_OTLP_ENDPOINT}
+     * environment variables will be checked, in that order, by the default
+     * implementation.
+     * @return address to where metrics will be published. Default is
+     * {@code http://localhost:4318/v1/metrics}
+     * @see <a href=
+     * "https://opentelemetry.io/docs/languages/sdk-configuration/otlp-exporter/">OTLP
+     * Exporter Configuration</a>
+     */
+
+    /**
+     * Default implementation supports the environment variable
+     * {@code OTEL_METRIC_EXPORT_INTERVAL} when the step value is not provided by the
+     * {@link #get(String)} implementation.
+     * @return step size (reporting frequency) to use. The default is 1 minute.
+     * @see <a href=
+     * "https://opentelemetry.io/docs/specs/otel/configuration/sdk-environment-variables/#periodic-exporting-metricreader">OTEL_METRIC_EXPORT_INTERVAL</a>
+     */
+
+    /**
+     * Attributes to set on the Resource that will be used for all metrics published. This
+     * should include a {@code service.name} attribute that identifies your service.
+     * <p>
+     * By default, resource attributes will load using the {@link #get(String)} method,
+     * extracting key values from a comma-separated list in the format
+     * {@code key1=value1,key2=value2}. Resource attributes will be loaded from the
+     * {@code OTEL_RESOURCE_ATTRIBUTES} environment variable and the service name from the
+     * {@code OTEL_SERVICE_NAME} environment variable if they are set and
+     * {@link #get(String)} does not return a value.
+     * @return map of key value pairs to use as resource attributes
+     * @see <a href=
+     * "https://opentelemetry.io/docs/reference/specification/resource/semantic_conventions/#service">OpenTelemetry
+     * Resource Semantic Conventions</a>
+     */
+
+    /**
+     * {@link AggregationTemporality} of the OtlpMeterRegistry. This determines whether
+     * the meters should be cumulative(AGGREGATION_TEMPORALITY_CUMULATIVE) or
+     * step/delta(AGGREGATION_TEMPORALITY_DELTA). Default implementation supports the
+     * environment variable {@code OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE} when
+     * a value is not provided by {@link #get(String)}.
+     * @return the aggregationTemporality; default is Cumulative
+     * @see <a href=
+     * "https://opentelemetry.io/docs/reference/specification/metrics/data-model/#temporality">OTLP
+     * Temporality</a>
+     * @see <a href=
+     * "https://opentelemetry.io/docs/specs/otel/metrics/sdk_exporters/otlp/#additional-configuration">OpenTelemetry
+     * Metrics Exporter - OTLP</a>
+     * @since 1.11.0
+     */
+
+    /**
+     * Additional headers to send with exported metrics. This may be needed for
+     * authorization headers, for example.
+     * <p>
+     * By default, headers will be loaded from {@link #get(String)}. If that is not set,
+     * they will be taken from the environment variables
+     * {@code OTEL_EXPORTER_OTLP_HEADERS} and {@code OTEL_EXPORTER_OTLP_METRICS_HEADERS}.
+     * The header key-value pairs are expected to be in a comma-separated list in the
+     * format {@code key1=value1,key2=value2}. If a header is set in both
+     * {@code OTEL_EXPORTER_OTLP_HEADERS} and {@code OTEL_EXPORTER_OTLP_METRICS_HEADERS},
+     * the header in the latter will overwrite the former.
+     * @return a map of the headers' key-value pairs
+     * @see <a href=
+     * "https://opentelemetry.io/docs/reference/specification/protocol/exporter/#specifying-headers-via-environment-variables">OTLP
+     * Exporer headers configuration</a>
+     * @since 1.11.0
+     */
+
+    /**
+     * Histogram type to be preferred when histogram publishing is enabled. By default
+     * {@link HistogramFlavor#EXPLICIT_BUCKET_HISTOGRAM} is used for the supported meters.
+     * When this is set to {@link HistogramFlavor#BASE2_EXPONENTIAL_BUCKET_HISTOGRAM} and
+     * {@code publishPercentileHistogram} is enabled
+     * {@link io.micrometer.registry.otlp.internal.Base2ExponentialHistogram} is used for
+     * recording distributions.
+     * <p>
+     * Note: If specific SLO's are configured, this property is not honored and
+     * {@link HistogramFlavor#EXPLICIT_BUCKET_HISTOGRAM} is used for those meters.
+     * </p>
+     * @return - histogram flavor to be used
+     * @see #histogramFlavorPerMeter()
+     *
+     * @since 1.14.0
+     */
+
+    /**
+     * Configures the histogram flavor mapping to use on a per-meter level. This can
+     * override the {@link #histogramFlavor()} configuration for matching Meters.
+     * {@link OtlpMeterRegistry} uses the result of this method to look up the
+     * {@link HistogramFlavor} by {@link Meter.Id}. The longest dot-separated match wins.
+     * For example, if the returned Map has keys {@literal http} and
+     * {@literal http.server}, an ID with a name {@literal http.server.requests} would
+     * match with the entry having key {@literal http.server}, whereas an ID with name
+     * {@literal http.client.requests} would match with the entry having the key
+     * {@literal http}.
+     * @return mapping of meter name (or prefix) to histogram flavor
+     * @since 1.15.0
+     * @see #histogramFlavor()
+     */
+
+    /**
+     * Max scale to use for exponential histograms, if configured.
+     * @return maxScale
+     * @see #histogramFlavor()
+     *
+     * @since 1.14.0
+     */
+
+    /**
+     * Maximum number of buckets to be used for exponential histograms, if configured.
+     * This has no effect on explicit bucket histograms. This can be overridden per meter
+     * with {@link #maxBucketsPerMeter()}.
+     * @return - maxBuckets
+     * @see #histogramFlavor()
+     * @see #maxBucketsPerMeter()
+     *
+     * @since 1.14.0
+     */
+
+    /**
+     * Configures the max bucket count mapping to use on a per-meter level. This can
+     * override the {@link #maxBucketCount()} configuration for matching Meters.
+     * {@link OtlpMeterRegistry} uses the result of this method to look up the max bucket
+     * count by {@link Meter.Id}. The longest dot-separated match wins. For example, if
+     * the returned Map has keys {@literal http} and {@literal http.server}, an ID with a
+     * name {@literal http.server.requests} would match with the entry having key
+     * {@literal http.server}, whereas an ID with name {@literal http.client.requests}
+     * would match with the entry having the key {@literal http}. This has no effect on a
+     * meter if it does not have an exponential bucket histogram configured.
+     * @return mapping of meter name to max bucket count
+     * @since 1.15.0
+     * @see #maxBucketCount()
+     */
 
 }

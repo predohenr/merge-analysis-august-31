@@ -27,6 +27,7 @@ import org.slf4j.LoggerFactory;
 
 import java.net.InetSocketAddress;
 import java.net.Proxy;
+import java.util.Locale;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -48,28 +49,20 @@ public class NewRelicInsightsApiClientProvider implements NewRelicClientProvider
     private final Logger logger = LoggerFactory.getLogger(NewRelicInsightsApiClientProvider.class);
 
     private final NewRelicConfig config;
-
-    // VisibleForTesting
     final HttpSender httpClient;
-
-    // VisibleForTesting
     NamingConvention namingConvention;
 
     private final String insightsEndpoint;
+
+    // VisibleForTesting
+
+    // VisibleForTesting
 
     @SuppressWarnings("deprecation")
     public NewRelicInsightsApiClientProvider(NewRelicConfig config) {
         this(config, new HttpUrlConnectionSender(config.connectTimeout(), config.readTimeout()),
                 new NewRelicNamingConvention());
     }
-
-    /**
-     * Create a {@code NewRelicInsightsApiClientProvider} instance.
-     * @param config config
-     * @param proxyHost proxy host
-     * @param proxyPort proxy port
-     * @deprecated since 1.5.0
-     */
     @Deprecated
     public NewRelicInsightsApiClientProvider(NewRelicConfig config, String proxyHost, int proxyPort) {
         this(config,
@@ -77,18 +70,9 @@ public class NewRelicInsightsApiClientProvider implements NewRelicClientProvider
                         new Proxy(Proxy.Type.HTTP, new InetSocketAddress(proxyHost, proxyPort))),
                 new NewRelicNamingConvention());
     }
-
-    /**
-     * Create a {@code NewRelicInsightsApiClientProvider} instance.
-     * @param config config
-     * @param httpClient HTTP client
-     * @since 1.4.2
-     */
     public NewRelicInsightsApiClientProvider(NewRelicConfig config, HttpSender httpClient) {
         this(config, httpClient, new NewRelicNamingConvention());
     }
-
-    // VisibleForTesting
     NewRelicInsightsApiClientProvider(NewRelicConfig config, HttpSender httpClient, NamingConvention namingConvention) {
         config.validateForInsightsApi().orThrow();
         this.config = config;
@@ -266,6 +250,28 @@ public class NewRelicInsightsApiClientProvider implements NewRelicClientProvider
         }
     }
 
+    @Override
+    public void setNamingConvention(NamingConvention namingConvention) {
+        this.namingConvention = namingConvention;
+    }
+
+    /**
+     * Create a {@code NewRelicInsightsApiClientProvider} instance.
+     * @param config config
+     * @param proxyHost proxy host
+     * @param proxyPort proxy port
+     * @deprecated since 1.5.0
+     */
+
+    /**
+     * Create a {@code NewRelicInsightsApiClientProvider} instance.
+     * @param config config
+     * @param httpClient HTTP client
+     * @since 1.4.2
+     */
+
+    // VisibleForTesting
+
     private class Attribute {
 
         private final String name;
@@ -285,11 +291,6 @@ public class NewRelicInsightsApiClientProvider implements NewRelicClientProvider
             return value;
         }
 
-    }
-
-    @Override
-    public void setNamingConvention(NamingConvention namingConvention) {
-        this.namingConvention = namingConvention;
     }
 
 }
