@@ -485,12 +485,6 @@ class GraalPyRuntimeUtilTest {
         }
     }
 
-    private enum TestLanguage {
-        GROOVY,
-        JAVA,
-        KOTLIN
-    }
-
     interface HostModelInterface {
 
         void addAttribute(String name, Object value);
@@ -502,5 +496,11 @@ class GraalPyRuntimeUtilTest {
         public void addAttribute(String name, Object value) {
             put(name, value);
         }
+    }
+
+    private enum TestLanguage {
+        GROOVY,
+        JAVA,
+        KOTLIN
     }
 }
