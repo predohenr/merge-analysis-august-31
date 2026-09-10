@@ -17,6 +17,7 @@ package io.micronaut.http.server.netty;
 
 import io.micronaut.context.ApplicationContext;
 import io.micronaut.context.BeanProvider;
+import io.micronaut.context.DefaultApplicationContext;
 import io.micronaut.context.env.CachedEnvironment;
 import io.micronaut.context.env.Environment;
 import io.micronaut.context.event.ApplicationEventPublisher;
@@ -238,13 +239,6 @@ public class NettyHttpServer implements NettyEmbeddedServer {
             return implicit;
         }
     }
-
-    /**
-     * Get the configured http port otherwise will default the value depending on the env.
-     *
-     * @param serverConfiguration configuration object for the server
-     * @return http port
-     */
     private int getHttpPort(NettyHttpServerConfiguration serverConfiguration) {
         Integer configPort = serverConfiguration.getPort().orElse(null);
         return getHttpPort(configPort);
@@ -266,10 +260,6 @@ public class NettyHttpServer implements NettyEmbeddedServer {
     public boolean isKeepAlive() {
         return false;
     }
-
-    /**
-     * @return The configuration for the server
-     */
     @SuppressWarnings("WeakerAccess")
     public NettyHttpServerConfiguration getServerConfiguration() {
         return serverConfiguration;
@@ -494,10 +484,6 @@ public class NettyHttpServer implements NettyEmbeddedServer {
                 .map(addr -> ((InetSocketAddress) addr).getPort())
                 .collect(Collectors.<Integer, Set<Integer>>toCollection(LinkedHashSet::new)));
     }
-
-    /**
-     * @return The parent event loop group
-     */
     @SuppressWarnings("WeakerAccess")
     protected EventLoopGroup createParentEventLoopGroup() {
         final NettyHttpServerConfiguration.Parent parent = serverConfiguration.getParent();
@@ -509,11 +495,6 @@ public class NettyHttpServer implements NettyEmbeddedServer {
                     return newGroup;
                 });
     }
-
-    /**
-     * @param workerConfig The worker configuration
-     * @return The worker event loop group
-     */
     @SuppressWarnings("WeakerAccess")
     protected EventLoopGroup createWorkerEventLoopGroup(@Nullable EventLoopGroupConfiguration workerConfig) {
         String configName = workerConfig != null ? workerConfig.getName() : EventLoopGroupConfiguration.DEFAULT;
@@ -525,10 +506,6 @@ public class NettyHttpServer implements NettyEmbeddedServer {
                     return newGroup;
                 });
     }
-
-    /**
-     * @return The Netty server bootstrap
-     */
     @SuppressWarnings("WeakerAccess")
     protected ServerBootstrap createServerBootstrap() {
         return new ServerBootstrap();
@@ -840,10 +817,6 @@ public class NettyHttpServer implements NettyEmbeddedServer {
     public ChannelGroup getChannelGroup() {
         return this.webSocketSessions;
     }
-
-    /**
-     * @return {@link io.micronaut.http.server.netty.NettyHttpServer} which implements {@link WebSocketSessionRepository}
-     */
     public WebSocketSessionRepository getWebSocketSessionRepository() {
         return this;
     }
@@ -905,13 +878,6 @@ public class NettyHttpServer implements NettyEmbeddedServer {
         Objects.requireNonNull(customizer, "customizer");
         return new HttpPipelineBuilder(NettyHttpServer.this, nettyEmbeddedServices, sslConfiguration, routingHandler, hostResolver, customizer, quic);
     }
-
-    /**
-     * Builds Embedded Channel.
-     *
-     * @param ssl whether to enable SSL
-     * @return The embedded channel with our server handlers
-     */
     @Internal
     public EmbeddedChannel buildEmbeddedChannel(boolean ssl) {
         EmbeddedChannel channel = new EmbeddedChannel(new ChannelDuplexHandler() {
@@ -944,13 +910,6 @@ public class NettyHttpServer implements NettyEmbeddedServer {
         buildEmbeddedChannel(channel, ssl);
         return channel;
     }
-
-    /**
-     * Builds Embedded Channel.
-     *
-     * @param prototype The embedded channel to add our handlers to
-     * @param ssl whether to enable SSL
-     */
     @Internal
     public void buildEmbeddedChannel(EmbeddedChannel prototype, boolean ssl) {
         HttpPipelineBuilder builder = createPipelineBuilder(rootCustomizer, false);
@@ -974,6 +933,48 @@ public class NettyHttpServer implements NettyEmbeddedServer {
         QuicSslContext quicSslContext = quic ? nettyEmbeddedServices.getServerSslBuilder().buildQuic().orElse(null) : null;
         return new SslContextHolder(sslContext, quicSslContext);
     }
+
+    /**
+     * Get the configured http port otherwise will default the value depending on the env.
+     *
+     * @param serverConfiguration configuration object for the server
+     * @return http port
+     */
+
+    /**
+     * @return The configuration for the server
+     */
+
+    /**
+     * @return The parent event loop group
+     */
+
+    /**
+     * @param workerConfig The worker configuration
+     * @return The worker event loop group
+     */
+
+    /**
+     * @return The Netty server bootstrap
+     */
+
+    /**
+     * @return {@link io.micronaut.http.server.netty.NettyHttpServer} which implements {@link WebSocketSessionRepository}
+     */
+
+    /**
+     * Builds Embedded Channel.
+     *
+     * @param ssl whether to enable SSL
+     * @return The embedded channel with our server handlers
+     */
+
+    /**
+     * Builds Embedded Channel.
+     *
+     * @param prototype The embedded channel to add our handlers to
+     * @param ssl whether to enable SSL
+     */
 
     private class Listener extends ChannelInitializer<Channel> implements GracefulShutdownCapable {
         Channel serverChannel;
