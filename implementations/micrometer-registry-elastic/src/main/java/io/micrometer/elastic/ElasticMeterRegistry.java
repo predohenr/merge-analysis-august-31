@@ -32,6 +32,7 @@ import java.time.Instant;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.Locale;
 import java.util.*;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
@@ -80,15 +81,6 @@ public class ElasticMeterRegistry extends StepMeterRegistry {
         this(config, clock, DEFAULT_THREAD_FACTORY,
                 new HttpUrlConnectionSender(config.connectTimeout(), config.readTimeout()));
     }
-
-    /**
-     * Create a new instance with given parameters.
-     * @param config configuration to use
-     * @param clock clock to use
-     * @param threadFactory thread factory to use
-     * @param httpClient http client to use
-     * @since 1.2.1
-     */
     protected ElasticMeterRegistry(ElasticConfig config, Clock clock, ThreadFactory threadFactory,
             HttpSender httpClient) {
         super(config, clock);
@@ -194,8 +186,6 @@ public class ElasticMeterRegistry extends StepMeterRegistry {
             return request.withBasicAuthentication(config.userName(), config.password());
         }
     }
-
-    // VisibleForTesting
     static int getMajorVersion(String responseBody) {
         Matcher matcher = MAJOR_VERSION_PATTERN.matcher(responseBody);
         if (!matcher.find()) {
@@ -203,8 +193,6 @@ public class ElasticMeterRegistry extends StepMeterRegistry {
         }
         return Integer.parseInt(matcher.group(1));
     }
-
-    // VisibleForTesting
     static int countCreatedItems(String responseBody) {
         Matcher matcher = STATUS_CREATED_PATTERN.matcher(responseBody);
         int count = 0;
@@ -213,23 +201,13 @@ public class ElasticMeterRegistry extends StepMeterRegistry {
         }
         return count;
     }
-
-    /**
-     * Return index name.
-     * @return index name.
-     * @since 1.2.0
-     */
     protected String indexName() {
         ZonedDateTime dt = ZonedDateTime.ofInstant(new Date(config().clock().wallTime()).toInstant(), ZoneOffset.UTC);
         return config.index() + config.indexDateSeparator() + indexDateFormatter.format(dt);
     }
-
-    // VisibleForTesting
     Optional<String> writeCounter(Counter counter) {
         return writeCounter(counter, counter.count());
     }
-
-    // VisibleForTesting
     Optional<String> writeFunctionCounter(FunctionCounter counter) {
         return writeCounter(counter, counter.count());
     }
@@ -242,8 +220,6 @@ public class ElasticMeterRegistry extends StepMeterRegistry {
         }
         return Optional.empty();
     }
-
-    // VisibleForTesting
     Optional<String> writeGauge(Gauge gauge) {
         double value = gauge.value();
         if (Double.isFinite(value)) {
@@ -253,8 +229,6 @@ public class ElasticMeterRegistry extends StepMeterRegistry {
         }
         return Optional.empty();
     }
-
-    // VisibleForTesting
     Optional<String> writeTimeGauge(TimeGauge gauge) {
         double value = gauge.value(getBaseTimeUnit());
         if (Double.isFinite(value)) {
@@ -264,8 +238,6 @@ public class ElasticMeterRegistry extends StepMeterRegistry {
         }
         return Optional.empty();
     }
-
-    // VisibleForTesting
     Optional<String> writeFunctionTimer(FunctionTimer timer) {
         double sum = timer.totalTime(getBaseTimeUnit());
         double mean = timer.mean(getBaseTimeUnit());
@@ -278,16 +250,12 @@ public class ElasticMeterRegistry extends StepMeterRegistry {
         }
         return Optional.empty();
     }
-
-    // VisibleForTesting
     Optional<String> writeLongTaskTimer(LongTaskTimer timer) {
         return Optional.of(writeDocument(timer, builder -> {
             builder.append(",\"activeTasks\":").append(timer.activeTasks());
             builder.append(",\"duration\":").append(timer.duration(getBaseTimeUnit()));
         }));
     }
-
-    // VisibleForTesting
     Optional<String> writeTimer(Timer timer) {
         return Optional.of(writeDocument(timer, builder -> {
             builder.append(",\"count\":").append(timer.count());
@@ -296,8 +264,6 @@ public class ElasticMeterRegistry extends StepMeterRegistry {
             builder.append(",\"max\":").append(timer.max(getBaseTimeUnit()));
         }));
     }
-
-    // VisibleForTesting
     Optional<String> writeSummary(DistributionSummary summary) {
         HistogramSnapshot histogramSnapshot = summary.takeSnapshot();
         return Optional.of(writeDocument(summary, builder -> {
@@ -307,8 +273,6 @@ public class ElasticMeterRegistry extends StepMeterRegistry {
             builder.append(",\"max\":").append(histogramSnapshot.max());
         }));
     }
-
-    // VisibleForTesting
     Optional<String> writeMeter(Meter meter) {
         Iterable<Measurement> measurements = meter.measure();
         List<String> names = new ArrayList<>();
@@ -332,17 +296,9 @@ public class ElasticMeterRegistry extends StepMeterRegistry {
             }
         }));
     }
-
-    /**
-     * Return formatted current timestamp.
-     * @return formatted current timestamp
-     * @since 1.2.0
-     */
     protected String generateTimestamp() {
         return TIMESTAMP_FORMATTER.format(Instant.ofEpochMilli(config().clock().wallTime()));
     }
-
-    // VisibleForTesting
     String writeDocument(Meter meter, Consumer<StringBuilder> consumer) {
         StringBuilder sb = new StringBuilder(actionLine);
         String timestamp = generateTimestamp();
@@ -380,6 +336,51 @@ public class ElasticMeterRegistry extends StepMeterRegistry {
     protected TimeUnit getBaseTimeUnit() {
         return TimeUnit.MILLISECONDS;
     }
+
+    /**
+     * Create a new instance with given parameters.
+     * @param config configuration to use
+     * @param clock clock to use
+     * @param threadFactory thread factory to use
+     * @param httpClient http client to use
+     * @since 1.2.1
+     */
+
+    // VisibleForTesting
+
+    // VisibleForTesting
+
+    /**
+     * Return index name.
+     * @return index name.
+     * @since 1.2.0
+     */
+
+    // VisibleForTesting
+
+    // VisibleForTesting
+
+    // VisibleForTesting
+
+    // VisibleForTesting
+
+    // VisibleForTesting
+
+    // VisibleForTesting
+
+    // VisibleForTesting
+
+    // VisibleForTesting
+
+    // VisibleForTesting
+
+    /**
+     * Return formatted current timestamp.
+     * @return formatted current timestamp
+     * @since 1.2.0
+     */
+
+    // VisibleForTesting
 
     public static class Builder {
 

@@ -23,11 +23,9 @@ import io.micrometer.core.instrument.Tag;
 import io.micrometer.core.instrument.Tags;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.util.Locale;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-
-import java.util.Locale;
+import org.junit.jupiter.api.AfterEach;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
