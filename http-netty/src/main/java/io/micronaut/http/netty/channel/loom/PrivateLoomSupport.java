@@ -39,7 +39,6 @@ import java.util.concurrent.ForkJoinPool;
  */
 @Internal
 @Experimental
-@NullUnmarked
 @TypeHint(
     typeNames = {
         "java.lang.VirtualThread",
@@ -47,6 +46,7 @@ import java.util.concurrent.ForkJoinPool;
     },
     accessType = TypeHint.AccessType.ALL_DECLARED_FIELDS
 )
+@NullUnmarked
 public final class PrivateLoomSupport {
     private static final MethodHandle DEFAULT_SCHEDULER;
     private static final MethodHandle BUILDER_SCHEDULER;
