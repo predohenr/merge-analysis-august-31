@@ -712,13 +712,13 @@ public final class PythonProxyCreator implements RuntimeProxyCreator {
         if (type.isPrimitive()) {
             return value.as(type);
         }
-        Object hostObject = GraalPyRuntimeUtil.unwrapHostObject(value, type);
-        if (hostObject != null) {
-            return type.cast(hostObject);
-        }
         T mappedValue = mapTargetType(type, value);
         if (mappedValue != null) {
             return mappedValue;
+        }
+        Object hostObject = GraalPyRuntimeUtil.unwrapHostObject(value, type);
+        if (hostObject != null) {
+            return type.cast(hostObject);
         }
         try {
             return type.getDeclaredConstructor(Value.class).newInstance(value);
