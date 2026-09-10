@@ -477,8 +477,8 @@ public class SSTableImporter
         final boolean invalidateCaches;
         final boolean extendedVerify;
         final boolean copyData;
-        final boolean failOnMissingIndex;
-        final boolean validateIndexChecksum;
+        private final boolean failOnMissingIndex;
+        public final boolean validateIndexChecksum;
 
         public Options(Set<String> srcPaths, boolean resetLevel, boolean clearRepaired,
                        boolean verifySSTables, boolean verifyTokens, boolean invalidateCaches,

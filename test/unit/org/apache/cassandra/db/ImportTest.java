@@ -62,10 +62,9 @@ import org.apache.cassandra.service.StorageService;
 import org.apache.cassandra.tools.ToolRunner;
 import org.apache.cassandra.utils.ByteBufferUtil;
 import org.apache.cassandra.utils.FBUtilities;
-
-import static org.apache.lucene.codecs.CodecUtil.FOOTER_MAGIC;
 import static org.apache.lucene.codecs.CodecUtil.writeBEInt;
 import static org.apache.lucene.codecs.CodecUtil.writeBELong;
+import static org.apache.lucene.codecs.CodecUtil.FOOTER_MAGIC;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -789,6 +788,39 @@ public class ImportTest extends CQLTester
         }
     }
 
+    private static ToolRunner.ToolResult assertImportFailed(ColumnFamilyStore cfs, SSTableImporter.Options options)
+    {
+        ToolRunner.ToolResult result = doImportWithNodetool(cfs, options);
+        assertNotEquals(0, result.getExitCode());
+        return result;
+    }
+
+    private static ToolRunner.ToolResult doImportWithNodetool(ColumnFamilyStore cfs, SSTableImporter.Options options)
+    {
+        List<String> args = new ArrayList<>();
+        args.add("import");
+        if (!options.resetLevel)
+            args.add("--keep-level");
+        if (!options.clearRepaired)
+            args.add("--keep-repaired");
+        if (!options.verifySSTables)
+            args.add("--no-verify");
+        if (!options.verifyTokens)
+            args.add("--no-tokens");
+        if (!options.invalidateCaches)
+            args.add("--no-invalidate-caches");
+        if (options.extendedVerify)
+            args.add("--extended-verify");
+        if (options.copyData)
+            args.add("-cd");
+
+        args.add(cfs.keyspace.getName());
+        args.add(cfs.getTableName());
+        args.addAll(options.srcPaths);
+
+        return  ToolRunner.invokeNodetool(args.toArray(new String[0]));
+    }
+
     @Test
     public void mustNotFailOnBuiltSAIIndexesWhenRequiredTest() throws Throwable
     {
@@ -996,43 +1028,6 @@ public class ImportTest extends CQLTester
         {
             execute(String.format("DROP TABLE IF EXISTS %s.%s", KEYSPACE, "sai_test"));
         }
-    }
-
-    private static ToolRunner.ToolResult assertImportFailed(ColumnFamilyStore cfs, SSTableImporter.Options options)
-    {
-        ToolRunner.ToolResult result = doImportWithNodetool(cfs, options);
-        assertNotEquals(0, result.getExitCode());
-        return result;
-    }
-
-    private static ToolRunner.ToolResult doImportWithNodetool(ColumnFamilyStore cfs, SSTableImporter.Options options)
-    {
-        List<String> args = new ArrayList<>();
-        args.add("import");
-        if (!options.resetLevel)
-            args.add("--keep-level");
-        if (!options.clearRepaired)
-            args.add("--keep-repaired");
-        if (!options.verifySSTables)
-            args.add("--no-verify");
-        if (!options.verifyTokens)
-            args.add("--no-tokens");
-        if (!options.invalidateCaches)
-            args.add("--no-invalidate-caches");
-        if (options.extendedVerify)
-            args.add("--extended-verify");
-        if (options.copyData)
-            args.add("-cd");
-        if (options.failOnMissingIndex)
-            args.add("--require-index-components");
-        if (!options.validateIndexChecksum)
-            args.add("--no-index-validation");
-
-        args.add(cfs.keyspace.getName());
-        args.add(cfs.getTableName());
-        args.addAll(options.srcPaths);
-
-        return  ToolRunner.invokeNodetool(args.toArray(new String[0]));
     }
 
     private static class MockCFS extends ColumnFamilyStore
